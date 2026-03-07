@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import argparse
 import json
-import logging
 from pathlib import Path
 
+from passport_core.config import Settings
+from passport_core.log import setup_logging
 from passport_core.pipeline import PassportCoreService
 
 
@@ -13,16 +14,18 @@ def main() -> int:
     parser.add_argument("sources", nargs="+", help="Image file paths or URLs")
     parser.add_argument("--pretty", action="store_true", help="Pretty-print JSON")
     parser.add_argument("--csv-output", type=Path, help="Optional CSV export path")
-    parser.add_argument("--log-level", default="INFO", help="Logging level")
+    parser.add_argument("--log-level", default=None, help="Logging level")
+    parser.add_argument("--log-json", action="store_true", help="Enable JSON logging")
 
     args = parser.parse_args()
 
-    logging.basicConfig(
-        level=args.log_level.upper(),
-        format="%(asctime)s %(levelname)s %(name)s - %(message)s",
+    settings = Settings()
+    setup_logging(
+        args.log_level or settings.log_level,
+        json_output=args.log_json or settings.log_json,
     )
 
-    service = PassportCoreService()
+    service = PassportCoreService(settings=settings)
     try:
         results = service.process_sources(args.sources)
 

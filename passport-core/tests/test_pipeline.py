@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 
 import numpy as np
 
+from passport_core.errors import ErrorCode
 from passport_core.models import PassportData, ValidationResult
 from passport_core.pipeline import PassportCoreService
 
@@ -42,14 +43,15 @@ def test_process_source_happy_path():
 
     result = svc.process_source("/tmp/a.jpg")
 
+    assert result.trace_id
     assert result.validation.is_passport is True
     assert result.data is not None
     assert result.data.PassportNumber == "A123"
-    assert result.errors == []
+    assert result.error_details == []
     svc.result_store.save.assert_called_once()
 
 
-def test_process_source_alignment_missing_records_error():
+def test_process_source_alignment_missing_records_error_code():
     svc = _mk_service()
     image = np.zeros((200, 300, 3), dtype=np.uint8)
     svc.loader.load.return_value = SimpleNamespace(
@@ -70,14 +72,17 @@ def test_process_source_alignment_missing_records_error():
 
     assert result.validation.is_passport is True
     assert result.data is None
-    assert any("alignment failed" in err.lower() for err in result.errors)
+    assert result.error_details
+    assert result.error_details[0].code == ErrorCode.ALIGNMENT_ERROR
 
 
-def test_process_source_exception_captured():
+def test_process_source_exception_captured_with_code():
     svc = _mk_service()
     svc.loader.load.side_effect = RuntimeError("boom")
 
     result = svc.process_source("/tmp/a.jpg")
 
     assert result.validation.is_passport is False
-    assert "boom" in result.errors[0]
+    assert result.error_details
+    assert result.error_details[0].code == ErrorCode.INPUT_LOAD_ERROR
+    assert "boom" in result.error_details[0].message

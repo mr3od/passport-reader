@@ -4,6 +4,8 @@ from datetime import datetime, timezone
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from passport_core.errors import ErrorCode
+
 
 class PassportData(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -54,8 +56,16 @@ class FaceDetectionResult(BaseModel):
     bbox_original: BoundingBox | None = None
 
 
+class ProcessingError(BaseModel):
+    code: ErrorCode
+    stage: str
+    message: str
+    retryable: bool = False
+
+
 class PassportProcessingResult(BaseModel):
     source: str
+    trace_id: str
     stored_original_uri: str | None = None
     stored_aligned_uri: str | None = None
     validation: ValidationResult = Field(
@@ -63,5 +73,5 @@ class PassportProcessingResult(BaseModel):
     )
     face: FaceDetectionResult | None = None
     data: PassportData | None = None
-    errors: list[str] = Field(default_factory=list)
+    error_details: list[ProcessingError] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
