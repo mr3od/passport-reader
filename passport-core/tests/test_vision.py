@@ -17,7 +17,7 @@ def test_validator_accepts_same_image(reference_template_path, sample_bgr_image)
     match = validator.validate(sample_bgr_image)
 
     assert match.result.is_passport is True
-    assert match.aligned_bgr is not None
+    assert match.homography_template_to_image is not None
     assert len(match.result.page_quad or []) == 4
 
 

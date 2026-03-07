@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import base64
 import json
 import re
 from typing import Protocol
@@ -45,33 +44,28 @@ class PassportExtractor(Protocol):
 
 
 def build_extractor(settings: Settings) -> PassportExtractor:
-    if settings.llm_provider == "google":
-        if settings.google_api_key is None:
-            raise ValueError("PASSPORT_GOOGLE_API_KEY is required for llm_provider=google.")
-        return GooglePassportExtractor(
-            api_key=settings.google_api_key.get_secret_value(),
-            model=_strip_prefix(settings.llm_model, "google"),
-        )
-
-    if settings.openai_api_key is None:
-        raise ValueError("PASSPORT_OPENAI_API_KEY is required for llm_provider=openai_responses.")
-    return OpenAIResponsesPassportExtractor(
-        api_key=settings.openai_api_key.get_secret_value(),
+    api_key = _resolve_requesty_api_key(settings)
+    return PydanticAIRequestyExtractor(
+        api_key=api_key,
         model=settings.llm_model,
         base_url=settings.requesty_base_url,
     )
 
 
-def _strip_prefix(value: str, prefix: str) -> str:
-    marker = f"{prefix}/"
-    return value[len(marker) :] if value.startswith(marker) else value
+def _resolve_requesty_api_key(settings: Settings) -> str:
+    # Requesty API key is preferred, with compatibility fallback to old key vars.
+    if settings.requesty_api_key is not None:
+        return settings.requesty_api_key.get_secret_value()
 
+    if settings.openai_api_key is not None:
+        return settings.openai_api_key.get_secret_value()
 
-def _strict_json_schema() -> dict[str, object]:
-    schema = PassportData.model_json_schema()
-    schema["additionalProperties"] = False
-    schema["required"] = list(PassportData.model_fields.keys())
-    return schema
+    if settings.google_api_key is not None:
+        return settings.google_api_key.get_secret_value()
+
+    raise ValueError(
+        "Set PASSPORT_REQUESTY_API_KEY (or legacy PASSPORT_OPENAI_API_KEY/PASSPORT_GOOGLE_API_KEY)."
+    )
 
 
 def _normalize(data: PassportData) -> PassportData:
@@ -102,86 +96,39 @@ def _parse_json_text(text: str) -> PassportData:
     return _normalize(PassportData.model_validate(payload))
 
 
-class GooglePassportExtractor:
-    def __init__(self, api_key: str, model: str) -> None:
-        from google import genai
+class PydanticAIRequestyExtractor:
+    """PydanticAI client using Requesty OpenAI-compatible base URL."""
 
-        self.client = genai.Client(api_key=api_key)
-        self.model = model
-
-    def extract(self, image_bytes: bytes, mime_type: str = "image/jpeg") -> PassportData:
-        from google.genai import types
-
-        response = self.client.models.generate_content(
-            model=self.model,
-            contents=[
-                EXTRACTION_PROMPT,
-                types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
-            ],
-            config=types.GenerateContentConfig(
-                temperature=0,
-                response_mime_type="application/json",
-                response_schema=PassportData,
-            ),
-        )
-
-        parsed = getattr(response, "parsed", None)
-        if parsed is not None:
-            return _normalize(PassportData.model_validate(parsed))
-
-        text = getattr(response, "text", None)
-        if not text:
-            raise ValueError("Google response did not contain JSON text.")
-        return _parse_json_text(text)
-
-
-class OpenAIResponsesPassportExtractor:
     def __init__(self, api_key: str, model: str, base_url: str) -> None:
-        from openai import OpenAI
+        from pydantic_ai import Agent
+        from pydantic_ai.models.openai import OpenAIChatModel
+        from pydantic_ai.providers.openai import OpenAIProvider
 
-        self.client = OpenAI(api_key=api_key, base_url=base_url)
-        self.model = model
-
-    def extract(self, image_bytes: bytes, mime_type: str = "image/jpeg") -> PassportData:
-        encoded = base64.b64encode(image_bytes).decode("ascii")
-
-        response = self.client.responses.create(
-            model=self.model,
-            temperature=0,
-            max_output_tokens=1200,
-            input=[
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "input_text", "text": EXTRACTION_PROMPT},
-                        {
-                            "type": "input_image",
-                            "image_url": f"data:{mime_type};base64,{encoded}",
-                            "detail": "high",
-                        },
-                    ],
-                }
-            ],
-            text={
-                "format": {
-                    "type": "json_schema",
-                    "name": "passport_extraction",
-                    "schema": _strict_json_schema(),
-                    "strict": True,
-                }
-            },
+        self._agent = Agent(
+            model=OpenAIChatModel(
+                model,
+                provider=OpenAIProvider(base_url=base_url, api_key=api_key),
+            ),
+            instructions=EXTRACTION_PROMPT,
+            output_type=PassportData,
+            retries=1,
         )
 
-        text = getattr(response, "output_text", None) or self._collect_output_text(response)
-        if not text:
-            raise ValueError("OpenAI Responses output did not contain JSON text.")
-        return _parse_json_text(text)
+    def extract(self, image_bytes: bytes, mime_type: str = "image/jpeg") -> PassportData:
+        from pydantic_ai import BinaryContent
 
-    def _collect_output_text(self, response: object) -> str:
-        parts: list[str] = []
-        for item in getattr(response, "output", []) or []:
-            for content in getattr(item, "content", []) or []:
-                fragment = getattr(content, "text", None)
-                if fragment:
-                    parts.append(fragment)
-        return "".join(parts)
+        result = self._agent.run_sync(
+            [
+                "Extract passport fields from this image.",
+                BinaryContent(data=image_bytes, media_type=mime_type),
+            ]
+        )
+
+        output = result.output
+        if isinstance(output, PassportData):
+            return _normalize(output)
+
+        if isinstance(output, str):
+            return _parse_json_text(output)
+
+        return _normalize(PassportData.model_validate(output))

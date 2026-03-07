@@ -3,10 +3,11 @@ from __future__ import annotations
 import csv
 import mimetypes
 import sqlite3
+from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Protocol, Sequence
+from typing import Any, Protocol, cast
 from urllib.parse import urlparse
 from uuid import uuid4
 
@@ -35,7 +36,7 @@ def decode_image(data: bytes) -> ImageArray:
     image = cv2.imdecode(raw, cv2.IMREAD_COLOR)
     if image is None:
         raise ValueError("Could not decode image bytes.")
-    return image
+    return cast(ImageArray, image)
 
 
 def encode_jpeg(image: ImageArray, quality: int = 95) -> bytes:
@@ -68,7 +69,7 @@ class ImageLoader:
         self,
         timeout_seconds: float,
         max_download_bytes: int,
-        http_client: httpx.Client | None = None,
+        http_client: Any | None = None,
     ) -> None:
         self._max_download_bytes = max_download_bytes
         self._client = http_client or httpx.Client(
@@ -152,7 +153,7 @@ class LocalFileStore:
 
     def save(self, data: bytes, *, folder: str, filename: str, content_type: str) -> str:
         suffix = Path(filename).suffix or _preferred_extension(content_type)
-        dated_folder = self.root / folder / datetime.now(timezone.utc).strftime("%Y%m%d")
+        dated_folder = self.root / folder / datetime.now(UTC).strftime("%Y%m%d")
         dated_folder.mkdir(parents=True, exist_ok=True)
 
         target = dated_folder / f"{uuid4().hex}{suffix}"
@@ -170,7 +171,7 @@ class S3FileStore:
 
     def save(self, data: bytes, *, folder: str, filename: str, content_type: str) -> str:
         suffix = Path(filename).suffix or _preferred_extension(content_type)
-        date_part = datetime.now(timezone.utc).strftime("%Y%m%d")
+        date_part = datetime.now(UTC).strftime("%Y%m%d")
         key = f"{self.prefix}/{folder}/{date_part}/{uuid4().hex}{suffix}"
 
         self.client.put_object(Bucket=self.bucket, Key=key, Body=data, ContentType=content_type)

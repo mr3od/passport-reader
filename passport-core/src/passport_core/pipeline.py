@@ -1,19 +1,13 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 from uuid import uuid4
 
 from passport_core.config import Settings
 from passport_core.errors import ErrorCode, ExtractionError, FaceDetectionError, StorageError
-from passport_core.io import (
-    EnjazCsvExporter,
-    ImageLoader,
-    build_binary_store,
-    build_result_store,
-    encode_jpeg,
-)
+from passport_core.io import EnjazCsvExporter, ImageLoader, build_binary_store, build_result_store
 from passport_core.llm import build_extractor
 from passport_core.log import bind_logger
 from passport_core.models import (
@@ -51,7 +45,6 @@ class PassportCoreService:
         log = bind_logger(logging.getLogger(__name__), trace_id=trace_id, source=source_str)
 
         stored_original_uri: str | None = None
-        stored_aligned_uri: str | None = None
         validation = ValidationResult(is_passport=False)
         face: FaceDetectionResult | None = None
         data: PassportData | None = None
@@ -69,12 +62,14 @@ class PassportCoreService:
                 message=str(exc),
                 retryable=False,
             )
-            log.error("stage_failed", extra={"stage": "load", "error_code": ErrorCode.INPUT_LOAD_ERROR})
+            log.error(
+                "stage_failed",
+                extra={"stage": "load", "error_code": ErrorCode.INPUT_LOAD_ERROR},
+            )
             return self._finalize_result(
                 trace_id=trace_id,
                 source=source_str,
                 stored_original_uri=stored_original_uri,
-                stored_aligned_uri=stored_aligned_uri,
                 validation=validation,
                 face=face,
                 data=data,
@@ -111,12 +106,14 @@ class PassportCoreService:
                 message=str(exc),
                 retryable=False,
             )
-            log.error("stage_failed", extra={"stage": "validate", "error_code": ErrorCode.VALIDATION_ERROR})
+            log.error(
+                "stage_failed",
+                extra={"stage": "validate", "error_code": ErrorCode.VALIDATION_ERROR},
+            )
             return self._finalize_result(
                 trace_id=trace_id,
                 source=source_str,
                 stored_original_uri=stored_original_uri,
-                stored_aligned_uri=stored_aligned_uri,
                 validation=validation,
                 face=face,
                 data=data,
@@ -124,44 +121,9 @@ class PassportCoreService:
                 log=log,
             )
 
-        if validation.is_passport and match.aligned_bgr is None:
-            self._append_error(
-                error_details,
-                code=ErrorCode.ALIGNMENT_ERROR,
-                stage="align",
-                message="Passport validated but alignment failed; extraction skipped.",
-                retryable=False,
-            )
-            log.error("stage_failed", extra={"stage": "align", "error_code": ErrorCode.ALIGNMENT_ERROR})
-
-        if validation.is_passport and match.aligned_bgr is not None:
+        if validation.is_passport:
             try:
-                aligned_bytes = encode_jpeg(match.aligned_bgr)
-
-                stored_aligned_uri = self.binary_store.save(
-                    aligned_bytes,
-                    folder="aligned",
-                    filename="aligned.jpg",
-                    content_type="image/jpeg",
-                )
-            except Exception as exc:
-                wrapped = StorageError(str(exc))
-                self._append_error(
-                    error_details,
-                    code=wrapped.code,
-                    stage=wrapped.stage,
-                    message=wrapped.message,
-                    retryable=wrapped.retryable,
-                )
-                log.error("stage_failed", extra={"stage": wrapped.stage, "error_code": wrapped.code})
-                aligned_bytes = None
-
-            try:
-                face = self.face_detector.detect(
-                    match.aligned_bgr,
-                    match.homography_template_to_work,
-                    match.work_to_original_scale,
-                )
+                face = self.face_detector.detect(loaded.bgr)
             except Exception as exc:
                 wrapped = FaceDetectionError(str(exc))
                 self._append_error(
@@ -171,30 +133,31 @@ class PassportCoreService:
                     message=wrapped.message,
                     retryable=wrapped.retryable,
                 )
-                log.error("stage_failed", extra={"stage": wrapped.stage, "error_code": wrapped.code})
+                log.error(
+                    "stage_failed",
+                    extra={"stage": wrapped.stage, "error_code": wrapped.code},
+                )
 
-            if aligned_bytes is not None:
-                try:
-                    data = self.extractor.extract(aligned_bytes, "image/jpeg")
-                except Exception as exc:
-                    wrapped = ExtractionError(str(exc))
-                    self._append_error(
-                        error_details,
-                        code=wrapped.code,
-                        stage=wrapped.stage,
-                        message=wrapped.message,
-                        retryable=wrapped.retryable,
-                    )
-                    log.error(
-                        "stage_failed",
-                        extra={"stage": wrapped.stage, "error_code": wrapped.code},
-                    )
+            try:
+                data = self.extractor.extract(loaded.data, loaded.mime_type)
+            except Exception as exc:
+                wrapped = ExtractionError(str(exc))
+                self._append_error(
+                    error_details,
+                    code=wrapped.code,
+                    stage=wrapped.stage,
+                    message=wrapped.message,
+                    retryable=wrapped.retryable,
+                )
+                log.error(
+                    "stage_failed",
+                    extra={"stage": wrapped.stage, "error_code": wrapped.code},
+                )
 
         return self._finalize_result(
             trace_id=trace_id,
             source=source_str,
             stored_original_uri=stored_original_uri,
-            stored_aligned_uri=stored_aligned_uri,
             validation=validation,
             face=face,
             data=data,
@@ -239,7 +202,6 @@ class PassportCoreService:
         trace_id: str,
         source: str,
         stored_original_uri: str | None,
-        stored_aligned_uri: str | None,
         validation: ValidationResult,
         face: FaceDetectionResult | None,
         data: PassportData | None,
@@ -250,7 +212,7 @@ class PassportCoreService:
             source=source,
             trace_id=trace_id,
             stored_original_uri=stored_original_uri,
-            stored_aligned_uri=stored_aligned_uri,
+            stored_aligned_uri=None,
             validation=validation,
             face=face,
             data=data,
@@ -267,7 +229,10 @@ class PassportCoreService:
                 message=f"Result-store save failed: {exc}",
                 retryable=True,
             )
-            log.error("result_store_save_failed", extra={"stage": "store", "error_code": "STORAGE_ERROR"})
+            log.error(
+                "result_store_save_failed",
+                extra={"stage": "store", "error_code": "STORAGE_ERROR"},
+            )
 
         log.info("pipeline_finished")
         return result

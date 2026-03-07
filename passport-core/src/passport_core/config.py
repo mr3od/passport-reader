@@ -29,17 +29,18 @@ class Settings(BaseSettings):
     http_timeout_seconds: float = 30.0
     max_download_bytes: int = 15 * 1024 * 1024
 
-    validator_max_dimension: int = 1800
-    validator_max_features: int = 5000
+    validator_sift_features: int = 0
     validator_ratio_test: float = 0.75
-    validator_min_good_matches: int = 25
-    validator_min_inliers: int = 18
-    validator_min_inlier_ratio: float = 0.45
+    validator_flann_trees: int = 5
+    validator_flann_checks: int = 64
+    validator_min_good_matches: int = 100
+    validator_min_inliers: int = 80
+    validator_min_inlier_ratio: float = 0.22
 
     face_score_threshold: float = 0.60
 
-    llm_provider: Literal["google", "openai_responses"] = "openai_responses"
     llm_model: str = "openai-responses/gpt-5-mini"
+    requesty_api_key: SecretStr | None = None
     google_api_key: SecretStr | None = None
     openai_api_key: SecretStr | None = None
     requesty_base_url: str = "https://router.requesty.ai/v1"

@@ -7,7 +7,6 @@ class ErrorCode(StrEnum):
     INPUT_LOAD_ERROR = "INPUT_LOAD_ERROR"
     STORAGE_ERROR = "STORAGE_ERROR"
     VALIDATION_ERROR = "VALIDATION_ERROR"
-    ALIGNMENT_ERROR = "ALIGNMENT_ERROR"
     FACE_DETECTION_ERROR = "FACE_DETECTION_ERROR"
     EXTRACTION_ERROR = "EXTRACTION_ERROR"
     INTERNAL_ERROR = "INTERNAL_ERROR"
@@ -36,11 +35,6 @@ class StorageError(PassportCoreError):
 class ValidationError(PassportCoreError):
     code = ErrorCode.VALIDATION_ERROR
     stage = "validate"
-
-
-class AlignmentError(PassportCoreError):
-    code = ErrorCode.ALIGNMENT_ERROR
-    stage = "align"
 
 
 class FaceDetectionError(PassportCoreError):

@@ -18,8 +18,7 @@ class _MockResponse:
         return
 
     def iter_bytes(self):
-        for chunk in self._chunks:
-            yield chunk
+        yield from self._chunks
 
 
 class _MockStream:

@@ -2,13 +2,43 @@ from __future__ import annotations
 
 import pytest
 
-from passport_core.llm import EXTRACTION_PROMPT, _normalize, _parse_json_text, _strip_prefix
+from passport_core.config import Settings
+from passport_core.llm import (
+    EXTRACTION_PROMPT,
+    _normalize,
+    _parse_json_text,
+    _resolve_requesty_api_key,
+)
 from passport_core.models import PassportData
 
 
-def test_strip_prefix():
-    assert _strip_prefix("google/gemini-2.0", "google") == "gemini-2.0"
-    assert _strip_prefix("gemini-2.0", "google") == "gemini-2.0"
+def test_resolve_requesty_api_key_prefers_requesty_key():
+    settings = Settings(
+        _env_file=None,
+        requesty_api_key="requesty-k",
+        openai_api_key="openai-k",
+    )
+    assert _resolve_requesty_api_key(settings) == "requesty-k"
+
+
+def test_resolve_requesty_api_key_falls_back_openai_key():
+    settings = Settings(
+        _env_file=None,
+        requesty_api_key=None,
+        openai_api_key="openai-k",
+    )
+    assert _resolve_requesty_api_key(settings) == "openai-k"
+
+
+def test_resolve_requesty_api_key_fails_when_missing():
+    settings = Settings(
+        _env_file=None,
+        requesty_api_key=None,
+        openai_api_key=None,
+        google_api_key=None,
+    )
+    with pytest.raises(ValueError, match="PASSPORT_REQUESTY_API_KEY"):
+        _resolve_requesty_api_key(settings)
 
 
 def test_normalize_dates_and_sex():
