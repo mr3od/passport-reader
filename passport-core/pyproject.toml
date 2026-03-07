@@ -26,6 +26,7 @@ dev = [
 
 [project.scripts]
 passport-core = "passport_core.cli:main"
+passport-benchmark = "passport_core.benchmark:main"
 
 [tool.ruff]
 target-version = "py312"

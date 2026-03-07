@@ -41,8 +41,6 @@ class Settings(BaseSettings):
 
     llm_model: str = "openai-responses/gpt-5-mini"
     requesty_api_key: SecretStr | None = None
-    google_api_key: SecretStr | None = None
-    openai_api_key: SecretStr | None = None
     requesty_base_url: str = "https://router.requesty.ai/v1"
     log_level: str = "INFO"
     log_json: bool = False

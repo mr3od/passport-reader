@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import re
 from typing import Protocol
 
@@ -44,27 +43,13 @@ class PassportExtractor(Protocol):
 
 
 def build_extractor(settings: Settings) -> PassportExtractor:
-    api_key = _resolve_requesty_api_key(settings)
+    if settings.requesty_api_key is None:
+        raise ValueError("Set PASSPORT_REQUESTY_API_KEY.")
+
     return PydanticAIRequestyExtractor(
-        api_key=api_key,
+        api_key=settings.requesty_api_key.get_secret_value(),
         model=settings.llm_model,
         base_url=settings.requesty_base_url,
-    )
-
-
-def _resolve_requesty_api_key(settings: Settings) -> str:
-    # Requesty API key is preferred, with compatibility fallback to old key vars.
-    if settings.requesty_api_key is not None:
-        return settings.requesty_api_key.get_secret_value()
-
-    if settings.openai_api_key is not None:
-        return settings.openai_api_key.get_secret_value()
-
-    if settings.google_api_key is not None:
-        return settings.google_api_key.get_secret_value()
-
-    raise ValueError(
-        "Set PASSPORT_REQUESTY_API_KEY (or legacy PASSPORT_OPENAI_API_KEY/PASSPORT_GOOGLE_API_KEY)."
     )
 
 
@@ -88,16 +73,11 @@ def _normalize(data: PassportData) -> PassportData:
     return data
 
 
-def _parse_json_text(text: str) -> PassportData:
-    try:
-        payload = json.loads(text)
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"LLM did not return valid JSON: {exc}") from exc
-    return _normalize(PassportData.model_validate(payload))
-
-
 class PydanticAIRequestyExtractor:
-    """PydanticAI client using Requesty OpenAI-compatible base URL."""
+    """PydanticAI client using Requesty OpenAI-compatible base URL.
+
+    Structured schema output is enforced by ``output_type=PassportData``.
+    """
 
     def __init__(self, api_key: str, model: str, base_url: str) -> None:
         from pydantic_ai import Agent
@@ -123,12 +103,7 @@ class PydanticAIRequestyExtractor:
                 BinaryContent(data=image_bytes, media_type=mime_type),
             ]
         )
-
         output = result.output
         if isinstance(output, PassportData):
             return _normalize(output)
-
-        if isinstance(output, str):
-            return _parse_json_text(output)
-
-        return _normalize(PassportData.model_validate(output))
+        raise ValueError("PydanticAI did not return PassportData output.")
