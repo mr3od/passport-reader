@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from passport_core.llm import _normalize, _parse_json_text, _strip_prefix
+from passport_core.llm import EXTRACTION_PROMPT, _normalize, _parse_json_text, _strip_prefix
 from passport_core.models import PassportData
 
 
@@ -29,3 +29,9 @@ def test_parse_json_text_valid():
     payload = '{"PassportNumber":"A123","CountryCode":null}'
     parsed = _parse_json_text(payload)
     assert parsed.PassportNumber == "A123"
+
+
+def test_extraction_prompt_contains_required_rules():
+    assert "Do not invent or infer missing values." in EXTRACTION_PROMPT
+    assert "Return strict JSON object only. No markdown. No extra keys." in EXTRACTION_PROMPT
+    assert "PassportNumber, CountryCode, MrzLine1, MrzLine2" in EXTRACTION_PROMPT

@@ -12,6 +12,7 @@ uv venv --python 3.12
 source .venv/bin/activate
 uv sync --all-extras --dev
 cp .env.example .env
+uv run ty check
 uv run pytest -q
 ```
 

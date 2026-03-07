@@ -27,7 +27,9 @@ class PassportFeatureValidator:
 
         template = cv2.imread(str(settings.template_path), cv2.IMREAD_COLOR)
         if template is None:
-            raise FileNotFoundError(f"Masked passport template not found at {settings.template_path}")
+            raise FileNotFoundError(
+                f"Masked passport template not found at {settings.template_path}"
+            )
 
         self.template_bgr = template
         self.template_height, self.template_width = self.template_bgr.shape[:2]
@@ -68,9 +70,9 @@ class PassportFeatureValidator:
         if len(good_matches) < self.settings.validator_min_good_matches:
             return self._invalid_match(good_matches=len(good_matches))
 
-        src_points = np.float32([self.template_keypoints[m.queryIdx].pt for m in good_matches]).reshape(
-            -1, 1, 2
-        )
+        src_points = np.float32(
+            [self.template_keypoints[m.queryIdx].pt for m in good_matches]
+        ).reshape(-1, 1, 2)
         dst_points = np.float32([keypoints[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
 
         homography, inlier_mask = cv2.findHomography(src_points, dst_points, cv2.RANSAC, 5.0)
@@ -232,9 +234,10 @@ class PassportFaceDetector:
                 ],
                 dtype=np.float32,
             )
-            mapped = cv2.perspectiveTransform(corners, homography_template_to_work.astype(np.float32)).reshape(
-                -1, 2
-            )
+            mapped = cv2.perspectiveTransform(
+                corners,
+                homography_template_to_work.astype(np.float32),
+            ).reshape(-1, 2)
             mapped *= work_to_original_scale
 
             min_x, min_y = mapped.min(axis=0)

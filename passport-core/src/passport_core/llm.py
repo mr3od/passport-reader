@@ -12,9 +12,31 @@ DATE_PATTERN = re.compile(r"^\d{2}/\d{2}/\d{4}$")
 
 EXTRACTION_PROMPT = """
 You extract fields from a single passport image.
-Return strict JSON only.
-Use keys:
-PassportNumber, CountryCode, MrzLine1, MrzLine2, SurnameAr, GivenNamesAr, SurnameEn, GivenNamesEn, DateOfBirth, PlaceOfBirthAr, PlaceOfBirthEn, Sex, DateOfIssue, DateOfExpiry, ProfessionAr, ProfessionEn, IssuingAuthorityAr, IssuingAuthorityEn
+The image may show:
+- A single passport data page
+- A two-page spread (open passport booklet)
+- A passport on an A4 scanned sheet with background/margins
+
+- Extract surname, given names, profession, place of birth, and issuing authority
+  the arabic and english versions.
+- Extract date of birth, sex, date of issue and date of expiry from english fields only.
+- Extract the 2 MRZ lines.
+Rules:
+- Return only factual values visible in the image.
+- Do not invent or infer missing values.
+- Keep Arabic fields in Arabic script exactly as seen.
+- Keep English fields in uppercase as shown when possible.
+- For dates, use strictly DD/MM/YYYY format. If uncertain, return null.
+- For Sex, return only "M" or "F" when confidently visible, otherwise null.
+- Return strict JSON object only. No markdown. No extra keys.
+- If a value is not visible, set it to null.
+
+Return a JSON object with exactly these keys:
+PassportNumber, CountryCode, MrzLine1, MrzLine2,
+SurnameAr, GivenNamesAr, SurnameEn, GivenNamesEn,
+DateOfBirth, PlaceOfBirthAr, PlaceOfBirthEn, Sex,
+DateOfIssue, DateOfExpiry, ProfessionAr, ProfessionEn,
+IssuingAuthorityAr, IssuingAuthorityEn
 """.strip()
 
 
@@ -92,7 +114,10 @@ class GooglePassportExtractor:
 
         response = self.client.models.generate_content(
             model=self.model,
-            contents=[EXTRACTION_PROMPT, types.Part.from_bytes(data=image_bytes, mime_type=mime_type)],
+            contents=[
+                EXTRACTION_PROMPT,
+                types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
+            ],
             config=types.GenerateContentConfig(
                 temperature=0,
                 response_mime_type="application/json",

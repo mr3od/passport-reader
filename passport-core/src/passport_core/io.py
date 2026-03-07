@@ -139,6 +139,12 @@ class BinaryStore(Protocol):
     def save(self, data: bytes, *, folder: str, filename: str, content_type: str) -> str: ...
 
 
+class ResultStore(Protocol):
+    def save(self, result: PassportProcessingResult) -> None: ...
+
+    def fetch_all(self) -> list[PassportProcessingResult]: ...
+
+
 class LocalFileStore:
     def __init__(self, root: Path) -> None:
         self.root = root
@@ -171,13 +177,56 @@ class S3FileStore:
         return f"s3://{self.bucket}/{key}"
 
 
-def build_binary_store(settings: Settings) -> BinaryStore:
-    if settings.storage_backend == "s3":
-        if not settings.s3_bucket:
-            raise ValueError("PASSPORT_S3_BUCKET is required when storage_backend=s3.")
-        return S3FileStore(bucket=settings.s3_bucket, prefix=settings.s3_prefix)
+class JsonResultStore:
+    def __init__(self, directory: Path) -> None:
+        self.directory = directory
+        self.directory.mkdir(parents=True, exist_ok=True)
 
-    return LocalFileStore(settings.local_storage_dir)
+    def save(self, result: PassportProcessingResult) -> None:
+        path = self.directory / f"{uuid4().hex}.json"
+        path.write_text(result.model_dump_json(indent=2), encoding="utf-8")
+
+    def fetch_all(self) -> list[PassportProcessingResult]:
+        out: list[PassportProcessingResult] = []
+        for path in sorted(self.directory.glob("*.json")):
+            payload = path.read_text(encoding="utf-8")
+            out.append(PassportProcessingResult.model_validate_json(payload))
+        return out
+
+
+class CsvResultStore:
+    FIELDNAMES = ["created_at", "is_passport", "payload_json"]
+
+    def __init__(self, csv_path: Path) -> None:
+        self.csv_path = csv_path
+        self.csv_path.parent.mkdir(parents=True, exist_ok=True)
+
+    def save(self, result: PassportProcessingResult) -> None:
+        exists = self.csv_path.exists()
+        with self.csv_path.open("a", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=self.FIELDNAMES)
+            if not exists:
+                writer.writeheader()
+            writer.writerow(
+                {
+                    "created_at": result.created_at.isoformat(),
+                    "is_passport": str(result.validation.is_passport),
+                    "payload_json": result.model_dump_json(),
+                }
+            )
+
+    def fetch_all(self) -> list[PassportProcessingResult]:
+        if not self.csv_path.exists():
+            return []
+
+        out: list[PassportProcessingResult] = []
+        with self.csv_path.open("r", encoding="utf-8", newline="") as handle:
+            reader = csv.DictReader(handle)
+            for row in reader:
+                payload = row.get("payload_json", "")
+                if payload:
+                    out.append(PassportProcessingResult.model_validate_json(payload))
+        return out
 
 
 class SqliteResultStore:
@@ -222,8 +271,27 @@ class SqliteResultStore:
 
     def fetch_all(self) -> list[PassportProcessingResult]:
         with self._connect() as conn:
-            rows = conn.execute("SELECT payload_json FROM passport_results ORDER BY id ASC").fetchall()
+            rows = conn.execute(
+                "SELECT payload_json FROM passport_results ORDER BY id ASC"
+            ).fetchall()
         return [PassportProcessingResult.model_validate_json(row["payload_json"]) for row in rows]
+
+
+def build_binary_store(settings: Settings) -> BinaryStore:
+    if settings.storage_backend == "s3":
+        if not settings.s3_bucket:
+            raise ValueError("PASSPORT_S3_BUCKET is required when storage_backend=s3.")
+        return S3FileStore(bucket=settings.s3_bucket, prefix=settings.s3_prefix)
+
+    return LocalFileStore(settings.local_storage_dir)
+
+
+def build_result_store(settings: Settings) -> ResultStore:
+    if settings.data_store_backend == "json":
+        return JsonResultStore(settings.data_store_path / "results")
+    if settings.data_store_backend == "csv":
+        return CsvResultStore(settings.data_store_path / "results.csv")
+    return SqliteResultStore(settings.data_store_path / "results.sqlite3")
 
 
 class EnjazCsvExporter:

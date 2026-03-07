@@ -23,7 +23,8 @@ class Settings(BaseSettings):
     s3_bucket: str | None = None
     s3_prefix: str = "passport-core"
 
-    sqlite_path: Path = Path("data/passport_core.sqlite3")
+    data_store_backend: Literal["json", "csv", "sqlite"] = "sqlite"
+    data_store_path: Path = Path("data")
 
     http_timeout_seconds: float = 30.0
     max_download_bytes: int = 15 * 1024 * 1024

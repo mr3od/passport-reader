@@ -4,9 +4,20 @@ from pathlib import Path
 from typing import Sequence
 
 from passport_core.config import Settings
-from passport_core.io import EnjazCsvExporter, ImageLoader, SqliteResultStore, build_binary_store, encode_jpeg
+from passport_core.io import (
+    EnjazCsvExporter,
+    ImageLoader,
+    build_binary_store,
+    build_result_store,
+    encode_jpeg,
+)
 from passport_core.llm import build_extractor
-from passport_core.models import FaceDetectionResult, PassportData, PassportProcessingResult, ValidationResult
+from passport_core.models import (
+    FaceDetectionResult,
+    PassportData,
+    PassportProcessingResult,
+    ValidationResult,
+)
 from passport_core.vision import PassportFaceDetector, PassportFeatureValidator
 
 
@@ -19,7 +30,7 @@ class PassportCoreService:
             max_download_bytes=self.settings.max_download_bytes,
         )
         self.binary_store = build_binary_store(self.settings)
-        self.result_store = SqliteResultStore(self.settings.sqlite_path)
+        self.result_store = build_result_store(self.settings)
         self.csv_exporter = EnjazCsvExporter()
 
         self.validator = PassportFeatureValidator(self.settings)
@@ -89,7 +100,11 @@ class PassportCoreService:
     def process_sources(self, sources: Sequence[str | Path]) -> list[PassportProcessingResult]:
         return [self.process_source(source) for source in sources]
 
-    def export_results_csv(self, results: Sequence[PassportProcessingResult], output_path: str | Path) -> None:
+    def export_results_csv(
+        self,
+        results: Sequence[PassportProcessingResult],
+        output_path: str | Path,
+    ) -> None:
         self.csv_exporter.export(results, Path(output_path))
 
     def export_all_csv(self, output_path: str | Path) -> None:

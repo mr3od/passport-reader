@@ -31,5 +31,8 @@ jobs:
       - name: Ruff
         run: uv run ruff check .
 
+      - name: Ty
+        run: uv run ty check
+
       - name: Pytest
         run: uv run pytest -q
