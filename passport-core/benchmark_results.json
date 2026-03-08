@@ -1,0 +1,1242 @@
+{
+  "results": [
+    {
+      "model": "google/gemini-3.1-flash-lite-preview",
+      "samples": 6,
+      "field_accuracy": 0.8426,
+      "avg_latency_s": 24.9454,
+      "p95_latency_s": 22.7472,
+      "input_tokens": 11199,
+      "output_tokens": 1612,
+      "estimated_cost_usd": 0.005218,
+      "sample_details": [
+        {
+          "image": "lana_passport.jpg",
+          "latency_s": 3.5285,
+          "matched_fields": 16,
+          "total_fields": 18,
+          "field_accuracy": 0.8889,
+          "input_tokens": 1866,
+          "output_tokens": 273,
+          "fields": {
+            "PassportNumber": {
+              "expected": "15173185",
+              "actual": "15173185",
+              "matched": true
+            },
+            "CountryCode": {
+              "expected": "YEM",
+              "actual": "YEM",
+              "matched": true
+            },
+            "MrzLine1": {
+              "expected": "P<YEMBIN SUWAIDAN<<LANA<ABDULLAH<SAEED<<<<<<<<<<<<<<",
+              "actual": "P<YEMBINSUWAIDAN<<LANA<ABDULLAH<SAEED<<<<<<<",
+              "matched": false
+            },
+            "MrzLine2": {
+              "expected": "15173185<3YEM1202029F3012039<<<<<<<<<<<<<<02",
+              "actual": "15173185<3YEM1202029F3012039<<<<<<<<<<<<<<02",
+              "matched": true
+            },
+            "SurnameAr": {
+              "expected": "بن سويدان",
+              "actual": "بن سويدان",
+              "matched": true
+            },
+            "GivenNamesAr": {
+              "expected": "لناء عبدالله سعيد",
+              "actual": "لناء عبدالله سعيد",
+              "matched": true
+            },
+            "SurnameEn": {
+              "expected": "BIN SUWAIDAN",
+              "actual": "BIN SUWAIDAN",
+              "matched": true
+            },
+            "GivenNamesEn": {
+              "expected": "LANA ABDULLAH SAEED",
+              "actual": "LANA ABDULLAH SAEED",
+              "matched": true
+            },
+            "DateOfBirth": {
+              "expected": "02/02/2012",
+              "actual": "02/02/2012",
+              "matched": true
+            },
+            "PlaceOfBirthAr": {
+              "expected": "اليمن - حضرموت",
+              "actual": "اليمن - حضرموت",
+              "matched": true
+            },
+            "PlaceOfBirthEn": {
+              "expected": "HADRAMOUT - YEM",
+              "actual": "HADRAMOUT YEM",
+              "matched": false
+            },
+            "Sex": {
+              "expected": "F",
+              "actual": "F",
+              "matched": true
+            },
+            "DateOfIssue": {
+              "expected": "03/12/2024",
+              "actual": "03/12/2024",
+              "matched": true
+            },
+            "DateOfExpiry": {
+              "expected": "03/12/2030",
+              "actual": "03/12/2030",
+              "matched": true
+            },
+            "ProfessionAr": {
+              "expected": "طالبة",
+              "actual": "طالبة",
+              "matched": true
+            },
+            "ProfessionEn": {
+              "expected": "STUDENT",
+              "actual": "STUDENT",
+              "matched": true
+            },
+            "IssuingAuthorityAr": {
+              "expected": "المكلا",
+              "actual": "المكلا",
+              "matched": true
+            },
+            "IssuingAuthorityEn": {
+              "expected": "MUKALLA",
+              "actual": "MUKALLA",
+              "matched": true
+            }
+          }
+        },
+        {
+          "image": "fatima_passport.jpg",
+          "latency_s": 14.6698,
+          "matched_fields": 14,
+          "total_fields": 18,
+          "field_accuracy": 0.7778,
+          "input_tokens": 1881,
+          "output_tokens": 268,
+          "fields": {
+            "PassportNumber": {
+              "expected": "12417816",
+              "actual": "12417816",
+              "matched": true
+            },
+            "CountryCode": {
+              "expected": "YEM",
+              "actual": "YEM",
+              "matched": true
+            },
+            "MrzLine1": {
+              "expected": "P<YEMBINSUWAIDAN<<FATIMA<ALI<OMAR<<<<<<<<<<<<<<",
+              "actual": "P<YEMBINSUWEDAN<<FATIMA<ALI<OMAR<<<<<<<<<<<<",
+              "matched": false
+            },
+            "MrzLine2": {
+              "expected": "12417816<8YEM7601015F2905246<<<<<<<<<<<<08",
+              "actual": "12417816<8YEM7601015F2905246<<<<<<<<<<<<<<08",
+              "matched": false
+            },
+            "SurnameAr": {
+              "expected": "بن سويدان",
+              "actual": "بن سويدان",
+              "matched": true
+            },
+            "GivenNamesAr": {
+              "expected": "فاطمه علي عمر",
+              "actual": "فاطمه علي عمر",
+              "matched": true
+            },
+            "SurnameEn": {
+              "expected": "BIN SUWAIDAN",
+              "actual": "BIN SUWEDAN",
+              "matched": false
+            },
+            "GivenNamesEn": {
+              "expected": "FATIMA ALI OMAR",
+              "actual": "FATIMA ALI OMAR",
+              "matched": true
+            },
+            "DateOfBirth": {
+              "expected": "01/01/1976",
+              "actual": "01/01/1976",
+              "matched": true
+            },
+            "PlaceOfBirthAr": {
+              "expected": "اليمن - حضرموت",
+              "actual": "حضرموت - اليمن",
+              "matched": false
+            },
+            "PlaceOfBirthEn": {
+              "expected": "HADRAMOUT - YEM",
+              "actual": "HADRAMOUT - YEM",
+              "matched": true
+            },
+            "Sex": {
+              "expected": "F",
+              "actual": "F",
+              "matched": true
+            },
+            "DateOfIssue": {
+              "expected": "24/05/2023",
+              "actual": "24/05/2023",
+              "matched": true
+            },
+            "DateOfExpiry": {
+              "expected": "24/05/2029",
+              "actual": "24/05/2029",
+              "matched": true
+            },
+            "ProfessionAr": {
+              "expected": "ربة بيت",
+              "actual": "ربة بيت",
+              "matched": true
+            },
+            "ProfessionEn": {
+              "expected": "HOUSE WIFE",
+              "actual": "HOUSE WIFE",
+              "matched": true
+            },
+            "IssuingAuthorityAr": {
+              "expected": "المكلا",
+              "actual": "المكلا",
+              "matched": true
+            },
+            "IssuingAuthorityEn": {
+              "expected": "MUKALLA",
+              "actual": "MUKALLA",
+              "matched": true
+            }
+          }
+        },
+        {
+          "image": "omar_abdul_passport.jpg",
+          "latency_s": 21.1815,
+          "matched_fields": 13,
+          "total_fields": 18,
+          "field_accuracy": 0.7222,
+          "input_tokens": 1854,
+          "output_tokens": 273,
+          "fields": {
+            "PassportNumber": {
+              "expected": "05384202",
+              "actual": "05384202",
+              "matched": true
+            },
+            "CountryCode": {
+              "expected": "YEM",
+              "actual": "YEM",
+              "matched": true
+            },
+            "MrzLine1": {
+              "expected": "P<YEMSAEED<<OMAR<ABDULHAKIM<HIZAM<<<<<<<<<<<<<<",
+              "actual": "PRYEMSAEED<<OMAR<ABDULHAKIM<HIZAM<<<<<<<<<<<<",
+              "matched": false
+            },
+            "MrzLine2": {
+              "expected": "05384202<4YEM8909017M1910315<<<<<<<<<<<<06",
+              "actual": "05384202<4YEM8909017M1910315<<<<<<<<<<<<<<06",
+              "matched": false
+            },
+            "SurnameAr": {
+              "expected": "سعيد",
+              "actual": "سعيد",
+              "matched": true
+            },
+            "GivenNamesAr": {
+              "expected": "عمر عبدالحكيم حزام",
+              "actual": "عمر عبدالحكيم حزام",
+              "matched": true
+            },
+            "SurnameEn": {
+              "expected": "SAEED",
+              "actual": "SAEED",
+              "matched": true
+            },
+            "GivenNamesEn": {
+              "expected": "OMAR ABDULHAKIM HIZAM",
+              "actual": "OMAR ABDULHAKIM HIZAM",
+              "matched": true
+            },
+            "DateOfBirth": {
+              "expected": "01/09/1989",
+              "actual": "01/09/1989",
+              "matched": true
+            },
+            "PlaceOfBirthAr": {
+              "expected": "الشمايتين - تعز",
+              "actual": "الشمايتين - تعز",
+              "matched": true
+            },
+            "PlaceOfBirthEn": {
+              "expected": "TAIZ - YEM",
+              "actual": "TAIZ - YEM",
+              "matched": true
+            },
+            "Sex": {
+              "expected": "M",
+              "actual": null,
+              "matched": false
+            },
+            "DateOfIssue": {
+              "expected": "31/10/2013",
+              "actual": "31/10/2013",
+              "matched": true
+            },
+            "DateOfExpiry": {
+              "expected": "31/10/2019",
+              "actual": "31/10/2019",
+              "matched": true
+            },
+            "ProfessionAr": {
+              "expected": "طالب",
+              "actual": "طالب",
+              "matched": true
+            },
+            "ProfessionEn": {
+              "expected": "STUDENT",
+              "actual": "STUDENT,Sex:",
+              "matched": false
+            },
+            "IssuingAuthorityAr": {
+              "expected": "صنعاء",
+              "actual": "صنعاء",
+              "matched": true
+            },
+            "IssuingAuthorityEn": {
+              "expected": "SANAA",
+              "actual": "SANA'A",
+              "matched": false
+            }
+          }
+        },
+        {
+          "image": "salem_passport.jpg",
+          "latency_s": 14.5397,
+          "matched_fields": 16,
+          "total_fields": 18,
+          "field_accuracy": 0.8889,
+          "input_tokens": 1866,
+          "output_tokens": 266,
+          "fields": {
+            "PassportNumber": {
+              "expected": "09463730",
+              "actual": "09463730",
+              "matched": true
+            },
+            "CountryCode": {
+              "expected": "YEM",
+              "actual": "YEM",
+              "matched": true
+            },
+            "MrzLine1": {
+              "expected": "P<YEMALAKBARI<<SALEM<ABDULLAH<OMAR<<<<<<<<<<<",
+              "actual": "P<YEMALAKBARI<<SALEM<ABDULLAH<OMAR<<<<<<<<<<<",
+              "matched": true
+            },
+            "MrzLine2": {
+              "expected": "09463730<0YEM8411095M2609278<<<<<<<<<<<<02",
+              "actual": "09463730<0YEM8411095M2609278<<<<<<<<<<<<<<<02",
+              "matched": false
+            },
+            "SurnameAr": {
+              "expected": "العكبري",
+              "actual": "العكبري",
+              "matched": true
+            },
+            "GivenNamesAr": {
+              "expected": "سالم عبدالله عمر",
+              "actual": "سالم عبدالله عمر",
+              "matched": true
+            },
+            "SurnameEn": {
+              "expected": "AL-AKBARI",
+              "actual": "AL-AKBARI",
+              "matched": true
+            },
+            "GivenNamesEn": {
+              "expected": "SALEM ABDULLAH OMAR",
+              "actual": "SALEM ABDULLAH OMAR",
+              "matched": true
+            },
+            "DateOfBirth": {
+              "expected": "09/11/1984",
+              "actual": "09/11/1984",
+              "matched": true
+            },
+            "PlaceOfBirthAr": {
+              "expected": "السعودية - جده",
+              "actual": "جده",
+              "matched": false
+            },
+            "PlaceOfBirthEn": {
+              "expected": "JEDDAH - KSA",
+              "actual": "JEDDAH - KSA",
+              "matched": true
+            },
+            "Sex": {
+              "expected": "M",
+              "actual": "M",
+              "matched": true
+            },
+            "DateOfIssue": {
+              "expected": "27/09/2020",
+              "actual": "27/09/2020",
+              "matched": true
+            },
+            "DateOfExpiry": {
+              "expected": "27/09/2026",
+              "actual": "27/09/2026",
+              "matched": true
+            },
+            "ProfessionAr": {
+              "expected": "طالب",
+              "actual": "طالب",
+              "matched": true
+            },
+            "ProfessionEn": {
+              "expected": "STUDENT",
+              "actual": "STUDENT",
+              "matched": true
+            },
+            "IssuingAuthorityAr": {
+              "expected": "سيئون",
+              "actual": "سيئون",
+              "matched": true
+            },
+            "IssuingAuthorityEn": {
+              "expected": "SEYION",
+              "actual": "SEYION",
+              "matched": true
+            }
+          }
+        },
+        {
+          "image": "abdullah_passport.jpg",
+          "latency_s": 73.0058,
+          "matched_fields": 17,
+          "total_fields": 18,
+          "field_accuracy": 0.9444,
+          "input_tokens": 1866,
+          "output_tokens": 266,
+          "fields": {
+            "PassportNumber": {
+              "expected": "11648820",
+              "actual": "11648820",
+              "matched": true
+            },
+            "CountryCode": {
+              "expected": "YEM",
+              "actual": "YEM",
+              "matched": true
+            },
+            "MrzLine1": {
+              "expected": "P<YEMMOHSEN<<ABDULLAH<MURSHED<HASAN<<<<<<<<<<<<<<",
+              "actual": "P<YEMMOHSEN<<ABDULLAH<MURSHED<HASAN<<<<<<<<<<",
+              "matched": false
+            },
+            "MrzLine2": {
+              "expected": "11648820<0YEM8306306M2905110<<<<<<<<<<<<<<06",
+              "actual": "11648820<0YEM8306306M2905110<<<<<<<<<<<<<<06",
+              "matched": true
+            },
+            "SurnameAr": {
+              "expected": "محسن",
+              "actual": "محسن",
+              "matched": true
+            },
+            "GivenNamesAr": {
+              "expected": "عبدالله مرشد حسن",
+              "actual": "عبدالله مرشد حسن",
+              "matched": true
+            },
+            "SurnameEn": {
+              "expected": "MOHSEN",
+              "actual": "MOHSEN",
+              "matched": true
+            },
+            "GivenNamesEn": {
+              "expected": "ABDULLAH MURSHED HASAN",
+              "actual": "ABDULLAH MURSHED HASAN",
+              "matched": true
+            },
+            "DateOfBirth": {
+              "expected": "30/06/1983",
+              "actual": "30/06/1983",
+              "matched": true
+            },
+            "PlaceOfBirthAr": {
+              "expected": "اليمن - ريمة",
+              "actual": "اليمن - ريمة",
+              "matched": true
+            },
+            "PlaceOfBirthEn": {
+              "expected": "RAIMAH - YEM",
+              "actual": "RAIMAH - YEM",
+              "matched": true
+            },
+            "Sex": {
+              "expected": "M",
+              "actual": "M",
+              "matched": true
+            },
+            "DateOfIssue": {
+              "expected": "11/05/2023",
+              "actual": "11/05/2023",
+              "matched": true
+            },
+            "DateOfExpiry": {
+              "expected": "11/05/2029",
+              "actual": "11/05/2029",
+              "matched": true
+            },
+            "ProfessionAr": {
+              "expected": "طالب",
+              "actual": "طالب",
+              "matched": true
+            },
+            "ProfessionEn": {
+              "expected": "STUDENT",
+              "actual": "STUDENT",
+              "matched": true
+            },
+            "IssuingAuthorityAr": {
+              "expected": "القاهرة",
+              "actual": "القاهرة",
+              "matched": true
+            },
+            "IssuingAuthorityEn": {
+              "expected": "CAIRO",
+              "actual": "CAIRO",
+              "matched": true
+            }
+          }
+        },
+        {
+          "image": "salem_passport.jpg",
+          "latency_s": 22.7472,
+          "matched_fields": 15,
+          "total_fields": 18,
+          "field_accuracy": 0.8333,
+          "input_tokens": 1866,
+          "output_tokens": 266,
+          "fields": {
+            "PassportNumber": {
+              "expected": "09463730",
+              "actual": "09463730",
+              "matched": true
+            },
+            "CountryCode": {
+              "expected": "YEM",
+              "actual": "YEM",
+              "matched": true
+            },
+            "MrzLine1": {
+              "expected": "P<YEMALAKBARI<<SALEM<ABDULLAH<OMAR<<<<<<<<<<<",
+              "actual": "P<YEMALAKBARI<<SALEM<ABDULLAH<OMAR<<<<<<<<<<<<",
+              "matched": false
+            },
+            "MrzLine2": {
+              "expected": "09463730<0YEM8411095M2609278<<<<<<<<<<<<02",
+              "actual": "09463730<0YEM8411095M2609278<<<<<<<<<<<<<<02",
+              "matched": false
+            },
+            "SurnameAr": {
+              "expected": "العكبري",
+              "actual": "العكبري",
+              "matched": true
+            },
+            "GivenNamesAr": {
+              "expected": "سالم عبدالله عمر",
+              "actual": "سالم عبدالله عمر",
+              "matched": true
+            },
+            "SurnameEn": {
+              "expected": "AL-AKBARI",
+              "actual": "AL-AKBARI",
+              "matched": true
+            },
+            "GivenNamesEn": {
+              "expected": "SALEM ABDULLAH OMAR",
+              "actual": "SALEM ABDULLAH OMAR",
+              "matched": true
+            },
+            "DateOfBirth": {
+              "expected": "09/11/1984",
+              "actual": "09/11/1984",
+              "matched": true
+            },
+            "PlaceOfBirthAr": {
+              "expected": "السعودية - جده",
+              "actual": "جده",
+              "matched": false
+            },
+            "PlaceOfBirthEn": {
+              "expected": "JEDDAH - KSA",
+              "actual": "JEDDAH - KSA",
+              "matched": true
+            },
+            "Sex": {
+              "expected": "M",
+              "actual": "M",
+              "matched": true
+            },
+            "DateOfIssue": {
+              "expected": "27/09/2020",
+              "actual": "27/09/2020",
+              "matched": true
+            },
+            "DateOfExpiry": {
+              "expected": "27/09/2026",
+              "actual": "27/09/2026",
+              "matched": true
+            },
+            "ProfessionAr": {
+              "expected": "طالب",
+              "actual": "طالب",
+              "matched": true
+            },
+            "ProfessionEn": {
+              "expected": "STUDENT",
+              "actual": "STUDENT",
+              "matched": true
+            },
+            "IssuingAuthorityAr": {
+              "expected": "سيئون",
+              "actual": "سيئون",
+              "matched": true
+            },
+            "IssuingAuthorityEn": {
+              "expected": "SEYION",
+              "actual": "SEYION",
+              "matched": true
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "ranking": [
+    {
+      "model": "google/gemini-3.1-flash-lite-preview",
+      "samples": 6,
+      "field_accuracy": 0.8426,
+      "avg_latency_s": 24.9454,
+      "p95_latency_s": 22.7472,
+      "input_tokens": 11199,
+      "output_tokens": 1612,
+      "estimated_cost_usd": 0.005218,
+      "sample_details": [
+        {
+          "image": "lana_passport.jpg",
+          "latency_s": 3.5285,
+          "matched_fields": 16,
+          "total_fields": 18,
+          "field_accuracy": 0.8889,
+          "input_tokens": 1866,
+          "output_tokens": 273,
+          "fields": {
+            "PassportNumber": {
+              "expected": "15173185",
+              "actual": "15173185",
+              "matched": true
+            },
+            "CountryCode": {
+              "expected": "YEM",
+              "actual": "YEM",
+              "matched": true
+            },
+            "MrzLine1": {
+              "expected": "P<YEMBIN SUWAIDAN<<LANA<ABDULLAH<SAEED<<<<<<<<<<<<<<",
+              "actual": "P<YEMBINSUWAIDAN<<LANA<ABDULLAH<SAEED<<<<<<<",
+              "matched": false
+            },
+            "MrzLine2": {
+              "expected": "15173185<3YEM1202029F3012039<<<<<<<<<<<<<<02",
+              "actual": "15173185<3YEM1202029F3012039<<<<<<<<<<<<<<02",
+              "matched": true
+            },
+            "SurnameAr": {
+              "expected": "بن سويدان",
+              "actual": "بن سويدان",
+              "matched": true
+            },
+            "GivenNamesAr": {
+              "expected": "لناء عبدالله سعيد",
+              "actual": "لناء عبدالله سعيد",
+              "matched": true
+            },
+            "SurnameEn": {
+              "expected": "BIN SUWAIDAN",
+              "actual": "BIN SUWAIDAN",
+              "matched": true
+            },
+            "GivenNamesEn": {
+              "expected": "LANA ABDULLAH SAEED",
+              "actual": "LANA ABDULLAH SAEED",
+              "matched": true
+            },
+            "DateOfBirth": {
+              "expected": "02/02/2012",
+              "actual": "02/02/2012",
+              "matched": true
+            },
+            "PlaceOfBirthAr": {
+              "expected": "اليمن - حضرموت",
+              "actual": "اليمن - حضرموت",
+              "matched": true
+            },
+            "PlaceOfBirthEn": {
+              "expected": "HADRAMOUT - YEM",
+              "actual": "HADRAMOUT YEM",
+              "matched": false
+            },
+            "Sex": {
+              "expected": "F",
+              "actual": "F",
+              "matched": true
+            },
+            "DateOfIssue": {
+              "expected": "03/12/2024",
+              "actual": "03/12/2024",
+              "matched": true
+            },
+            "DateOfExpiry": {
+              "expected": "03/12/2030",
+              "actual": "03/12/2030",
+              "matched": true
+            },
+            "ProfessionAr": {
+              "expected": "طالبة",
+              "actual": "طالبة",
+              "matched": true
+            },
+            "ProfessionEn": {
+              "expected": "STUDENT",
+              "actual": "STUDENT",
+              "matched": true
+            },
+            "IssuingAuthorityAr": {
+              "expected": "المكلا",
+              "actual": "المكلا",
+              "matched": true
+            },
+            "IssuingAuthorityEn": {
+              "expected": "MUKALLA",
+              "actual": "MUKALLA",
+              "matched": true
+            }
+          }
+        },
+        {
+          "image": "fatima_passport.jpg",
+          "latency_s": 14.6698,
+          "matched_fields": 14,
+          "total_fields": 18,
+          "field_accuracy": 0.7778,
+          "input_tokens": 1881,
+          "output_tokens": 268,
+          "fields": {
+            "PassportNumber": {
+              "expected": "12417816",
+              "actual": "12417816",
+              "matched": true
+            },
+            "CountryCode": {
+              "expected": "YEM",
+              "actual": "YEM",
+              "matched": true
+            },
+            "MrzLine1": {
+              "expected": "P<YEMBINSUWAIDAN<<FATIMA<ALI<OMAR<<<<<<<<<<<<<<",
+              "actual": "P<YEMBINSUWEDAN<<FATIMA<ALI<OMAR<<<<<<<<<<<<",
+              "matched": false
+            },
+            "MrzLine2": {
+              "expected": "12417816<8YEM7601015F2905246<<<<<<<<<<<<08",
+              "actual": "12417816<8YEM7601015F2905246<<<<<<<<<<<<<<08",
+              "matched": false
+            },
+            "SurnameAr": {
+              "expected": "بن سويدان",
+              "actual": "بن سويدان",
+              "matched": true
+            },
+            "GivenNamesAr": {
+              "expected": "فاطمه علي عمر",
+              "actual": "فاطمه علي عمر",
+              "matched": true
+            },
+            "SurnameEn": {
+              "expected": "BIN SUWAIDAN",
+              "actual": "BIN SUWEDAN",
+              "matched": false
+            },
+            "GivenNamesEn": {
+              "expected": "FATIMA ALI OMAR",
+              "actual": "FATIMA ALI OMAR",
+              "matched": true
+            },
+            "DateOfBirth": {
+              "expected": "01/01/1976",
+              "actual": "01/01/1976",
+              "matched": true
+            },
+            "PlaceOfBirthAr": {
+              "expected": "اليمن - حضرموت",
+              "actual": "حضرموت - اليمن",
+              "matched": false
+            },
+            "PlaceOfBirthEn": {
+              "expected": "HADRAMOUT - YEM",
+              "actual": "HADRAMOUT - YEM",
+              "matched": true
+            },
+            "Sex": {
+              "expected": "F",
+              "actual": "F",
+              "matched": true
+            },
+            "DateOfIssue": {
+              "expected": "24/05/2023",
+              "actual": "24/05/2023",
+              "matched": true
+            },
+            "DateOfExpiry": {
+              "expected": "24/05/2029",
+              "actual": "24/05/2029",
+              "matched": true
+            },
+            "ProfessionAr": {
+              "expected": "ربة بيت",
+              "actual": "ربة بيت",
+              "matched": true
+            },
+            "ProfessionEn": {
+              "expected": "HOUSE WIFE",
+              "actual": "HOUSE WIFE",
+              "matched": true
+            },
+            "IssuingAuthorityAr": {
+              "expected": "المكلا",
+              "actual": "المكلا",
+              "matched": true
+            },
+            "IssuingAuthorityEn": {
+              "expected": "MUKALLA",
+              "actual": "MUKALLA",
+              "matched": true
+            }
+          }
+        },
+        {
+          "image": "omar_abdul_passport.jpg",
+          "latency_s": 21.1815,
+          "matched_fields": 13,
+          "total_fields": 18,
+          "field_accuracy": 0.7222,
+          "input_tokens": 1854,
+          "output_tokens": 273,
+          "fields": {
+            "PassportNumber": {
+              "expected": "05384202",
+              "actual": "05384202",
+              "matched": true
+            },
+            "CountryCode": {
+              "expected": "YEM",
+              "actual": "YEM",
+              "matched": true
+            },
+            "MrzLine1": {
+              "expected": "P<YEMSAEED<<OMAR<ABDULHAKIM<HIZAM<<<<<<<<<<<<<<",
+              "actual": "PRYEMSAEED<<OMAR<ABDULHAKIM<HIZAM<<<<<<<<<<<<",
+              "matched": false
+            },
+            "MrzLine2": {
+              "expected": "05384202<4YEM8909017M1910315<<<<<<<<<<<<06",
+              "actual": "05384202<4YEM8909017M1910315<<<<<<<<<<<<<<06",
+              "matched": false
+            },
+            "SurnameAr": {
+              "expected": "سعيد",
+              "actual": "سعيد",
+              "matched": true
+            },
+            "GivenNamesAr": {
+              "expected": "عمر عبدالحكيم حزام",
+              "actual": "عمر عبدالحكيم حزام",
+              "matched": true
+            },
+            "SurnameEn": {
+              "expected": "SAEED",
+              "actual": "SAEED",
+              "matched": true
+            },
+            "GivenNamesEn": {
+              "expected": "OMAR ABDULHAKIM HIZAM",
+              "actual": "OMAR ABDULHAKIM HIZAM",
+              "matched": true
+            },
+            "DateOfBirth": {
+              "expected": "01/09/1989",
+              "actual": "01/09/1989",
+              "matched": true
+            },
+            "PlaceOfBirthAr": {
+              "expected": "الشمايتين - تعز",
+              "actual": "الشمايتين - تعز",
+              "matched": true
+            },
+            "PlaceOfBirthEn": {
+              "expected": "TAIZ - YEM",
+              "actual": "TAIZ - YEM",
+              "matched": true
+            },
+            "Sex": {
+              "expected": "M",
+              "actual": null,
+              "matched": false
+            },
+            "DateOfIssue": {
+              "expected": "31/10/2013",
+              "actual": "31/10/2013",
+              "matched": true
+            },
+            "DateOfExpiry": {
+              "expected": "31/10/2019",
+              "actual": "31/10/2019",
+              "matched": true
+            },
+            "ProfessionAr": {
+              "expected": "طالب",
+              "actual": "طالب",
+              "matched": true
+            },
+            "ProfessionEn": {
+              "expected": "STUDENT",
+              "actual": "STUDENT,Sex:",
+              "matched": false
+            },
+            "IssuingAuthorityAr": {
+              "expected": "صنعاء",
+              "actual": "صنعاء",
+              "matched": true
+            },
+            "IssuingAuthorityEn": {
+              "expected": "SANAA",
+              "actual": "SANA'A",
+              "matched": false
+            }
+          }
+        },
+        {
+          "image": "salem_passport.jpg",
+          "latency_s": 14.5397,
+          "matched_fields": 16,
+          "total_fields": 18,
+          "field_accuracy": 0.8889,
+          "input_tokens": 1866,
+          "output_tokens": 266,
+          "fields": {
+            "PassportNumber": {
+              "expected": "09463730",
+              "actual": "09463730",
+              "matched": true
+            },
+            "CountryCode": {
+              "expected": "YEM",
+              "actual": "YEM",
+              "matched": true
+            },
+            "MrzLine1": {
+              "expected": "P<YEMALAKBARI<<SALEM<ABDULLAH<OMAR<<<<<<<<<<<",
+              "actual": "P<YEMALAKBARI<<SALEM<ABDULLAH<OMAR<<<<<<<<<<<",
+              "matched": true
+            },
+            "MrzLine2": {
+              "expected": "09463730<0YEM8411095M2609278<<<<<<<<<<<<02",
+              "actual": "09463730<0YEM8411095M2609278<<<<<<<<<<<<<<<02",
+              "matched": false
+            },
+            "SurnameAr": {
+              "expected": "العكبري",
+              "actual": "العكبري",
+              "matched": true
+            },
+            "GivenNamesAr": {
+              "expected": "سالم عبدالله عمر",
+              "actual": "سالم عبدالله عمر",
+              "matched": true
+            },
+            "SurnameEn": {
+              "expected": "AL-AKBARI",
+              "actual": "AL-AKBARI",
+              "matched": true
+            },
+            "GivenNamesEn": {
+              "expected": "SALEM ABDULLAH OMAR",
+              "actual": "SALEM ABDULLAH OMAR",
+              "matched": true
+            },
+            "DateOfBirth": {
+              "expected": "09/11/1984",
+              "actual": "09/11/1984",
+              "matched": true
+            },
+            "PlaceOfBirthAr": {
+              "expected": "السعودية - جده",
+              "actual": "جده",
+              "matched": false
+            },
+            "PlaceOfBirthEn": {
+              "expected": "JEDDAH - KSA",
+              "actual": "JEDDAH - KSA",
+              "matched": true
+            },
+            "Sex": {
+              "expected": "M",
+              "actual": "M",
+              "matched": true
+            },
+            "DateOfIssue": {
+              "expected": "27/09/2020",
+              "actual": "27/09/2020",
+              "matched": true
+            },
+            "DateOfExpiry": {
+              "expected": "27/09/2026",
+              "actual": "27/09/2026",
+              "matched": true
+            },
+            "ProfessionAr": {
+              "expected": "طالب",
+              "actual": "طالب",
+              "matched": true
+            },
+            "ProfessionEn": {
+              "expected": "STUDENT",
+              "actual": "STUDENT",
+              "matched": true
+            },
+            "IssuingAuthorityAr": {
+              "expected": "سيئون",
+              "actual": "سيئون",
+              "matched": true
+            },
+            "IssuingAuthorityEn": {
+              "expected": "SEYION",
+              "actual": "SEYION",
+              "matched": true
+            }
+          }
+        },
+        {
+          "image": "abdullah_passport.jpg",
+          "latency_s": 73.0058,
+          "matched_fields": 17,
+          "total_fields": 18,
+          "field_accuracy": 0.9444,
+          "input_tokens": 1866,
+          "output_tokens": 266,
+          "fields": {
+            "PassportNumber": {
+              "expected": "11648820",
+              "actual": "11648820",
+              "matched": true
+            },
+            "CountryCode": {
+              "expected": "YEM",
+              "actual": "YEM",
+              "matched": true
+            },
+            "MrzLine1": {
+              "expected": "P<YEMMOHSEN<<ABDULLAH<MURSHED<HASAN<<<<<<<<<<<<<<",
+              "actual": "P<YEMMOHSEN<<ABDULLAH<MURSHED<HASAN<<<<<<<<<<",
+              "matched": false
+            },
+            "MrzLine2": {
+              "expected": "11648820<0YEM8306306M2905110<<<<<<<<<<<<<<06",
+              "actual": "11648820<0YEM8306306M2905110<<<<<<<<<<<<<<06",
+              "matched": true
+            },
+            "SurnameAr": {
+              "expected": "محسن",
+              "actual": "محسن",
+              "matched": true
+            },
+            "GivenNamesAr": {
+              "expected": "عبدالله مرشد حسن",
+              "actual": "عبدالله مرشد حسن",
+              "matched": true
+            },
+            "SurnameEn": {
+              "expected": "MOHSEN",
+              "actual": "MOHSEN",
+              "matched": true
+            },
+            "GivenNamesEn": {
+              "expected": "ABDULLAH MURSHED HASAN",
+              "actual": "ABDULLAH MURSHED HASAN",
+              "matched": true
+            },
+            "DateOfBirth": {
+              "expected": "30/06/1983",
+              "actual": "30/06/1983",
+              "matched": true
+            },
+            "PlaceOfBirthAr": {
+              "expected": "اليمن - ريمة",
+              "actual": "اليمن - ريمة",
+              "matched": true
+            },
+            "PlaceOfBirthEn": {
+              "expected": "RAIMAH - YEM",
+              "actual": "RAIMAH - YEM",
+              "matched": true
+            },
+            "Sex": {
+              "expected": "M",
+              "actual": "M",
+              "matched": true
+            },
+            "DateOfIssue": {
+              "expected": "11/05/2023",
+              "actual": "11/05/2023",
+              "matched": true
+            },
+            "DateOfExpiry": {
+              "expected": "11/05/2029",
+              "actual": "11/05/2029",
+              "matched": true
+            },
+            "ProfessionAr": {
+              "expected": "طالب",
+              "actual": "طالب",
+              "matched": true
+            },
+            "ProfessionEn": {
+              "expected": "STUDENT",
+              "actual": "STUDENT",
+              "matched": true
+            },
+            "IssuingAuthorityAr": {
+              "expected": "القاهرة",
+              "actual": "القاهرة",
+              "matched": true
+            },
+            "IssuingAuthorityEn": {
+              "expected": "CAIRO",
+              "actual": "CAIRO",
+              "matched": true
+            }
+          }
+        },
+        {
+          "image": "salem_passport.jpg",
+          "latency_s": 22.7472,
+          "matched_fields": 15,
+          "total_fields": 18,
+          "field_accuracy": 0.8333,
+          "input_tokens": 1866,
+          "output_tokens": 266,
+          "fields": {
+            "PassportNumber": {
+              "expected": "09463730",
+              "actual": "09463730",
+              "matched": true
+            },
+            "CountryCode": {
+              "expected": "YEM",
+              "actual": "YEM",
+              "matched": true
+            },
+            "MrzLine1": {
+              "expected": "P<YEMALAKBARI<<SALEM<ABDULLAH<OMAR<<<<<<<<<<<",
+              "actual": "P<YEMALAKBARI<<SALEM<ABDULLAH<OMAR<<<<<<<<<<<<",
+              "matched": false
+            },
+            "MrzLine2": {
+              "expected": "09463730<0YEM8411095M2609278<<<<<<<<<<<<02",
+              "actual": "09463730<0YEM8411095M2609278<<<<<<<<<<<<<<02",
+              "matched": false
+            },
+            "SurnameAr": {
+              "expected": "العكبري",
+              "actual": "العكبري",
+              "matched": true
+            },
+            "GivenNamesAr": {
+              "expected": "سالم عبدالله عمر",
+              "actual": "سالم عبدالله عمر",
+              "matched": true
+            },
+            "SurnameEn": {
+              "expected": "AL-AKBARI",
+              "actual": "AL-AKBARI",
+              "matched": true
+            },
+            "GivenNamesEn": {
+              "expected": "SALEM ABDULLAH OMAR",
+              "actual": "SALEM ABDULLAH OMAR",
+              "matched": true
+            },
+            "DateOfBirth": {
+              "expected": "09/11/1984",
+              "actual": "09/11/1984",
+              "matched": true
+            },
+            "PlaceOfBirthAr": {
+              "expected": "السعودية - جده",
+              "actual": "جده",
+              "matched": false
+            },
+            "PlaceOfBirthEn": {
+              "expected": "JEDDAH - KSA",
+              "actual": "JEDDAH - KSA",
+              "matched": true
+            },
+            "Sex": {
+              "expected": "M",
+              "actual": "M",
+              "matched": true
+            },
+            "DateOfIssue": {
+              "expected": "27/09/2020",
+              "actual": "27/09/2020",
+              "matched": true
+            },
+            "DateOfExpiry": {
+              "expected": "27/09/2026",
+              "actual": "27/09/2026",
+              "matched": true
+            },
+            "ProfessionAr": {
+              "expected": "طالب",
+              "actual": "طالب",
+              "matched": true
+            },
+            "ProfessionEn": {
+              "expected": "STUDENT",
+              "actual": "STUDENT",
+              "matched": true
+            },
+            "IssuingAuthorityAr": {
+              "expected": "سيئون",
+              "actual": "سيئون",
+              "matched": true
+            },
+            "IssuingAuthorityEn": {
+              "expected": "SEYION",
+              "actual": "SEYION",
+              "matched": true
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

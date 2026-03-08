@@ -28,6 +28,8 @@ class SampleRun:
     total_fields: int
     input_tokens: int | None
     output_tokens: int | None
+    expected: PassportData
+    actual: PassportData
 
 
 def _normalize_value(value: Any) -> str | None:
@@ -58,6 +60,7 @@ def load_ground_truth(csv_path: Path, fixtures_dir: Path) -> list[GroundTruthSam
     with csv_path.open("r", encoding="utf-8", newline="") as handle:
         for row in csv.DictReader(handle):
             image_name = row["image"]
+
             image_path = _resolve_image_path(fixtures_dir, image_name)
             payload = {k: (_normalize_value(v)) for k, v in row.items() if k != "image"}
             expected = PassportData.model_validate(payload)
@@ -81,6 +84,22 @@ def score_prediction(expected: PassportData, actual: PassportData) -> tuple[int,
         if ev == av:
             matched += 1
     return matched, total
+
+
+def field_comparison(
+    expected: PassportData,
+    actual: PassportData,
+) -> dict[str, dict[str, str | None | bool]]:
+    out: dict[str, dict[str, str | None | bool]] = {}
+    for field_name in PassportData.model_fields:
+        ev = _normalize_value(getattr(expected, field_name))
+        av = _normalize_value(getattr(actual, field_name))
+        out[field_name] = {
+            "expected": ev,
+            "actual": av,
+            "matched": ev == av,
+        }
+    return out
 
 
 def _usage_tokens(usage: Any, key: str) -> int | None:
@@ -161,6 +180,8 @@ def benchmark_model(
                 total_fields=total,
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
+                expected=sample.expected,
+                actual=actual,
             )
         )
 
@@ -199,6 +220,22 @@ def summarize(
         "input_tokens": input_tokens if usage_available else None,
         "output_tokens": output_tokens if usage_available else None,
         "estimated_cost_usd": round(estimated_cost, 6) if estimated_cost is not None else None,
+        "sample_details": [
+            {
+                "image": r.image_name,
+                "latency_s": round(r.latency_s, 4),
+                "matched_fields": r.matched_fields,
+                "total_fields": r.total_fields,
+                "field_accuracy": round(
+                    (r.matched_fields / r.total_fields) if r.total_fields else 0.0,
+                    4,
+                ),
+                "input_tokens": r.input_tokens,
+                "output_tokens": r.output_tokens,
+                "fields": field_comparison(r.expected, r.actual),
+            }
+            for r in runs
+        ],
     }
 
 
