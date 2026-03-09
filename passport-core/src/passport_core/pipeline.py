@@ -123,7 +123,7 @@ class PassportCoreService:
 
         if validation.is_passport:
             try:
-                face = self.face_detector.detect(loaded.bgr)
+                face = self.face_detector.detect(loaded.bgr, validation.page_quad)
             except Exception as exc:
                 wrapped = FaceDetectionError(str(exc))
                 self._append_error(

@@ -183,24 +183,68 @@ class PassportFaceDetector:
             5000,
         )
 
-    def detect(self, image_bgr: ImageArray) -> FaceDetectionResult:
-        self.detector.setInputSize((image_bgr.shape[1], image_bgr.shape[0]))
-        _, faces = self.detector.detect(image_bgr)
+    def detect(
+        self,
+        image_bgr: ImageArray,
+        page_quad: list[tuple[int, int]] | None = None,
+    ) -> FaceDetectionResult:
+        detection_image = image_bgr
+        offset_x = 0
+        offset_y = 0
+
+        if page_quad:
+            cropped = self._crop_to_page_quad(image_bgr, page_quad)
+            if cropped is not None:
+                detection_image, offset_x, offset_y = cropped
+
+        self.detector.setInputSize((detection_image.shape[1], detection_image.shape[0]))
+        _, faces = self.detector.detect(detection_image)
 
         if faces is None or len(faces) == 0:
             return FaceDetectionResult()
 
         best = max(faces, key=lambda row: float(row[2] * row[3] * row[-1]))
-        bbox = self._bbox_from_face_row(best)
+        bbox = self._bbox_from_face_row(best, offset_x=offset_x, offset_y=offset_y)
         return FaceDetectionResult(bbox_aligned=None, bbox_original=bbox)
 
-    def _bbox_from_face_row(self, row: NDArray[np.float32]) -> BoundingBox:
+    @staticmethod
+    def _crop_to_page_quad(
+        image_bgr: ImageArray,
+        page_quad: list[tuple[int, int]],
+    ) -> tuple[ImageArray, int, int] | None:
+        points = np.asarray(page_quad, dtype=np.int32)
+        if points.shape != (4, 2):
+            return None
+
+        height, width = image_bgr.shape[:2]
+        min_x = max(0, int(points[:, 0].min()))
+        min_y = max(0, int(points[:, 1].min()))
+        max_x = min(width, int(points[:, 0].max()))
+        max_y = min(height, int(points[:, 1].max()))
+
+        if min_x >= max_x or min_y >= max_y:
+            return None
+
+        cropped = image_bgr[min_y:max_y, min_x:max_x].copy()
+        shifted = points - np.array([[min_x, min_y]], dtype=np.int32)
+        mask = np.zeros(cropped.shape[:2], dtype=np.uint8)
+        cv2.fillConvexPoly(mask, shifted, 255)
+        cropped[mask == 0] = 0
+        return cropped, min_x, min_y
+
+    def _bbox_from_face_row(
+        self,
+        row: NDArray[np.float32],
+        *,
+        offset_x: int = 0,
+        offset_y: int = 0,
+    ) -> BoundingBox:
         x, y, width, height = row[:4]
         score = float(row[-1])
 
         return BoundingBox(
-            x=max(0, int(round(float(x)))),
-            y=max(0, int(round(float(y)))),
+            x=max(0, int(round(float(x))) + offset_x),
+            y=max(0, int(round(float(y))) + offset_y),
             width=max(0, int(round(float(width)))),
             height=max(0, int(round(float(height)))),
             score=score,

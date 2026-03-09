@@ -77,17 +77,21 @@ def _resolve_image_path(fixtures_dir: Path, image_name: str) -> Path:
 
 def load_ground_truth(csv_path: Path, fixtures_dir: Path) -> list[GroundTruthSample]:
     rows: list[GroundTruthSample] = []
-    seen_images: set[str] = set()
+    seen_samples: dict[str, PassportData] = {}
     with csv_path.open("r", encoding="utf-8", newline="") as handle:
         for row in csv.DictReader(handle):
             image_name = row["image"]
-            if image_name in seen_images:
-                continue
-            seen_images.add(image_name)
-
             image_path = _resolve_image_path(fixtures_dir, image_name)
             payload = {k: (_normalize_value(v)) for k, v in row.items() if k != "image"}
             expected = PassportData.model_validate(payload)
+            prior = seen_samples.get(image_name)
+            if prior is not None:
+                if prior.model_dump() != expected.model_dump():
+                    raise ValueError(
+                        f"Conflicting duplicate image row in ground truth CSV: {image_name}"
+                    )
+                continue
+            seen_samples[image_name] = expected
             rows.append(
                 GroundTruthSample(
                     image_name=image_name,
@@ -174,6 +178,9 @@ def field_comparison(
 
 
 def _usage_tokens(usage: Any, key: str) -> int | None:
+    if isinstance(usage, dict):
+        value = usage.get(key)
+        return value if isinstance(value, int) else None
     value = getattr(usage, key, None)
     if isinstance(value, int):
         return value

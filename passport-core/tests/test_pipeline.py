@@ -33,7 +33,10 @@ def test_process_source_happy_path():
     )
     svc.binary_store.save.return_value = "orig://1"
     svc.validator.validate.return_value = SimpleNamespace(
-        result=ValidationResult(is_passport=True),
+        result=ValidationResult(
+            is_passport=True,
+            page_quad=[(10, 20), (110, 20), (110, 120), (10, 120)],
+        ),
     )
     svc.face_detector.detect.return_value = None
     svc.extractor.extract.return_value = PassportData(PassportNumber="A123")
@@ -47,6 +50,10 @@ def test_process_source_happy_path():
     assert result.stored_aligned_uri is None
     assert result.error_details == []
     svc.result_store.save.assert_called_once()
+    svc.face_detector.detect.assert_called_once_with(
+        image,
+        [(10, 20), (110, 20), (110, 120), (10, 120)],
+    )
 
 
 def test_process_source_not_passport_skips_extraction():

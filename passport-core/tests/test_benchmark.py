@@ -5,6 +5,7 @@ from pathlib import Path
 from passport_core.benchmark import (
     GroundTruthSample,
     SampleRun,
+    _extract_usage_tokens,
     field_comparison,
     load_ground_truth,
     normalized_value,
@@ -69,7 +70,7 @@ def test_normalized_accuracy_ignores_text_punctuation_and_order():
 def test_load_ground_truth_deduplicates_duplicate_images(tmp_path: Path):
     csv_path = tmp_path / "ground_truth.csv"
     csv_path.write_text(
-        "image,PassportNumber\nsample.jpg,1\nsample.jpg,2\n",
+        "image,PassportNumber\nsample.jpg,1\nsample.jpg,1\n",
         encoding="utf-8",
     )
     (tmp_path / "sample.jpg").write_bytes(b"x")
@@ -78,6 +79,28 @@ def test_load_ground_truth_deduplicates_duplicate_images(tmp_path: Path):
 
     assert len(samples) == 1
     assert samples[0].expected.PassportNumber == "1"
+
+
+def test_load_ground_truth_rejects_conflicting_duplicate_images(tmp_path: Path):
+    csv_path = tmp_path / "ground_truth.csv"
+    csv_path.write_text(
+        "image,PassportNumber\nsample.jpg,1\nsample.jpg,2\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "sample.jpg").write_bytes(b"x")
+
+    try:
+        load_ground_truth(csv_path, tmp_path)
+    except ValueError as exc:
+        assert "Conflicting duplicate image row" in str(exc)
+    else:
+        raise AssertionError("Expected conflicting duplicate rows to fail")
+
+
+def test_extract_usage_tokens_accepts_dict_usage_payload():
+    result = type("Result", (), {"usage": {"input_tokens": 12, "output_tokens": 34}})()
+
+    assert _extract_usage_tokens(result) == (12, 34)
 
 
 def test_summarize_with_pricing():
