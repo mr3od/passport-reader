@@ -3,7 +3,8 @@ from __future__ import annotations
 import numpy as np
 
 from passport_core.config import Settings
-from passport_core.vision import PassportFaceDetector, PassportFeatureValidator
+from passport_core.models import BoundingBox
+from passport_core.vision import PassportFaceCropper, PassportFaceDetector, PassportFeatureValidator
 
 
 def test_validator_accepts_same_image(reference_template_path, sample_bgr_image):
@@ -60,3 +61,21 @@ def test_face_detector_maps_bbox_from_cropped_page_quad():
     assert face.bbox_original.y == 46
     assert face.bbox_original.width == 20
     assert face.bbox_original.height == 30
+
+
+def test_face_cropper_crops_and_clips_bbox():
+    cropper = PassportFaceCropper()
+    image = np.zeros((100, 120, 3), dtype=np.uint8)
+    image[15:60, 10:70] = 255
+
+    result = cropper.crop(
+        image,
+        BoundingBox(x=10, y=15, width=80, height=90, score=0.9),
+    )
+
+    assert result is not None
+    assert result.width == 80
+    assert result.height == 85
+    assert result.bbox_original.x == 10
+    assert result.bbox_original.y == 15
+    assert result.jpeg_bytes

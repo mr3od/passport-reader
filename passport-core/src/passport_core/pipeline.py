@@ -11,13 +11,14 @@ from passport_core.io import EnjazCsvExporter, ImageLoader, build_binary_store, 
 from passport_core.llm import build_extractor
 from passport_core.log import bind_logger
 from passport_core.models import (
+    FaceCropResult,
     FaceDetectionResult,
     PassportData,
     PassportProcessingResult,
     ProcessingError,
     ValidationResult,
 )
-from passport_core.vision import PassportFaceDetector, PassportFeatureValidator
+from passport_core.vision import PassportFaceCropper, PassportFaceDetector, PassportFeatureValidator
 
 
 class PassportCoreService:
@@ -34,6 +35,7 @@ class PassportCoreService:
 
         self.validator = PassportFeatureValidator(self.settings)
         self.face_detector = PassportFaceDetector(self.settings)
+        self.face_cropper = PassportFaceCropper()
         self.extractor = build_extractor(self.settings)
 
     def close(self) -> None:
@@ -177,6 +179,26 @@ class PassportCoreService:
 
     def export_all_csv(self, output_path: str | Path) -> None:
         self.csv_exporter.export(self.result_store.fetch_all(), Path(output_path))
+
+    def crop_face(self, source: str | Path) -> FaceCropResult | None:
+        loaded = self.loader.load(source)
+        match = self.validator.validate(loaded.bgr)
+        if not match.result.is_passport:
+            return None
+
+        face = self.face_detector.detect(loaded.bgr, match.result.page_quad)
+        crop = self.face_cropper.crop(loaded.bgr, face.bbox_original)
+        if crop is None:
+            return None
+
+        stored_uri = self.binary_store.save(
+            crop.jpeg_bytes,
+            folder="faces",
+            filename=f"{Path(str(source)).stem}_face.jpg",
+            content_type="image/jpeg",
+        )
+        crop.stored_uri = stored_uri
+        return crop
 
     @staticmethod
     def _append_error(

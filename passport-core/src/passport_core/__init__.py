@@ -3,6 +3,7 @@ from passport_core.errors import ErrorCode, PassportCoreError
 from passport_core.log import setup_logging
 from passport_core.models import (
     BoundingBox,
+    FaceCropResult,
     FaceDetectionResult,
     PassportData,
     PassportProcessingResult,
@@ -10,11 +11,13 @@ from passport_core.models import (
     ValidationResult,
 )
 from passport_core.pipeline import PassportCoreService
-from passport_core.vision import PassportFaceDetector, PassportFeatureValidator
+from passport_core.vision import PassportFaceCropper, PassportFaceDetector, PassportFeatureValidator
 
 __all__ = [
     "BoundingBox",
     "ErrorCode",
+    "FaceCropResult",
+    "PassportFaceCropper",
     "FaceDetectionResult",
     "PassportCoreError",
     "PassportCoreService",

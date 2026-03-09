@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 import numpy as np
 
 from passport_core.errors import ErrorCode
-from passport_core.models import PassportData, ValidationResult
+from passport_core.models import BoundingBox, FaceCropResult, PassportData, ValidationResult
 from passport_core.pipeline import PassportCoreService
 
 
@@ -18,6 +18,7 @@ def _mk_service() -> PassportCoreService:
     svc.csv_exporter = MagicMock()
     svc.validator = MagicMock()
     svc.face_detector = MagicMock()
+    svc.face_cropper = MagicMock()
     svc.extractor = MagicMock()
     return svc
 
@@ -87,3 +88,57 @@ def test_process_source_exception_captured_with_code():
     assert result.error_details
     assert result.error_details[0].code == ErrorCode.INPUT_LOAD_ERROR
     assert "boom" in result.error_details[0].message
+
+
+def test_crop_face_returns_cropped_face_for_valid_passport():
+    svc = _mk_service()
+    image = np.zeros((200, 300, 3), dtype=np.uint8)
+    svc.loader.load.return_value = SimpleNamespace(bgr=image)
+    svc.validator.validate.return_value = SimpleNamespace(
+        result=ValidationResult(
+            is_passport=True,
+            page_quad=[(10, 20), (110, 20), (110, 120), (10, 120)],
+        ),
+    )
+    svc.face_detector.detect.return_value = SimpleNamespace(
+        bbox_original=BoundingBox(x=30, y=40, width=50, height=60, score=0.9),
+    )
+    svc.face_cropper.crop.return_value = FaceCropResult(
+        bbox_original=BoundingBox(x=30, y=40, width=50, height=60, score=0.9),
+        width=50,
+        height=60,
+        jpeg_bytes=b"jpeg",
+    )
+    svc.binary_store.save.return_value = "faces://1"
+
+    result = svc.crop_face("/tmp/a.jpg")
+
+    assert result is not None
+    assert result.width == 50
+    assert result.stored_uri == "faces://1"
+    svc.face_detector.detect.assert_called_once_with(
+        image,
+        [(10, 20), (110, 20), (110, 120), (10, 120)],
+    )
+    svc.face_cropper.crop.assert_called_once()
+    svc.binary_store.save.assert_called_once_with(
+        b"jpeg",
+        folder="faces",
+        filename="a_face.jpg",
+        content_type="image/jpeg",
+    )
+
+
+def test_crop_face_returns_none_when_not_passport():
+    svc = _mk_service()
+    image = np.zeros((200, 300, 3), dtype=np.uint8)
+    svc.loader.load.return_value = SimpleNamespace(bgr=image)
+    svc.validator.validate.return_value = SimpleNamespace(
+        result=ValidationResult(is_passport=False),
+    )
+
+    result = svc.crop_face("/tmp/a.jpg")
+
+    assert result is None
+    svc.face_detector.detect.assert_not_called()
+    svc.face_cropper.crop.assert_not_called()

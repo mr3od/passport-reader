@@ -56,6 +56,14 @@ class FaceDetectionResult(BaseModel):
     bbox_original: BoundingBox | None = None
 
 
+class FaceCropResult(BaseModel):
+    bbox_original: BoundingBox
+    width: int
+    height: int
+    jpeg_bytes: bytes
+    stored_uri: str | None = None
+
+
 class ProcessingError(BaseModel):
     code: ErrorCode
     stage: str

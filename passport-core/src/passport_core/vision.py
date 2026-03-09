@@ -8,7 +8,14 @@ import numpy as np
 from numpy.typing import NDArray
 
 from passport_core.config import Settings
-from passport_core.models import BoundingBox, FaceDetectionResult, ValidationDebug, ValidationResult
+from passport_core.io import encode_jpeg
+from passport_core.models import (
+    BoundingBox,
+    FaceCropResult,
+    FaceDetectionResult,
+    ValidationDebug,
+    ValidationResult,
+)
 
 ImageArray = NDArray[np.uint8]
 FloatArray = NDArray[np.float64]
@@ -248,4 +255,40 @@ class PassportFaceDetector:
             width=max(0, int(round(float(width)))),
             height=max(0, int(round(float(height)))),
             score=score,
+        )
+
+
+class PassportFaceCropper:
+    def crop(
+        self,
+        image_bgr: ImageArray,
+        bbox: BoundingBox | None,
+    ) -> FaceCropResult | None:
+        if bbox is None:
+            return None
+
+        image_height, image_width = image_bgr.shape[:2]
+        x0 = max(0, bbox.x)
+        y0 = max(0, bbox.y)
+        x1 = min(image_width, bbox.x + bbox.width)
+        y1 = min(image_height, bbox.y + bbox.height)
+
+        if x0 >= x1 or y0 >= y1:
+            return None
+
+        cropped = image_bgr[y0:y1, x0:x1].copy()
+        if cropped.size == 0:
+            return None
+
+        return FaceCropResult(
+            bbox_original=BoundingBox(
+                x=x0,
+                y=y0,
+                width=x1 - x0,
+                height=y1 - y0,
+                score=bbox.score,
+            ),
+            width=x1 - x0,
+            height=y1 - y0,
+            jpeg_bytes=encode_jpeg(cropped),
         )
