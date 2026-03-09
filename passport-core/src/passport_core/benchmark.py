@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import re
 import statistics
 import time
 from dataclasses import dataclass
@@ -24,12 +25,31 @@ class GroundTruthSample:
 class SampleRun:
     image_name: str
     latency_s: float
-    matched_fields: int
+    strict_matched_fields: int
+    normalized_matched_fields: int
+    mrz_matched_fields: int
     total_fields: int
+    enjaz_total_fields: int
+    mrz_total_fields: int
     input_tokens: int | None
     output_tokens: int | None
     expected: PassportData
     actual: PassportData
+
+
+MRZ_FIELDS = {"MrzLine1", "MrzLine2"}
+ENJAZ_TEXT_FIELDS = {
+    "SurnameAr",
+    "GivenNamesAr",
+    "SurnameEn",
+    "GivenNamesEn",
+    "PlaceOfBirthAr",
+    "PlaceOfBirthEn",
+    "ProfessionAr",
+    "ProfessionEn",
+    "IssuingAuthorityAr",
+    "IssuingAuthorityEn",
+}
 
 
 def _normalize_value(value: Any) -> str | None:
@@ -57,9 +77,13 @@ def _resolve_image_path(fixtures_dir: Path, image_name: str) -> Path:
 
 def load_ground_truth(csv_path: Path, fixtures_dir: Path) -> list[GroundTruthSample]:
     rows: list[GroundTruthSample] = []
+    seen_images: set[str] = set()
     with csv_path.open("r", encoding="utf-8", newline="") as handle:
         for row in csv.DictReader(handle):
             image_name = row["image"]
+            if image_name in seen_images:
+                continue
+            seen_images.add(image_name)
 
             image_path = _resolve_image_path(fixtures_dir, image_name)
             payload = {k: (_normalize_value(v)) for k, v in row.items() if k != "image"}
@@ -86,6 +110,46 @@ def score_prediction(expected: PassportData, actual: PassportData) -> tuple[int,
     return matched, total
 
 
+def normalized_value(field_name: str, value: Any) -> str | None:
+    raw = _normalize_value(value)
+    if raw is None:
+        return None
+    if field_name in MRZ_FIELDS:
+        return raw
+    if field_name not in ENJAZ_TEXT_FIELDS:
+        return raw.upper()
+
+    text = re.sub(r"[^\w\s]", "", raw.upper(), flags=re.UNICODE)
+    tokens = [token for token in text.split() if token]
+    return " ".join(sorted(tokens)) if tokens else None
+
+
+def score_enjaz_prediction(expected: PassportData, actual: PassportData) -> tuple[int, int]:
+    matched = 0
+    total = 0
+    for field_name in PassportData.model_fields:
+        if field_name in MRZ_FIELDS:
+            continue
+        total += 1
+        ev = normalized_value(field_name, getattr(expected, field_name))
+        av = normalized_value(field_name, getattr(actual, field_name))
+        if ev == av:
+            matched += 1
+    return matched, total
+
+
+def score_mrz_prediction(expected: PassportData, actual: PassportData) -> tuple[int, int]:
+    matched = 0
+    total = 0
+    for field_name in MRZ_FIELDS:
+        total += 1
+        ev = _normalize_value(getattr(expected, field_name))
+        av = _normalize_value(getattr(actual, field_name))
+        if ev == av:
+            matched += 1
+    return matched, total
+
+
 def field_comparison(
     expected: PassportData,
     actual: PassportData,
@@ -97,7 +161,14 @@ def field_comparison(
         out[field_name] = {
             "expected": ev,
             "actual": av,
-            "matched": ev == av,
+            "strict_matched": ev == av,
+            "normalized_expected": normalized_value(field_name, getattr(expected, field_name)),
+            "normalized_actual": normalized_value(field_name, getattr(actual, field_name)),
+            "normalized_matched": normalized_value(
+                field_name,
+                getattr(expected, field_name),
+            )
+            == normalized_value(field_name, getattr(actual, field_name)),
         }
     return out
 
@@ -169,15 +240,21 @@ def benchmark_model(
             raise ValueError(f"{model} returned non-PassportData output for {sample.image_name}")
 
         actual = _normalize(output)
-        matched, total = score_prediction(sample.expected, actual)
+        strict_matched, total = score_prediction(sample.expected, actual)
+        normalized_matched, enjaz_total = score_enjaz_prediction(sample.expected, actual)
+        mrz_matched, mrz_total = score_mrz_prediction(sample.expected, actual)
         input_tokens, output_tokens = _extract_usage_tokens(result)
 
         runs.append(
             SampleRun(
                 image_name=sample.image_name,
                 latency_s=latency,
-                matched_fields=matched,
+                strict_matched_fields=strict_matched,
+                normalized_matched_fields=normalized_matched,
+                mrz_matched_fields=mrz_matched,
                 total_fields=total,
+                enjaz_total_fields=enjaz_total,
+                mrz_total_fields=mrz_total,
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
                 expected=sample.expected,
@@ -193,9 +270,17 @@ def summarize(
     runs: list[SampleRun],
     pricing: dict[str, dict[str, float]] | None,
 ) -> dict[str, Any]:
-    total_matched = sum(r.matched_fields for r in runs)
+    total_matched = sum(r.strict_matched_fields for r in runs)
     total_fields = sum(r.total_fields for r in runs)
-    accuracy = (total_matched / total_fields) if total_fields else 0.0
+    strict_accuracy = (total_matched / total_fields) if total_fields else 0.0
+    normalized_matched = sum(r.normalized_matched_fields for r in runs)
+    enjaz_total_fields = sum(r.enjaz_total_fields for r in runs)
+    normalized_accuracy = (
+        normalized_matched / enjaz_total_fields if enjaz_total_fields else 0.0
+    )
+    mrz_matched = sum(r.mrz_matched_fields for r in runs)
+    mrz_total_fields = sum(r.mrz_total_fields for r in runs)
+    mrz_accuracy = mrz_matched / mrz_total_fields if mrz_total_fields else 0.0
 
     latencies = [r.latency_s for r in runs]
     avg_latency = statistics.fmean(latencies) if latencies else 0.0
@@ -214,7 +299,9 @@ def summarize(
     return {
         "model": model,
         "samples": len(runs),
-        "field_accuracy": round(accuracy, 4),
+        "strict_accuracy": round(strict_accuracy, 4),
+        "normalized_accuracy": round(normalized_accuracy, 4),
+        "mrz_accuracy": round(mrz_accuracy, 4),
         "avg_latency_s": round(avg_latency, 4),
         "p95_latency_s": round(p95_latency, 4),
         "input_tokens": input_tokens if usage_available else None,
@@ -224,10 +311,26 @@ def summarize(
             {
                 "image": r.image_name,
                 "latency_s": round(r.latency_s, 4),
-                "matched_fields": r.matched_fields,
+                "strict_matched_fields": r.strict_matched_fields,
+                "normalized_matched_fields": r.normalized_matched_fields,
+                "mrz_matched_fields": r.mrz_matched_fields,
                 "total_fields": r.total_fields,
-                "field_accuracy": round(
-                    (r.matched_fields / r.total_fields) if r.total_fields else 0.0,
+                "enjaz_total_fields": r.enjaz_total_fields,
+                "mrz_total_fields": r.mrz_total_fields,
+                "strict_accuracy": round(
+                    (r.strict_matched_fields / r.total_fields) if r.total_fields else 0.0,
+                    4,
+                ),
+                "normalized_accuracy": round(
+                    (
+                        r.normalized_matched_fields / r.enjaz_total_fields
+                        if r.enjaz_total_fields
+                        else 0.0
+                    ),
+                    4,
+                ),
+                "mrz_accuracy": round(
+                    (r.mrz_matched_fields / r.mrz_total_fields) if r.mrz_total_fields else 0.0,
                     4,
                 ),
                 "input_tokens": r.input_tokens,
@@ -292,7 +395,9 @@ def main() -> int:
         all_summaries.append(summary)
 
         print(
-            f"{model}: accuracy={summary['field_accuracy']:.4f} "
+            f"{model}: strict={summary['strict_accuracy']:.4f} "
+            f"normalized={summary['normalized_accuracy']:.4f} "
+            f"mrz={summary['mrz_accuracy']:.4f} "
             f"avg={summary['avg_latency_s']:.3f}s "
             f"p95={summary['p95_latency_s']:.3f}s "
             f"tokens(in/out)={summary['input_tokens']}/{summary['output_tokens']} "
@@ -301,14 +406,15 @@ def main() -> int:
 
     ranked = sorted(
         all_summaries,
-        key=lambda x: (x["field_accuracy"], -x["avg_latency_s"]),
+        key=lambda x: (x["normalized_accuracy"], x["strict_accuracy"], -x["avg_latency_s"]),
         reverse=True,
     )
 
     print("\nRanking (best first):")
     for idx, row in enumerate(ranked, start=1):
         print(
-            f"{idx}. {row['model']} acc={row['field_accuracy']:.4f} "
+            f"{idx}. {row['model']} normalized={row['normalized_accuracy']:.4f} "
+            f"strict={row['strict_accuracy']:.4f} mrz={row['mrz_accuracy']:.4f} "
             f"avg={row['avg_latency_s']:.3f}s cost={row['estimated_cost_usd']}"
         )
 

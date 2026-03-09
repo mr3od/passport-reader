@@ -5,7 +5,11 @@ from pathlib import Path
 from passport_core.benchmark import (
     GroundTruthSample,
     SampleRun,
+    field_comparison,
     load_ground_truth,
+    normalized_value,
+    score_enjaz_prediction,
+    score_mrz_prediction,
     score_prediction,
     summarize,
 )
@@ -17,7 +21,8 @@ def test_load_ground_truth_reads_fixture_rows():
     csv_path = fixtures / "ground_truth.csv"
 
     samples = load_ground_truth(csv_path, fixtures)
-    expected_count = sum(1 for _ in csv_path.open("r", encoding="utf-8")) - 1
+    with csv_path.open("r", encoding="utf-8") as handle:
+        expected_count = len({line.split(",", 1)[0] for i, line in enumerate(handle) if i > 0})
 
     assert len(samples) == expected_count
     assert all(isinstance(s, GroundTruthSample) for s in samples)
@@ -34,12 +39,53 @@ def test_score_prediction_counts_exact_matches():
     assert matched == total - 1
 
 
+def test_normalized_accuracy_ignores_text_punctuation_and_order():
+    expected = PassportData(
+        PlaceOfBirthAr="اليمن - حضرموت",
+        PlaceOfBirthEn="HADRAMOUT - YEM",
+        IssuingAuthorityEn="SANAA",
+        MrzLine1="P<YEMABC",
+    )
+    actual = PassportData(
+        PlaceOfBirthAr="حضرموت - اليمن",
+        PlaceOfBirthEn="HADRAMOUT YEM",
+        IssuingAuthorityEn="SANA'A",
+        MrzLine1="P<YEMABX",
+    )
+
+    normalized_matched, normalized_total = score_enjaz_prediction(expected, actual)
+    mrz_matched, mrz_total = score_mrz_prediction(expected, actual)
+    fields = field_comparison(expected, actual)
+
+    assert normalized_value("PlaceOfBirthAr", expected.PlaceOfBirthAr) == "اليمن حضرموت"
+    assert normalized_matched == normalized_total
+    assert mrz_matched == 1
+    assert mrz_total == 2
+    assert fields["PlaceOfBirthAr"]["strict_matched"] is False
+    assert fields["PlaceOfBirthAr"]["normalized_matched"] is True
+    assert fields["MrzLine1"]["normalized_matched"] is False
+
+
+def test_load_ground_truth_deduplicates_duplicate_images(tmp_path: Path):
+    csv_path = tmp_path / "ground_truth.csv"
+    csv_path.write_text(
+        "image,PassportNumber\nsample.jpg,1\nsample.jpg,2\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "sample.jpg").write_bytes(b"x")
+
+    samples = load_ground_truth(csv_path, tmp_path)
+
+    assert len(samples) == 1
+    assert samples[0].expected.PassportNumber == "1"
+
+
 def test_summarize_with_pricing():
     p1 = PassportData(PassportNumber="A1", CountryCode="YEM", Sex="M")
     p2 = PassportData(PassportNumber="A2", CountryCode="YEM", Sex="F")
     runs = [
-        SampleRun("a.jpg", 0.4, 18, 18, 1000, 200, p1, p1),
-        SampleRun("b.jpg", 0.6, 17, 18, 1200, 300, p2, p2),
+        SampleRun("a.jpg", 0.4, 18, 16, 2, 18, 16, 2, 1000, 200, p1, p1),
+        SampleRun("b.jpg", 0.6, 17, 15, 2, 18, 16, 2, 1200, 300, p2, p2),
     ]
     pricing = {
         "openai-responses/gpt-5-mini": {
@@ -50,7 +96,9 @@ def test_summarize_with_pricing():
 
     out = summarize("openai-responses/gpt-5-mini", runs, pricing)
 
-    assert out["field_accuracy"] == 0.9722
+    assert out["strict_accuracy"] == 0.9722
+    assert out["normalized_accuracy"] == 0.9688
+    assert out["mrz_accuracy"] == 1.0
     assert out["avg_latency_s"] == 0.5
     assert out["input_tokens"] == 2200
     assert out["output_tokens"] == 500
