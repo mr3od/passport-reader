@@ -6,7 +6,13 @@ from unittest.mock import MagicMock
 import numpy as np
 
 from passport_core.errors import ErrorCode
-from passport_core.models import BoundingBox, FaceCropResult, PassportData, ValidationResult
+from passport_core.models import (
+    BoundingBox,
+    FaceCropResult,
+    FaceDetectionResult,
+    PassportData,
+    ValidationResult,
+)
 from passport_core.pipeline import PassportCoreService
 
 
@@ -33,13 +39,22 @@ def test_process_source_happy_path():
         bgr=image,
     )
     svc.binary_store.save.return_value = "orig://1"
+    svc.face_cropper.crop.return_value = FaceCropResult(
+        bbox_original=BoundingBox(x=30, y=40, width=50, height=60, score=0.9),
+        width=50,
+        height=60,
+        jpeg_bytes=b"jpeg",
+    )
+    svc.binary_store.save.side_effect = ["orig://1", "faces://1"]
     svc.validator.validate.return_value = SimpleNamespace(
         result=ValidationResult(
             is_passport=True,
             page_quad=[(10, 20), (110, 20), (110, 120), (10, 120)],
         ),
     )
-    svc.face_detector.detect.return_value = None
+    svc.face_detector.detect.return_value = FaceDetectionResult(
+        bbox_original=BoundingBox(x=30, y=40, width=50, height=60, score=0.9),
+    )
     svc.extractor.extract.return_value = PassportData(PassportNumber="A123")
 
     result = svc.process_source("/tmp/a.jpg")
@@ -48,12 +63,17 @@ def test_process_source_happy_path():
     assert result.validation.is_passport is True
     assert result.data is not None
     assert result.data.PassportNumber == "A123"
-    assert result.stored_aligned_uri is None
+    assert result.passport_image_uri == "orig://1"
+    assert result.face_crop_uri == "faces://1"
     assert result.error_details == []
     svc.result_store.save.assert_called_once()
     svc.face_detector.detect.assert_called_once_with(
         image,
         [(10, 20), (110, 20), (110, 120), (10, 120)],
+    )
+    svc.face_cropper.crop.assert_called_once_with(
+        image,
+        svc.face_detector.detect.return_value.bbox_original,
     )
 
 
@@ -75,6 +95,8 @@ def test_process_source_not_passport_skips_extraction():
 
     assert result.validation.is_passport is False
     assert result.data is None
+    assert result.passport_image_uri == "orig://1"
+    assert result.face_crop_uri is None
     svc.extractor.extract.assert_not_called()
 
 
@@ -100,7 +122,7 @@ def test_crop_face_returns_cropped_face_for_valid_passport():
             page_quad=[(10, 20), (110, 20), (110, 120), (10, 120)],
         ),
     )
-    svc.face_detector.detect.return_value = SimpleNamespace(
+    svc.face_detector.detect.return_value = FaceDetectionResult(
         bbox_original=BoundingBox(x=30, y=40, width=50, height=60, score=0.9),
     )
     svc.face_cropper.crop.return_value = FaceCropResult(

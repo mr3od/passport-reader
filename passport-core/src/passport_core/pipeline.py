@@ -46,7 +46,8 @@ class PassportCoreService:
         source_str = str(source)
         log = bind_logger(logging.getLogger(__name__), trace_id=trace_id, source=source_str)
 
-        stored_original_uri: str | None = None
+        passport_image_uri: str | None = None
+        face_crop_uri: str | None = None
         validation = ValidationResult(is_passport=False)
         face: FaceDetectionResult | None = None
         data: PassportData | None = None
@@ -71,7 +72,8 @@ class PassportCoreService:
             return self._finalize_result(
                 trace_id=trace_id,
                 source=source_str,
-                stored_original_uri=stored_original_uri,
+                passport_image_uri=passport_image_uri,
+                face_crop_uri=face_crop_uri,
                 validation=validation,
                 face=face,
                 data=data,
@@ -80,7 +82,7 @@ class PassportCoreService:
             )
 
         try:
-            stored_original_uri = self.binary_store.save(
+            passport_image_uri = self.binary_store.save(
                 loaded.data,
                 folder="originals",
                 filename=loaded.filename,
@@ -115,7 +117,8 @@ class PassportCoreService:
             return self._finalize_result(
                 trace_id=trace_id,
                 source=source_str,
-                stored_original_uri=stored_original_uri,
+                passport_image_uri=passport_image_uri,
+                face_crop_uri=face_crop_uri,
                 validation=validation,
                 face=face,
                 data=data,
@@ -126,6 +129,14 @@ class PassportCoreService:
         if validation.is_passport:
             try:
                 face = self.face_detector.detect(loaded.bgr, validation.page_quad)
+                crop = self.face_cropper.crop(loaded.bgr, face.bbox_original)
+                if crop is not None:
+                    face_crop_uri = self.binary_store.save(
+                        crop.jpeg_bytes,
+                        folder="faces",
+                        filename=f"{Path(source_str).stem}_face.jpg",
+                        content_type="image/jpeg",
+                    )
             except Exception as exc:
                 wrapped = FaceDetectionError(str(exc))
                 self._append_error(
@@ -159,7 +170,8 @@ class PassportCoreService:
         return self._finalize_result(
             trace_id=trace_id,
             source=source_str,
-            stored_original_uri=stored_original_uri,
+            passport_image_uri=passport_image_uri,
+            face_crop_uri=face_crop_uri,
             validation=validation,
             face=face,
             data=data,
@@ -223,7 +235,8 @@ class PassportCoreService:
         *,
         trace_id: str,
         source: str,
-        stored_original_uri: str | None,
+        passport_image_uri: str | None,
+        face_crop_uri: str | None,
         validation: ValidationResult,
         face: FaceDetectionResult | None,
         data: PassportData | None,
@@ -233,8 +246,8 @@ class PassportCoreService:
         result = PassportProcessingResult(
             source=source,
             trace_id=trace_id,
-            stored_original_uri=stored_original_uri,
-            stored_aligned_uri=None,
+            passport_image_uri=passport_image_uri,
+            face_crop_uri=face_crop_uri,
             validation=validation,
             face=face,
             data=data,

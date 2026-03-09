@@ -74,8 +74,8 @@ class ProcessingError(BaseModel):
 class PassportProcessingResult(BaseModel):
     source: str
     trace_id: str
-    stored_original_uri: str | None = None
-    stored_aligned_uri: str | None = None
+    passport_image_uri: str | None = None
+    face_crop_uri: str | None = None
     validation: ValidationResult = Field(
         default_factory=lambda: ValidationResult(is_passport=False)
     )
