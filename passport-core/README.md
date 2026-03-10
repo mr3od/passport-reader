@@ -4,6 +4,12 @@ Core passport processing pipeline:
 
 `load -> validate -> detect face -> extract -> store`
 
+Unified successful result:
+
+- `passport_image_uri`
+- `face_crop_uri`
+- `data`
+
 ## Quickstart
 
 ```bash
@@ -21,6 +27,42 @@ The masked template is expected at `assets/passport_template_v2.jpg`.
 LLM extraction uses `pydantic-ai` against Requesty's OpenAI-compatible endpoint.
 Set `PASSPORT_REQUESTY_API_KEY` in `.env`.
 Structured schema output is enforced via `output_type=PassportData`.
+
+## Simulate agency input
+
+Process one or many uploaded images and return one unified result per image:
+
+```bash
+passport-core simulate-agency tests/fixtures/abdullah_passport.jpg tests/fixtures/salem_passport.jpeg --pretty
+```
+
+Write the JSON and Enjaz CSV outputs to disk:
+
+```bash
+passport-core process tests/fixtures/abdullah_passport.jpg \
+  tests/fixtures/salem_passport.jpeg \
+  --pretty \
+  --out-json agency_results.json \
+  --csv-output enjaz.csv
+```
+
+Test face cropping only:
+
+```bash
+passport-core crop-face tests/fixtures/abdullah_passport.jpg --pretty
+```
+
+Process every image inside an agency upload folder:
+
+```bash
+passport-core process-dir agency-input --pretty --out-json agency_results.json --csv-output enjaz.csv
+```
+
+Include nested subfolders too:
+
+```bash
+passport-core process-dir agency-input --recursive --pretty
+```
 
 ## Benchmark models
 

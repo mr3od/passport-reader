@@ -2,617 +2,818 @@
   "results": [
     {
       "model": "google/gemini-3.1-flash-lite-preview",
-      "samples": 6,
-      "field_accuracy": 0.8426,
-      "avg_latency_s": 24.9454,
-      "p95_latency_s": 22.7472,
-      "input_tokens": 11199,
-      "output_tokens": 1612,
-      "estimated_cost_usd": 0.005218,
+      "samples": 5,
+      "strict_accuracy": 0.8556,
+      "normalized_accuracy": 0.95,
+      "mrz_accuracy": 0.2,
+      "avg_latency_s": 8.1288,
+      "p95_latency_s": 6.3706,
+      "input_tokens": 9333,
+      "output_tokens": 1348,
+      "estimated_cost_usd": 0.004355,
       "sample_details": [
         {
           "image": "lana_passport.jpg",
-          "latency_s": 3.5285,
-          "matched_fields": 16,
+          "latency_s": 5.1745,
+          "strict_matched_fields": 16,
+          "normalized_matched_fields": 15,
+          "mrz_matched_fields": 1,
           "total_fields": 18,
-          "field_accuracy": 0.8889,
+          "enjaz_total_fields": 16,
+          "mrz_total_fields": 2,
+          "strict_accuracy": 0.8889,
+          "normalized_accuracy": 0.9375,
+          "mrz_accuracy": 0.5,
           "input_tokens": 1866,
-          "output_tokens": 273,
+          "output_tokens": 274,
           "fields": {
             "PassportNumber": {
               "expected": "15173185",
               "actual": "15173185",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "15173185",
+              "normalized_actual": "15173185",
+              "normalized_matched": true
             },
             "CountryCode": {
               "expected": "YEM",
               "actual": "YEM",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "YEM",
+              "normalized_actual": "YEM",
+              "normalized_matched": true
             },
             "MrzLine1": {
-              "expected": "P<YEMBIN SUWAIDAN<<LANA<ABDULLAH<SAEED<<<<<<<<<<<<<<",
-              "actual": "P<YEMBINSUWAIDAN<<LANA<ABDULLAH<SAEED<<<<<<<",
-              "matched": false
+              "expected": "P<YEMBINSUWAIDAN<<LANA<ABDULLAH<SAEED<<<<<<<<<<<<<<",
+              "actual": "P<YEMBINSUWAIDAN<<LANA<ABDULLAH<SAEED<<<<<<",
+              "strict_matched": false,
+              "normalized_expected": "P<YEMBINSUWAIDAN<<LANA<ABDULLAH<SAEED<<<<<<<<<<<<<<",
+              "normalized_actual": "P<YEMBINSUWAIDAN<<LANA<ABDULLAH<SAEED<<<<<<",
+              "normalized_matched": false
             },
             "MrzLine2": {
               "expected": "15173185<3YEM1202029F3012039<<<<<<<<<<<<<<02",
               "actual": "15173185<3YEM1202029F3012039<<<<<<<<<<<<<<02",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "15173185<3YEM1202029F3012039<<<<<<<<<<<<<<02",
+              "normalized_actual": "15173185<3YEM1202029F3012039<<<<<<<<<<<<<<02",
+              "normalized_matched": true
             },
             "SurnameAr": {
               "expected": "بن سويدان",
               "actual": "بن سويدان",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "بن سويدان",
+              "normalized_actual": "بن سويدان",
+              "normalized_matched": true
             },
             "GivenNamesAr": {
               "expected": "لناء عبدالله سعيد",
-              "actual": "لناء عبدالله سعيد",
-              "matched": true
+              "actual": "لانا عبدالله سعيد",
+              "strict_matched": false,
+              "normalized_expected": "سعيد عبدالله لناء",
+              "normalized_actual": "سعيد عبدالله لانا",
+              "normalized_matched": false
             },
             "SurnameEn": {
               "expected": "BIN SUWAIDAN",
               "actual": "BIN SUWAIDAN",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "BIN SUWAIDAN",
+              "normalized_actual": "BIN SUWAIDAN",
+              "normalized_matched": true
             },
             "GivenNamesEn": {
               "expected": "LANA ABDULLAH SAEED",
               "actual": "LANA ABDULLAH SAEED",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "ABDULLAH LANA SAEED",
+              "normalized_actual": "ABDULLAH LANA SAEED",
+              "normalized_matched": true
             },
             "DateOfBirth": {
               "expected": "02/02/2012",
               "actual": "02/02/2012",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "02/02/2012",
+              "normalized_actual": "02/02/2012",
+              "normalized_matched": true
             },
             "PlaceOfBirthAr": {
               "expected": "اليمن - حضرموت",
               "actual": "اليمن - حضرموت",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "اليمن حضرموت",
+              "normalized_actual": "اليمن حضرموت",
+              "normalized_matched": true
             },
             "PlaceOfBirthEn": {
               "expected": "HADRAMOUT - YEM",
-              "actual": "HADRAMOUT YEM",
-              "matched": false
+              "actual": "HADRAMOUT - YEM",
+              "strict_matched": true,
+              "normalized_expected": "HADRAMOUT YEM",
+              "normalized_actual": "HADRAMOUT YEM",
+              "normalized_matched": true
             },
             "Sex": {
               "expected": "F",
               "actual": "F",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "F",
+              "normalized_actual": "F",
+              "normalized_matched": true
             },
             "DateOfIssue": {
               "expected": "03/12/2024",
               "actual": "03/12/2024",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "03/12/2024",
+              "normalized_actual": "03/12/2024",
+              "normalized_matched": true
             },
             "DateOfExpiry": {
               "expected": "03/12/2030",
               "actual": "03/12/2030",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "03/12/2030",
+              "normalized_actual": "03/12/2030",
+              "normalized_matched": true
             },
             "ProfessionAr": {
               "expected": "طالبة",
               "actual": "طالبة",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "طالبة",
+              "normalized_actual": "طالبة",
+              "normalized_matched": true
             },
             "ProfessionEn": {
               "expected": "STUDENT",
               "actual": "STUDENT",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "STUDENT",
+              "normalized_actual": "STUDENT",
+              "normalized_matched": true
             },
             "IssuingAuthorityAr": {
               "expected": "المكلا",
               "actual": "المكلا",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "المكلا",
+              "normalized_actual": "المكلا",
+              "normalized_matched": true
             },
             "IssuingAuthorityEn": {
               "expected": "MUKALLA",
               "actual": "MUKALLA",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "MUKALLA",
+              "normalized_actual": "MUKALLA",
+              "normalized_matched": true
             }
           }
         },
         {
           "image": "fatima_passport.jpg",
-          "latency_s": 14.6698,
-          "matched_fields": 14,
+          "latency_s": 6.3706,
+          "strict_matched_fields": 16,
+          "normalized_matched_fields": 16,
+          "mrz_matched_fields": 0,
           "total_fields": 18,
-          "field_accuracy": 0.7778,
+          "enjaz_total_fields": 16,
+          "mrz_total_fields": 2,
+          "strict_accuracy": 0.8889,
+          "normalized_accuracy": 1.0,
+          "mrz_accuracy": 0.0,
           "input_tokens": 1881,
-          "output_tokens": 268,
+          "output_tokens": 269,
           "fields": {
             "PassportNumber": {
               "expected": "12417816",
               "actual": "12417816",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "12417816",
+              "normalized_actual": "12417816",
+              "normalized_matched": true
             },
             "CountryCode": {
               "expected": "YEM",
               "actual": "YEM",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "YEM",
+              "normalized_actual": "YEM",
+              "normalized_matched": true
             },
             "MrzLine1": {
-              "expected": "P<YEMBINSUWAIDAN<<FATIMA<ALI<OMAR<<<<<<<<<<<<<<",
+              "expected": "P<YEMBINSUWEDAN<<FATIMA<ALI<OMAR<<<<<<<<<<<<<<",
               "actual": "P<YEMBINSUWEDAN<<FATIMA<ALI<OMAR<<<<<<<<<<<<",
-              "matched": false
+              "strict_matched": false,
+              "normalized_expected": "P<YEMBINSUWEDAN<<FATIMA<ALI<OMAR<<<<<<<<<<<<<<",
+              "normalized_actual": "P<YEMBINSUWEDAN<<FATIMA<ALI<OMAR<<<<<<<<<<<<",
+              "normalized_matched": false
             },
             "MrzLine2": {
               "expected": "12417816<8YEM7601015F2905246<<<<<<<<<<<<08",
               "actual": "12417816<8YEM7601015F2905246<<<<<<<<<<<<<<08",
-              "matched": false
+              "strict_matched": false,
+              "normalized_expected": "12417816<8YEM7601015F2905246<<<<<<<<<<<<08",
+              "normalized_actual": "12417816<8YEM7601015F2905246<<<<<<<<<<<<<<08",
+              "normalized_matched": false
             },
             "SurnameAr": {
               "expected": "بن سويدان",
               "actual": "بن سويدان",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "بن سويدان",
+              "normalized_actual": "بن سويدان",
+              "normalized_matched": true
             },
             "GivenNamesAr": {
               "expected": "فاطمه علي عمر",
               "actual": "فاطمه علي عمر",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "علي عمر فاطمه",
+              "normalized_actual": "علي عمر فاطمه",
+              "normalized_matched": true
             },
             "SurnameEn": {
-              "expected": "BIN SUWAIDAN",
+              "expected": "BIN SUWEDAN",
               "actual": "BIN SUWEDAN",
-              "matched": false
+              "strict_matched": true,
+              "normalized_expected": "BIN SUWEDAN",
+              "normalized_actual": "BIN SUWEDAN",
+              "normalized_matched": true
             },
             "GivenNamesEn": {
               "expected": "FATIMA ALI OMAR",
               "actual": "FATIMA ALI OMAR",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "ALI FATIMA OMAR",
+              "normalized_actual": "ALI FATIMA OMAR",
+              "normalized_matched": true
             },
             "DateOfBirth": {
               "expected": "01/01/1976",
               "actual": "01/01/1976",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "01/01/1976",
+              "normalized_actual": "01/01/1976",
+              "normalized_matched": true
             },
             "PlaceOfBirthAr": {
               "expected": "اليمن - حضرموت",
-              "actual": "حضرموت - اليمن",
-              "matched": false
+              "actual": "اليمن - حضرموت",
+              "strict_matched": true,
+              "normalized_expected": "اليمن حضرموت",
+              "normalized_actual": "اليمن حضرموت",
+              "normalized_matched": true
             },
             "PlaceOfBirthEn": {
               "expected": "HADRAMOUT - YEM",
               "actual": "HADRAMOUT - YEM",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "HADRAMOUT YEM",
+              "normalized_actual": "HADRAMOUT YEM",
+              "normalized_matched": true
             },
             "Sex": {
               "expected": "F",
               "actual": "F",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "F",
+              "normalized_actual": "F",
+              "normalized_matched": true
             },
             "DateOfIssue": {
               "expected": "24/05/2023",
               "actual": "24/05/2023",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "24/05/2023",
+              "normalized_actual": "24/05/2023",
+              "normalized_matched": true
             },
             "DateOfExpiry": {
               "expected": "24/05/2029",
               "actual": "24/05/2029",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "24/05/2029",
+              "normalized_actual": "24/05/2029",
+              "normalized_matched": true
             },
             "ProfessionAr": {
               "expected": "ربة بيت",
               "actual": "ربة بيت",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "بيت ربة",
+              "normalized_actual": "بيت ربة",
+              "normalized_matched": true
             },
             "ProfessionEn": {
               "expected": "HOUSE WIFE",
               "actual": "HOUSE WIFE",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "HOUSE WIFE",
+              "normalized_actual": "HOUSE WIFE",
+              "normalized_matched": true
             },
             "IssuingAuthorityAr": {
               "expected": "المكلا",
               "actual": "المكلا",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "المكلا",
+              "normalized_actual": "المكلا",
+              "normalized_matched": true
             },
             "IssuingAuthorityEn": {
               "expected": "MUKALLA",
               "actual": "MUKALLA",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "MUKALLA",
+              "normalized_actual": "MUKALLA",
+              "normalized_matched": true
             }
           }
         },
         {
           "image": "omar_abdul_passport.jpg",
-          "latency_s": 21.1815,
-          "matched_fields": 13,
+          "latency_s": 5.8207,
+          "strict_matched_fields": 13,
+          "normalized_matched_fields": 14,
+          "mrz_matched_fields": 0,
           "total_fields": 18,
-          "field_accuracy": 0.7222,
+          "enjaz_total_fields": 16,
+          "mrz_total_fields": 2,
+          "strict_accuracy": 0.7222,
+          "normalized_accuracy": 0.875,
+          "mrz_accuracy": 0.0,
           "input_tokens": 1854,
           "output_tokens": 273,
           "fields": {
             "PassportNumber": {
               "expected": "05384202",
               "actual": "05384202",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "05384202",
+              "normalized_actual": "05384202",
+              "normalized_matched": true
             },
             "CountryCode": {
               "expected": "YEM",
               "actual": "YEM",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "YEM",
+              "normalized_actual": "YEM",
+              "normalized_matched": true
             },
             "MrzLine1": {
               "expected": "P<YEMSAEED<<OMAR<ABDULHAKIM<HIZAM<<<<<<<<<<<<<<",
               "actual": "PRYEMSAEED<<OMAR<ABDULHAKIM<HIZAM<<<<<<<<<<<<",
-              "matched": false
+              "strict_matched": false,
+              "normalized_expected": "P<YEMSAEED<<OMAR<ABDULHAKIM<HIZAM<<<<<<<<<<<<<<",
+              "normalized_actual": "PRYEMSAEED<<OMAR<ABDULHAKIM<HIZAM<<<<<<<<<<<<",
+              "normalized_matched": false
             },
             "MrzLine2": {
               "expected": "05384202<4YEM8909017M1910315<<<<<<<<<<<<06",
               "actual": "05384202<4YEM8909017M1910315<<<<<<<<<<<<<<06",
-              "matched": false
+              "strict_matched": false,
+              "normalized_expected": "05384202<4YEM8909017M1910315<<<<<<<<<<<<06",
+              "normalized_actual": "05384202<4YEM8909017M1910315<<<<<<<<<<<<<<06",
+              "normalized_matched": false
             },
             "SurnameAr": {
               "expected": "سعيد",
               "actual": "سعيد",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "سعيد",
+              "normalized_actual": "سعيد",
+              "normalized_matched": true
             },
             "GivenNamesAr": {
               "expected": "عمر عبدالحكيم حزام",
               "actual": "عمر عبدالحكيم حزام",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "حزام عبدالحكيم عمر",
+              "normalized_actual": "حزام عبدالحكيم عمر",
+              "normalized_matched": true
             },
             "SurnameEn": {
               "expected": "SAEED",
               "actual": "SAEED",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "SAEED",
+              "normalized_actual": "SAEED",
+              "normalized_matched": true
             },
             "GivenNamesEn": {
               "expected": "OMAR ABDULHAKIM HIZAM",
               "actual": "OMAR ABDULHAKIM HIZAM",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "ABDULHAKIM HIZAM OMAR",
+              "normalized_actual": "ABDULHAKIM HIZAM OMAR",
+              "normalized_matched": true
             },
             "DateOfBirth": {
               "expected": "01/09/1989",
               "actual": "01/09/1989",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "01/09/1989",
+              "normalized_actual": "01/09/1989",
+              "normalized_matched": true
             },
             "PlaceOfBirthAr": {
               "expected": "الشمايتين - تعز",
               "actual": "الشمايتين - تعز",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "الشمايتين تعز",
+              "normalized_actual": "الشمايتين تعز",
+              "normalized_matched": true
             },
             "PlaceOfBirthEn": {
               "expected": "TAIZ - YEM",
               "actual": "TAIZ - YEM",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "TAIZ YEM",
+              "normalized_actual": "TAIZ YEM",
+              "normalized_matched": true
             },
             "Sex": {
               "expected": "M",
               "actual": null,
-              "matched": false
+              "strict_matched": false,
+              "normalized_expected": "M",
+              "normalized_actual": null,
+              "normalized_matched": false
             },
             "DateOfIssue": {
               "expected": "31/10/2013",
               "actual": "31/10/2013",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "31/10/2013",
+              "normalized_actual": "31/10/2013",
+              "normalized_matched": true
             },
             "DateOfExpiry": {
               "expected": "31/10/2019",
               "actual": "31/10/2019",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "31/10/2019",
+              "normalized_actual": "31/10/2019",
+              "normalized_matched": true
             },
             "ProfessionAr": {
               "expected": "طالب",
               "actual": "طالب",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "طالب",
+              "normalized_actual": "طالب",
+              "normalized_matched": true
             },
             "ProfessionEn": {
               "expected": "STUDENT",
               "actual": "STUDENT,Sex:",
-              "matched": false
+              "strict_matched": false,
+              "normalized_expected": "STUDENT",
+              "normalized_actual": "STUDENTSEX",
+              "normalized_matched": false
             },
             "IssuingAuthorityAr": {
               "expected": "صنعاء",
               "actual": "صنعاء",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "صنعاء",
+              "normalized_actual": "صنعاء",
+              "normalized_matched": true
             },
             "IssuingAuthorityEn": {
               "expected": "SANAA",
               "actual": "SANA'A",
-              "matched": false
+              "strict_matched": false,
+              "normalized_expected": "SANAA",
+              "normalized_actual": "SANAA",
+              "normalized_matched": true
             }
           }
         },
         {
           "image": "salem_passport.jpg",
-          "latency_s": 14.5397,
-          "matched_fields": 16,
+          "latency_s": 4.5009,
+          "strict_matched_fields": 15,
+          "normalized_matched_fields": 15,
+          "mrz_matched_fields": 0,
           "total_fields": 18,
-          "field_accuracy": 0.8889,
+          "enjaz_total_fields": 16,
+          "mrz_total_fields": 2,
+          "strict_accuracy": 0.8333,
+          "normalized_accuracy": 0.9375,
+          "mrz_accuracy": 0.0,
           "input_tokens": 1866,
           "output_tokens": 266,
           "fields": {
             "PassportNumber": {
               "expected": "09463730",
               "actual": "09463730",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "09463730",
+              "normalized_actual": "09463730",
+              "normalized_matched": true
             },
             "CountryCode": {
               "expected": "YEM",
               "actual": "YEM",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "YEM",
+              "normalized_actual": "YEM",
+              "normalized_matched": true
             },
             "MrzLine1": {
               "expected": "P<YEMALAKBARI<<SALEM<ABDULLAH<OMAR<<<<<<<<<<<",
-              "actual": "P<YEMALAKBARI<<SALEM<ABDULLAH<OMAR<<<<<<<<<<<",
-              "matched": true
+              "actual": "P<YEMALAKBARI<<SALEM<ABDULLAH<OMAR<<<<<<<<<<<<",
+              "strict_matched": false,
+              "normalized_expected": "P<YEMALAKBARI<<SALEM<ABDULLAH<OMAR<<<<<<<<<<<",
+              "normalized_actual": "P<YEMALAKBARI<<SALEM<ABDULLAH<OMAR<<<<<<<<<<<<",
+              "normalized_matched": false
             },
             "MrzLine2": {
               "expected": "09463730<0YEM8411095M2609278<<<<<<<<<<<<02",
               "actual": "09463730<0YEM8411095M2609278<<<<<<<<<<<<<<<02",
-              "matched": false
+              "strict_matched": false,
+              "normalized_expected": "09463730<0YEM8411095M2609278<<<<<<<<<<<<02",
+              "normalized_actual": "09463730<0YEM8411095M2609278<<<<<<<<<<<<<<<02",
+              "normalized_matched": false
             },
             "SurnameAr": {
               "expected": "العكبري",
               "actual": "العكبري",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "العكبري",
+              "normalized_actual": "العكبري",
+              "normalized_matched": true
             },
             "GivenNamesAr": {
               "expected": "سالم عبدالله عمر",
               "actual": "سالم عبدالله عمر",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "سالم عبدالله عمر",
+              "normalized_actual": "سالم عبدالله عمر",
+              "normalized_matched": true
             },
             "SurnameEn": {
               "expected": "AL-AKBARI",
               "actual": "AL-AKBARI",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "ALAKBARI",
+              "normalized_actual": "ALAKBARI",
+              "normalized_matched": true
             },
             "GivenNamesEn": {
               "expected": "SALEM ABDULLAH OMAR",
               "actual": "SALEM ABDULLAH OMAR",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "ABDULLAH OMAR SALEM",
+              "normalized_actual": "ABDULLAH OMAR SALEM",
+              "normalized_matched": true
             },
             "DateOfBirth": {
               "expected": "09/11/1984",
               "actual": "09/11/1984",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "09/11/1984",
+              "normalized_actual": "09/11/1984",
+              "normalized_matched": true
             },
             "PlaceOfBirthAr": {
               "expected": "السعودية - جده",
               "actual": "جده",
-              "matched": false
+              "strict_matched": false,
+              "normalized_expected": "السعودية جده",
+              "normalized_actual": "جده",
+              "normalized_matched": false
             },
             "PlaceOfBirthEn": {
               "expected": "JEDDAH - KSA",
               "actual": "JEDDAH - KSA",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "JEDDAH KSA",
+              "normalized_actual": "JEDDAH KSA",
+              "normalized_matched": true
             },
             "Sex": {
               "expected": "M",
               "actual": "M",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "M",
+              "normalized_actual": "M",
+              "normalized_matched": true
             },
             "DateOfIssue": {
               "expected": "27/09/2020",
               "actual": "27/09/2020",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "27/09/2020",
+              "normalized_actual": "27/09/2020",
+              "normalized_matched": true
             },
             "DateOfExpiry": {
               "expected": "27/09/2026",
               "actual": "27/09/2026",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "27/09/2026",
+              "normalized_actual": "27/09/2026",
+              "normalized_matched": true
             },
             "ProfessionAr": {
               "expected": "طالب",
               "actual": "طالب",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "طالب",
+              "normalized_actual": "طالب",
+              "normalized_matched": true
             },
             "ProfessionEn": {
               "expected": "STUDENT",
               "actual": "STUDENT",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "STUDENT",
+              "normalized_actual": "STUDENT",
+              "normalized_matched": true
             },
             "IssuingAuthorityAr": {
               "expected": "سيئون",
               "actual": "سيئون",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "سيئون",
+              "normalized_actual": "سيئون",
+              "normalized_matched": true
             },
             "IssuingAuthorityEn": {
               "expected": "SEYION",
               "actual": "SEYION",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "SEYION",
+              "normalized_actual": "SEYION",
+              "normalized_matched": true
             }
           }
         },
         {
           "image": "abdullah_passport.jpg",
-          "latency_s": 73.0058,
-          "matched_fields": 17,
+          "latency_s": 18.7772,
+          "strict_matched_fields": 17,
+          "normalized_matched_fields": 16,
+          "mrz_matched_fields": 1,
           "total_fields": 18,
-          "field_accuracy": 0.9444,
+          "enjaz_total_fields": 16,
+          "mrz_total_fields": 2,
+          "strict_accuracy": 0.9444,
+          "normalized_accuracy": 1.0,
+          "mrz_accuracy": 0.5,
           "input_tokens": 1866,
           "output_tokens": 266,
           "fields": {
             "PassportNumber": {
               "expected": "11648820",
               "actual": "11648820",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "11648820",
+              "normalized_actual": "11648820",
+              "normalized_matched": true
             },
             "CountryCode": {
               "expected": "YEM",
               "actual": "YEM",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "YEM",
+              "normalized_actual": "YEM",
+              "normalized_matched": true
             },
             "MrzLine1": {
               "expected": "P<YEMMOHSEN<<ABDULLAH<MURSHED<HASAN<<<<<<<<<<<<<<",
               "actual": "P<YEMMOHSEN<<ABDULLAH<MURSHED<HASAN<<<<<<<<<<",
-              "matched": false
+              "strict_matched": false,
+              "normalized_expected": "P<YEMMOHSEN<<ABDULLAH<MURSHED<HASAN<<<<<<<<<<<<<<",
+              "normalized_actual": "P<YEMMOHSEN<<ABDULLAH<MURSHED<HASAN<<<<<<<<<<",
+              "normalized_matched": false
             },
             "MrzLine2": {
               "expected": "11648820<0YEM8306306M2905110<<<<<<<<<<<<<<06",
               "actual": "11648820<0YEM8306306M2905110<<<<<<<<<<<<<<06",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "11648820<0YEM8306306M2905110<<<<<<<<<<<<<<06",
+              "normalized_actual": "11648820<0YEM8306306M2905110<<<<<<<<<<<<<<06",
+              "normalized_matched": true
             },
             "SurnameAr": {
               "expected": "محسن",
               "actual": "محسن",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "محسن",
+              "normalized_actual": "محسن",
+              "normalized_matched": true
             },
             "GivenNamesAr": {
               "expected": "عبدالله مرشد حسن",
               "actual": "عبدالله مرشد حسن",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "حسن عبدالله مرشد",
+              "normalized_actual": "حسن عبدالله مرشد",
+              "normalized_matched": true
             },
             "SurnameEn": {
               "expected": "MOHSEN",
               "actual": "MOHSEN",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "MOHSEN",
+              "normalized_actual": "MOHSEN",
+              "normalized_matched": true
             },
             "GivenNamesEn": {
               "expected": "ABDULLAH MURSHED HASAN",
               "actual": "ABDULLAH MURSHED HASAN",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "ABDULLAH HASAN MURSHED",
+              "normalized_actual": "ABDULLAH HASAN MURSHED",
+              "normalized_matched": true
             },
             "DateOfBirth": {
               "expected": "30/06/1983",
               "actual": "30/06/1983",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "30/06/1983",
+              "normalized_actual": "30/06/1983",
+              "normalized_matched": true
             },
             "PlaceOfBirthAr": {
               "expected": "اليمن - ريمة",
               "actual": "اليمن - ريمة",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "اليمن ريمة",
+              "normalized_actual": "اليمن ريمة",
+              "normalized_matched": true
             },
             "PlaceOfBirthEn": {
               "expected": "RAIMAH - YEM",
               "actual": "RAIMAH - YEM",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "RAIMAH YEM",
+              "normalized_actual": "RAIMAH YEM",
+              "normalized_matched": true
             },
             "Sex": {
               "expected": "M",
               "actual": "M",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "M",
+              "normalized_actual": "M",
+              "normalized_matched": true
             },
             "DateOfIssue": {
               "expected": "11/05/2023",
               "actual": "11/05/2023",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "11/05/2023",
+              "normalized_actual": "11/05/2023",
+              "normalized_matched": true
             },
             "DateOfExpiry": {
               "expected": "11/05/2029",
               "actual": "11/05/2029",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "11/05/2029",
+              "normalized_actual": "11/05/2029",
+              "normalized_matched": true
             },
             "ProfessionAr": {
               "expected": "طالب",
               "actual": "طالب",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "طالب",
+              "normalized_actual": "طالب",
+              "normalized_matched": true
             },
             "ProfessionEn": {
               "expected": "STUDENT",
               "actual": "STUDENT",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "STUDENT",
+              "normalized_actual": "STUDENT",
+              "normalized_matched": true
             },
             "IssuingAuthorityAr": {
               "expected": "القاهرة",
               "actual": "القاهرة",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "القاهرة",
+              "normalized_actual": "القاهرة",
+              "normalized_matched": true
             },
             "IssuingAuthorityEn": {
               "expected": "CAIRO",
               "actual": "CAIRO",
-              "matched": true
-            }
-          }
-        },
-        {
-          "image": "salem_passport.jpg",
-          "latency_s": 22.7472,
-          "matched_fields": 15,
-          "total_fields": 18,
-          "field_accuracy": 0.8333,
-          "input_tokens": 1866,
-          "output_tokens": 266,
-          "fields": {
-            "PassportNumber": {
-              "expected": "09463730",
-              "actual": "09463730",
-              "matched": true
-            },
-            "CountryCode": {
-              "expected": "YEM",
-              "actual": "YEM",
-              "matched": true
-            },
-            "MrzLine1": {
-              "expected": "P<YEMALAKBARI<<SALEM<ABDULLAH<OMAR<<<<<<<<<<<",
-              "actual": "P<YEMALAKBARI<<SALEM<ABDULLAH<OMAR<<<<<<<<<<<<",
-              "matched": false
-            },
-            "MrzLine2": {
-              "expected": "09463730<0YEM8411095M2609278<<<<<<<<<<<<02",
-              "actual": "09463730<0YEM8411095M2609278<<<<<<<<<<<<<<02",
-              "matched": false
-            },
-            "SurnameAr": {
-              "expected": "العكبري",
-              "actual": "العكبري",
-              "matched": true
-            },
-            "GivenNamesAr": {
-              "expected": "سالم عبدالله عمر",
-              "actual": "سالم عبدالله عمر",
-              "matched": true
-            },
-            "SurnameEn": {
-              "expected": "AL-AKBARI",
-              "actual": "AL-AKBARI",
-              "matched": true
-            },
-            "GivenNamesEn": {
-              "expected": "SALEM ABDULLAH OMAR",
-              "actual": "SALEM ABDULLAH OMAR",
-              "matched": true
-            },
-            "DateOfBirth": {
-              "expected": "09/11/1984",
-              "actual": "09/11/1984",
-              "matched": true
-            },
-            "PlaceOfBirthAr": {
-              "expected": "السعودية - جده",
-              "actual": "جده",
-              "matched": false
-            },
-            "PlaceOfBirthEn": {
-              "expected": "JEDDAH - KSA",
-              "actual": "JEDDAH - KSA",
-              "matched": true
-            },
-            "Sex": {
-              "expected": "M",
-              "actual": "M",
-              "matched": true
-            },
-            "DateOfIssue": {
-              "expected": "27/09/2020",
-              "actual": "27/09/2020",
-              "matched": true
-            },
-            "DateOfExpiry": {
-              "expected": "27/09/2026",
-              "actual": "27/09/2026",
-              "matched": true
-            },
-            "ProfessionAr": {
-              "expected": "طالب",
-              "actual": "طالب",
-              "matched": true
-            },
-            "ProfessionEn": {
-              "expected": "STUDENT",
-              "actual": "STUDENT",
-              "matched": true
-            },
-            "IssuingAuthorityAr": {
-              "expected": "سيئون",
-              "actual": "سيئون",
-              "matched": true
-            },
-            "IssuingAuthorityEn": {
-              "expected": "SEYION",
-              "actual": "SEYION",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "CAIRO",
+              "normalized_actual": "CAIRO",
+              "normalized_matched": true
             }
           }
         }
@@ -622,617 +823,818 @@
   "ranking": [
     {
       "model": "google/gemini-3.1-flash-lite-preview",
-      "samples": 6,
-      "field_accuracy": 0.8426,
-      "avg_latency_s": 24.9454,
-      "p95_latency_s": 22.7472,
-      "input_tokens": 11199,
-      "output_tokens": 1612,
-      "estimated_cost_usd": 0.005218,
+      "samples": 5,
+      "strict_accuracy": 0.8556,
+      "normalized_accuracy": 0.95,
+      "mrz_accuracy": 0.2,
+      "avg_latency_s": 8.1288,
+      "p95_latency_s": 6.3706,
+      "input_tokens": 9333,
+      "output_tokens": 1348,
+      "estimated_cost_usd": 0.004355,
       "sample_details": [
         {
           "image": "lana_passport.jpg",
-          "latency_s": 3.5285,
-          "matched_fields": 16,
+          "latency_s": 5.1745,
+          "strict_matched_fields": 16,
+          "normalized_matched_fields": 15,
+          "mrz_matched_fields": 1,
           "total_fields": 18,
-          "field_accuracy": 0.8889,
+          "enjaz_total_fields": 16,
+          "mrz_total_fields": 2,
+          "strict_accuracy": 0.8889,
+          "normalized_accuracy": 0.9375,
+          "mrz_accuracy": 0.5,
           "input_tokens": 1866,
-          "output_tokens": 273,
+          "output_tokens": 274,
           "fields": {
             "PassportNumber": {
               "expected": "15173185",
               "actual": "15173185",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "15173185",
+              "normalized_actual": "15173185",
+              "normalized_matched": true
             },
             "CountryCode": {
               "expected": "YEM",
               "actual": "YEM",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "YEM",
+              "normalized_actual": "YEM",
+              "normalized_matched": true
             },
             "MrzLine1": {
-              "expected": "P<YEMBIN SUWAIDAN<<LANA<ABDULLAH<SAEED<<<<<<<<<<<<<<",
-              "actual": "P<YEMBINSUWAIDAN<<LANA<ABDULLAH<SAEED<<<<<<<",
-              "matched": false
+              "expected": "P<YEMBINSUWAIDAN<<LANA<ABDULLAH<SAEED<<<<<<<<<<<<<<",
+              "actual": "P<YEMBINSUWAIDAN<<LANA<ABDULLAH<SAEED<<<<<<",
+              "strict_matched": false,
+              "normalized_expected": "P<YEMBINSUWAIDAN<<LANA<ABDULLAH<SAEED<<<<<<<<<<<<<<",
+              "normalized_actual": "P<YEMBINSUWAIDAN<<LANA<ABDULLAH<SAEED<<<<<<",
+              "normalized_matched": false
             },
             "MrzLine2": {
               "expected": "15173185<3YEM1202029F3012039<<<<<<<<<<<<<<02",
               "actual": "15173185<3YEM1202029F3012039<<<<<<<<<<<<<<02",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "15173185<3YEM1202029F3012039<<<<<<<<<<<<<<02",
+              "normalized_actual": "15173185<3YEM1202029F3012039<<<<<<<<<<<<<<02",
+              "normalized_matched": true
             },
             "SurnameAr": {
               "expected": "بن سويدان",
               "actual": "بن سويدان",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "بن سويدان",
+              "normalized_actual": "بن سويدان",
+              "normalized_matched": true
             },
             "GivenNamesAr": {
               "expected": "لناء عبدالله سعيد",
-              "actual": "لناء عبدالله سعيد",
-              "matched": true
+              "actual": "لانا عبدالله سعيد",
+              "strict_matched": false,
+              "normalized_expected": "سعيد عبدالله لناء",
+              "normalized_actual": "سعيد عبدالله لانا",
+              "normalized_matched": false
             },
             "SurnameEn": {
               "expected": "BIN SUWAIDAN",
               "actual": "BIN SUWAIDAN",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "BIN SUWAIDAN",
+              "normalized_actual": "BIN SUWAIDAN",
+              "normalized_matched": true
             },
             "GivenNamesEn": {
               "expected": "LANA ABDULLAH SAEED",
               "actual": "LANA ABDULLAH SAEED",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "ABDULLAH LANA SAEED",
+              "normalized_actual": "ABDULLAH LANA SAEED",
+              "normalized_matched": true
             },
             "DateOfBirth": {
               "expected": "02/02/2012",
               "actual": "02/02/2012",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "02/02/2012",
+              "normalized_actual": "02/02/2012",
+              "normalized_matched": true
             },
             "PlaceOfBirthAr": {
               "expected": "اليمن - حضرموت",
               "actual": "اليمن - حضرموت",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "اليمن حضرموت",
+              "normalized_actual": "اليمن حضرموت",
+              "normalized_matched": true
             },
             "PlaceOfBirthEn": {
               "expected": "HADRAMOUT - YEM",
-              "actual": "HADRAMOUT YEM",
-              "matched": false
+              "actual": "HADRAMOUT - YEM",
+              "strict_matched": true,
+              "normalized_expected": "HADRAMOUT YEM",
+              "normalized_actual": "HADRAMOUT YEM",
+              "normalized_matched": true
             },
             "Sex": {
               "expected": "F",
               "actual": "F",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "F",
+              "normalized_actual": "F",
+              "normalized_matched": true
             },
             "DateOfIssue": {
               "expected": "03/12/2024",
               "actual": "03/12/2024",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "03/12/2024",
+              "normalized_actual": "03/12/2024",
+              "normalized_matched": true
             },
             "DateOfExpiry": {
               "expected": "03/12/2030",
               "actual": "03/12/2030",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "03/12/2030",
+              "normalized_actual": "03/12/2030",
+              "normalized_matched": true
             },
             "ProfessionAr": {
               "expected": "طالبة",
               "actual": "طالبة",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "طالبة",
+              "normalized_actual": "طالبة",
+              "normalized_matched": true
             },
             "ProfessionEn": {
               "expected": "STUDENT",
               "actual": "STUDENT",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "STUDENT",
+              "normalized_actual": "STUDENT",
+              "normalized_matched": true
             },
             "IssuingAuthorityAr": {
               "expected": "المكلا",
               "actual": "المكلا",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "المكلا",
+              "normalized_actual": "المكلا",
+              "normalized_matched": true
             },
             "IssuingAuthorityEn": {
               "expected": "MUKALLA",
               "actual": "MUKALLA",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "MUKALLA",
+              "normalized_actual": "MUKALLA",
+              "normalized_matched": true
             }
           }
         },
         {
           "image": "fatima_passport.jpg",
-          "latency_s": 14.6698,
-          "matched_fields": 14,
+          "latency_s": 6.3706,
+          "strict_matched_fields": 16,
+          "normalized_matched_fields": 16,
+          "mrz_matched_fields": 0,
           "total_fields": 18,
-          "field_accuracy": 0.7778,
+          "enjaz_total_fields": 16,
+          "mrz_total_fields": 2,
+          "strict_accuracy": 0.8889,
+          "normalized_accuracy": 1.0,
+          "mrz_accuracy": 0.0,
           "input_tokens": 1881,
-          "output_tokens": 268,
+          "output_tokens": 269,
           "fields": {
             "PassportNumber": {
               "expected": "12417816",
               "actual": "12417816",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "12417816",
+              "normalized_actual": "12417816",
+              "normalized_matched": true
             },
             "CountryCode": {
               "expected": "YEM",
               "actual": "YEM",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "YEM",
+              "normalized_actual": "YEM",
+              "normalized_matched": true
             },
             "MrzLine1": {
-              "expected": "P<YEMBINSUWAIDAN<<FATIMA<ALI<OMAR<<<<<<<<<<<<<<",
+              "expected": "P<YEMBINSUWEDAN<<FATIMA<ALI<OMAR<<<<<<<<<<<<<<",
               "actual": "P<YEMBINSUWEDAN<<FATIMA<ALI<OMAR<<<<<<<<<<<<",
-              "matched": false
+              "strict_matched": false,
+              "normalized_expected": "P<YEMBINSUWEDAN<<FATIMA<ALI<OMAR<<<<<<<<<<<<<<",
+              "normalized_actual": "P<YEMBINSUWEDAN<<FATIMA<ALI<OMAR<<<<<<<<<<<<",
+              "normalized_matched": false
             },
             "MrzLine2": {
               "expected": "12417816<8YEM7601015F2905246<<<<<<<<<<<<08",
               "actual": "12417816<8YEM7601015F2905246<<<<<<<<<<<<<<08",
-              "matched": false
+              "strict_matched": false,
+              "normalized_expected": "12417816<8YEM7601015F2905246<<<<<<<<<<<<08",
+              "normalized_actual": "12417816<8YEM7601015F2905246<<<<<<<<<<<<<<08",
+              "normalized_matched": false
             },
             "SurnameAr": {
               "expected": "بن سويدان",
               "actual": "بن سويدان",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "بن سويدان",
+              "normalized_actual": "بن سويدان",
+              "normalized_matched": true
             },
             "GivenNamesAr": {
               "expected": "فاطمه علي عمر",
               "actual": "فاطمه علي عمر",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "علي عمر فاطمه",
+              "normalized_actual": "علي عمر فاطمه",
+              "normalized_matched": true
             },
             "SurnameEn": {
-              "expected": "BIN SUWAIDAN",
+              "expected": "BIN SUWEDAN",
               "actual": "BIN SUWEDAN",
-              "matched": false
+              "strict_matched": true,
+              "normalized_expected": "BIN SUWEDAN",
+              "normalized_actual": "BIN SUWEDAN",
+              "normalized_matched": true
             },
             "GivenNamesEn": {
               "expected": "FATIMA ALI OMAR",
               "actual": "FATIMA ALI OMAR",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "ALI FATIMA OMAR",
+              "normalized_actual": "ALI FATIMA OMAR",
+              "normalized_matched": true
             },
             "DateOfBirth": {
               "expected": "01/01/1976",
               "actual": "01/01/1976",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "01/01/1976",
+              "normalized_actual": "01/01/1976",
+              "normalized_matched": true
             },
             "PlaceOfBirthAr": {
               "expected": "اليمن - حضرموت",
-              "actual": "حضرموت - اليمن",
-              "matched": false
+              "actual": "اليمن - حضرموت",
+              "strict_matched": true,
+              "normalized_expected": "اليمن حضرموت",
+              "normalized_actual": "اليمن حضرموت",
+              "normalized_matched": true
             },
             "PlaceOfBirthEn": {
               "expected": "HADRAMOUT - YEM",
               "actual": "HADRAMOUT - YEM",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "HADRAMOUT YEM",
+              "normalized_actual": "HADRAMOUT YEM",
+              "normalized_matched": true
             },
             "Sex": {
               "expected": "F",
               "actual": "F",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "F",
+              "normalized_actual": "F",
+              "normalized_matched": true
             },
             "DateOfIssue": {
               "expected": "24/05/2023",
               "actual": "24/05/2023",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "24/05/2023",
+              "normalized_actual": "24/05/2023",
+              "normalized_matched": true
             },
             "DateOfExpiry": {
               "expected": "24/05/2029",
               "actual": "24/05/2029",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "24/05/2029",
+              "normalized_actual": "24/05/2029",
+              "normalized_matched": true
             },
             "ProfessionAr": {
               "expected": "ربة بيت",
               "actual": "ربة بيت",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "بيت ربة",
+              "normalized_actual": "بيت ربة",
+              "normalized_matched": true
             },
             "ProfessionEn": {
               "expected": "HOUSE WIFE",
               "actual": "HOUSE WIFE",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "HOUSE WIFE",
+              "normalized_actual": "HOUSE WIFE",
+              "normalized_matched": true
             },
             "IssuingAuthorityAr": {
               "expected": "المكلا",
               "actual": "المكلا",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "المكلا",
+              "normalized_actual": "المكلا",
+              "normalized_matched": true
             },
             "IssuingAuthorityEn": {
               "expected": "MUKALLA",
               "actual": "MUKALLA",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "MUKALLA",
+              "normalized_actual": "MUKALLA",
+              "normalized_matched": true
             }
           }
         },
         {
           "image": "omar_abdul_passport.jpg",
-          "latency_s": 21.1815,
-          "matched_fields": 13,
+          "latency_s": 5.8207,
+          "strict_matched_fields": 13,
+          "normalized_matched_fields": 14,
+          "mrz_matched_fields": 0,
           "total_fields": 18,
-          "field_accuracy": 0.7222,
+          "enjaz_total_fields": 16,
+          "mrz_total_fields": 2,
+          "strict_accuracy": 0.7222,
+          "normalized_accuracy": 0.875,
+          "mrz_accuracy": 0.0,
           "input_tokens": 1854,
           "output_tokens": 273,
           "fields": {
             "PassportNumber": {
               "expected": "05384202",
               "actual": "05384202",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "05384202",
+              "normalized_actual": "05384202",
+              "normalized_matched": true
             },
             "CountryCode": {
               "expected": "YEM",
               "actual": "YEM",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "YEM",
+              "normalized_actual": "YEM",
+              "normalized_matched": true
             },
             "MrzLine1": {
               "expected": "P<YEMSAEED<<OMAR<ABDULHAKIM<HIZAM<<<<<<<<<<<<<<",
               "actual": "PRYEMSAEED<<OMAR<ABDULHAKIM<HIZAM<<<<<<<<<<<<",
-              "matched": false
+              "strict_matched": false,
+              "normalized_expected": "P<YEMSAEED<<OMAR<ABDULHAKIM<HIZAM<<<<<<<<<<<<<<",
+              "normalized_actual": "PRYEMSAEED<<OMAR<ABDULHAKIM<HIZAM<<<<<<<<<<<<",
+              "normalized_matched": false
             },
             "MrzLine2": {
               "expected": "05384202<4YEM8909017M1910315<<<<<<<<<<<<06",
               "actual": "05384202<4YEM8909017M1910315<<<<<<<<<<<<<<06",
-              "matched": false
+              "strict_matched": false,
+              "normalized_expected": "05384202<4YEM8909017M1910315<<<<<<<<<<<<06",
+              "normalized_actual": "05384202<4YEM8909017M1910315<<<<<<<<<<<<<<06",
+              "normalized_matched": false
             },
             "SurnameAr": {
               "expected": "سعيد",
               "actual": "سعيد",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "سعيد",
+              "normalized_actual": "سعيد",
+              "normalized_matched": true
             },
             "GivenNamesAr": {
               "expected": "عمر عبدالحكيم حزام",
               "actual": "عمر عبدالحكيم حزام",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "حزام عبدالحكيم عمر",
+              "normalized_actual": "حزام عبدالحكيم عمر",
+              "normalized_matched": true
             },
             "SurnameEn": {
               "expected": "SAEED",
               "actual": "SAEED",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "SAEED",
+              "normalized_actual": "SAEED",
+              "normalized_matched": true
             },
             "GivenNamesEn": {
               "expected": "OMAR ABDULHAKIM HIZAM",
               "actual": "OMAR ABDULHAKIM HIZAM",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "ABDULHAKIM HIZAM OMAR",
+              "normalized_actual": "ABDULHAKIM HIZAM OMAR",
+              "normalized_matched": true
             },
             "DateOfBirth": {
               "expected": "01/09/1989",
               "actual": "01/09/1989",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "01/09/1989",
+              "normalized_actual": "01/09/1989",
+              "normalized_matched": true
             },
             "PlaceOfBirthAr": {
               "expected": "الشمايتين - تعز",
               "actual": "الشمايتين - تعز",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "الشمايتين تعز",
+              "normalized_actual": "الشمايتين تعز",
+              "normalized_matched": true
             },
             "PlaceOfBirthEn": {
               "expected": "TAIZ - YEM",
               "actual": "TAIZ - YEM",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "TAIZ YEM",
+              "normalized_actual": "TAIZ YEM",
+              "normalized_matched": true
             },
             "Sex": {
               "expected": "M",
               "actual": null,
-              "matched": false
+              "strict_matched": false,
+              "normalized_expected": "M",
+              "normalized_actual": null,
+              "normalized_matched": false
             },
             "DateOfIssue": {
               "expected": "31/10/2013",
               "actual": "31/10/2013",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "31/10/2013",
+              "normalized_actual": "31/10/2013",
+              "normalized_matched": true
             },
             "DateOfExpiry": {
               "expected": "31/10/2019",
               "actual": "31/10/2019",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "31/10/2019",
+              "normalized_actual": "31/10/2019",
+              "normalized_matched": true
             },
             "ProfessionAr": {
               "expected": "طالب",
               "actual": "طالب",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "طالب",
+              "normalized_actual": "طالب",
+              "normalized_matched": true
             },
             "ProfessionEn": {
               "expected": "STUDENT",
               "actual": "STUDENT,Sex:",
-              "matched": false
+              "strict_matched": false,
+              "normalized_expected": "STUDENT",
+              "normalized_actual": "STUDENTSEX",
+              "normalized_matched": false
             },
             "IssuingAuthorityAr": {
               "expected": "صنعاء",
               "actual": "صنعاء",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "صنعاء",
+              "normalized_actual": "صنعاء",
+              "normalized_matched": true
             },
             "IssuingAuthorityEn": {
               "expected": "SANAA",
               "actual": "SANA'A",
-              "matched": false
+              "strict_matched": false,
+              "normalized_expected": "SANAA",
+              "normalized_actual": "SANAA",
+              "normalized_matched": true
             }
           }
         },
         {
           "image": "salem_passport.jpg",
-          "latency_s": 14.5397,
-          "matched_fields": 16,
+          "latency_s": 4.5009,
+          "strict_matched_fields": 15,
+          "normalized_matched_fields": 15,
+          "mrz_matched_fields": 0,
           "total_fields": 18,
-          "field_accuracy": 0.8889,
+          "enjaz_total_fields": 16,
+          "mrz_total_fields": 2,
+          "strict_accuracy": 0.8333,
+          "normalized_accuracy": 0.9375,
+          "mrz_accuracy": 0.0,
           "input_tokens": 1866,
           "output_tokens": 266,
           "fields": {
             "PassportNumber": {
               "expected": "09463730",
               "actual": "09463730",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "09463730",
+              "normalized_actual": "09463730",
+              "normalized_matched": true
             },
             "CountryCode": {
               "expected": "YEM",
               "actual": "YEM",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "YEM",
+              "normalized_actual": "YEM",
+              "normalized_matched": true
             },
             "MrzLine1": {
               "expected": "P<YEMALAKBARI<<SALEM<ABDULLAH<OMAR<<<<<<<<<<<",
-              "actual": "P<YEMALAKBARI<<SALEM<ABDULLAH<OMAR<<<<<<<<<<<",
-              "matched": true
+              "actual": "P<YEMALAKBARI<<SALEM<ABDULLAH<OMAR<<<<<<<<<<<<",
+              "strict_matched": false,
+              "normalized_expected": "P<YEMALAKBARI<<SALEM<ABDULLAH<OMAR<<<<<<<<<<<",
+              "normalized_actual": "P<YEMALAKBARI<<SALEM<ABDULLAH<OMAR<<<<<<<<<<<<",
+              "normalized_matched": false
             },
             "MrzLine2": {
               "expected": "09463730<0YEM8411095M2609278<<<<<<<<<<<<02",
               "actual": "09463730<0YEM8411095M2609278<<<<<<<<<<<<<<<02",
-              "matched": false
+              "strict_matched": false,
+              "normalized_expected": "09463730<0YEM8411095M2609278<<<<<<<<<<<<02",
+              "normalized_actual": "09463730<0YEM8411095M2609278<<<<<<<<<<<<<<<02",
+              "normalized_matched": false
             },
             "SurnameAr": {
               "expected": "العكبري",
               "actual": "العكبري",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "العكبري",
+              "normalized_actual": "العكبري",
+              "normalized_matched": true
             },
             "GivenNamesAr": {
               "expected": "سالم عبدالله عمر",
               "actual": "سالم عبدالله عمر",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "سالم عبدالله عمر",
+              "normalized_actual": "سالم عبدالله عمر",
+              "normalized_matched": true
             },
             "SurnameEn": {
               "expected": "AL-AKBARI",
               "actual": "AL-AKBARI",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "ALAKBARI",
+              "normalized_actual": "ALAKBARI",
+              "normalized_matched": true
             },
             "GivenNamesEn": {
               "expected": "SALEM ABDULLAH OMAR",
               "actual": "SALEM ABDULLAH OMAR",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "ABDULLAH OMAR SALEM",
+              "normalized_actual": "ABDULLAH OMAR SALEM",
+              "normalized_matched": true
             },
             "DateOfBirth": {
               "expected": "09/11/1984",
               "actual": "09/11/1984",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "09/11/1984",
+              "normalized_actual": "09/11/1984",
+              "normalized_matched": true
             },
             "PlaceOfBirthAr": {
               "expected": "السعودية - جده",
               "actual": "جده",
-              "matched": false
+              "strict_matched": false,
+              "normalized_expected": "السعودية جده",
+              "normalized_actual": "جده",
+              "normalized_matched": false
             },
             "PlaceOfBirthEn": {
               "expected": "JEDDAH - KSA",
               "actual": "JEDDAH - KSA",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "JEDDAH KSA",
+              "normalized_actual": "JEDDAH KSA",
+              "normalized_matched": true
             },
             "Sex": {
               "expected": "M",
               "actual": "M",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "M",
+              "normalized_actual": "M",
+              "normalized_matched": true
             },
             "DateOfIssue": {
               "expected": "27/09/2020",
               "actual": "27/09/2020",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "27/09/2020",
+              "normalized_actual": "27/09/2020",
+              "normalized_matched": true
             },
             "DateOfExpiry": {
               "expected": "27/09/2026",
               "actual": "27/09/2026",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "27/09/2026",
+              "normalized_actual": "27/09/2026",
+              "normalized_matched": true
             },
             "ProfessionAr": {
               "expected": "طالب",
               "actual": "طالب",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "طالب",
+              "normalized_actual": "طالب",
+              "normalized_matched": true
             },
             "ProfessionEn": {
               "expected": "STUDENT",
               "actual": "STUDENT",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "STUDENT",
+              "normalized_actual": "STUDENT",
+              "normalized_matched": true
             },
             "IssuingAuthorityAr": {
               "expected": "سيئون",
               "actual": "سيئون",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "سيئون",
+              "normalized_actual": "سيئون",
+              "normalized_matched": true
             },
             "IssuingAuthorityEn": {
               "expected": "SEYION",
               "actual": "SEYION",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "SEYION",
+              "normalized_actual": "SEYION",
+              "normalized_matched": true
             }
           }
         },
         {
           "image": "abdullah_passport.jpg",
-          "latency_s": 73.0058,
-          "matched_fields": 17,
+          "latency_s": 18.7772,
+          "strict_matched_fields": 17,
+          "normalized_matched_fields": 16,
+          "mrz_matched_fields": 1,
           "total_fields": 18,
-          "field_accuracy": 0.9444,
+          "enjaz_total_fields": 16,
+          "mrz_total_fields": 2,
+          "strict_accuracy": 0.9444,
+          "normalized_accuracy": 1.0,
+          "mrz_accuracy": 0.5,
           "input_tokens": 1866,
           "output_tokens": 266,
           "fields": {
             "PassportNumber": {
               "expected": "11648820",
               "actual": "11648820",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "11648820",
+              "normalized_actual": "11648820",
+              "normalized_matched": true
             },
             "CountryCode": {
               "expected": "YEM",
               "actual": "YEM",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "YEM",
+              "normalized_actual": "YEM",
+              "normalized_matched": true
             },
             "MrzLine1": {
               "expected": "P<YEMMOHSEN<<ABDULLAH<MURSHED<HASAN<<<<<<<<<<<<<<",
               "actual": "P<YEMMOHSEN<<ABDULLAH<MURSHED<HASAN<<<<<<<<<<",
-              "matched": false
+              "strict_matched": false,
+              "normalized_expected": "P<YEMMOHSEN<<ABDULLAH<MURSHED<HASAN<<<<<<<<<<<<<<",
+              "normalized_actual": "P<YEMMOHSEN<<ABDULLAH<MURSHED<HASAN<<<<<<<<<<",
+              "normalized_matched": false
             },
             "MrzLine2": {
               "expected": "11648820<0YEM8306306M2905110<<<<<<<<<<<<<<06",
               "actual": "11648820<0YEM8306306M2905110<<<<<<<<<<<<<<06",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "11648820<0YEM8306306M2905110<<<<<<<<<<<<<<06",
+              "normalized_actual": "11648820<0YEM8306306M2905110<<<<<<<<<<<<<<06",
+              "normalized_matched": true
             },
             "SurnameAr": {
               "expected": "محسن",
               "actual": "محسن",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "محسن",
+              "normalized_actual": "محسن",
+              "normalized_matched": true
             },
             "GivenNamesAr": {
               "expected": "عبدالله مرشد حسن",
               "actual": "عبدالله مرشد حسن",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "حسن عبدالله مرشد",
+              "normalized_actual": "حسن عبدالله مرشد",
+              "normalized_matched": true
             },
             "SurnameEn": {
               "expected": "MOHSEN",
               "actual": "MOHSEN",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "MOHSEN",
+              "normalized_actual": "MOHSEN",
+              "normalized_matched": true
             },
             "GivenNamesEn": {
               "expected": "ABDULLAH MURSHED HASAN",
               "actual": "ABDULLAH MURSHED HASAN",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "ABDULLAH HASAN MURSHED",
+              "normalized_actual": "ABDULLAH HASAN MURSHED",
+              "normalized_matched": true
             },
             "DateOfBirth": {
               "expected": "30/06/1983",
               "actual": "30/06/1983",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "30/06/1983",
+              "normalized_actual": "30/06/1983",
+              "normalized_matched": true
             },
             "PlaceOfBirthAr": {
               "expected": "اليمن - ريمة",
               "actual": "اليمن - ريمة",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "اليمن ريمة",
+              "normalized_actual": "اليمن ريمة",
+              "normalized_matched": true
             },
             "PlaceOfBirthEn": {
               "expected": "RAIMAH - YEM",
               "actual": "RAIMAH - YEM",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "RAIMAH YEM",
+              "normalized_actual": "RAIMAH YEM",
+              "normalized_matched": true
             },
             "Sex": {
               "expected": "M",
               "actual": "M",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "M",
+              "normalized_actual": "M",
+              "normalized_matched": true
             },
             "DateOfIssue": {
               "expected": "11/05/2023",
               "actual": "11/05/2023",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "11/05/2023",
+              "normalized_actual": "11/05/2023",
+              "normalized_matched": true
             },
             "DateOfExpiry": {
               "expected": "11/05/2029",
               "actual": "11/05/2029",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "11/05/2029",
+              "normalized_actual": "11/05/2029",
+              "normalized_matched": true
             },
             "ProfessionAr": {
               "expected": "طالب",
               "actual": "طالب",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "طالب",
+              "normalized_actual": "طالب",
+              "normalized_matched": true
             },
             "ProfessionEn": {
               "expected": "STUDENT",
               "actual": "STUDENT",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "STUDENT",
+              "normalized_actual": "STUDENT",
+              "normalized_matched": true
             },
             "IssuingAuthorityAr": {
               "expected": "القاهرة",
               "actual": "القاهرة",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "القاهرة",
+              "normalized_actual": "القاهرة",
+              "normalized_matched": true
             },
             "IssuingAuthorityEn": {
               "expected": "CAIRO",
               "actual": "CAIRO",
-              "matched": true
-            }
-          }
-        },
-        {
-          "image": "salem_passport.jpg",
-          "latency_s": 22.7472,
-          "matched_fields": 15,
-          "total_fields": 18,
-          "field_accuracy": 0.8333,
-          "input_tokens": 1866,
-          "output_tokens": 266,
-          "fields": {
-            "PassportNumber": {
-              "expected": "09463730",
-              "actual": "09463730",
-              "matched": true
-            },
-            "CountryCode": {
-              "expected": "YEM",
-              "actual": "YEM",
-              "matched": true
-            },
-            "MrzLine1": {
-              "expected": "P<YEMALAKBARI<<SALEM<ABDULLAH<OMAR<<<<<<<<<<<",
-              "actual": "P<YEMALAKBARI<<SALEM<ABDULLAH<OMAR<<<<<<<<<<<<",
-              "matched": false
-            },
-            "MrzLine2": {
-              "expected": "09463730<0YEM8411095M2609278<<<<<<<<<<<<02",
-              "actual": "09463730<0YEM8411095M2609278<<<<<<<<<<<<<<02",
-              "matched": false
-            },
-            "SurnameAr": {
-              "expected": "العكبري",
-              "actual": "العكبري",
-              "matched": true
-            },
-            "GivenNamesAr": {
-              "expected": "سالم عبدالله عمر",
-              "actual": "سالم عبدالله عمر",
-              "matched": true
-            },
-            "SurnameEn": {
-              "expected": "AL-AKBARI",
-              "actual": "AL-AKBARI",
-              "matched": true
-            },
-            "GivenNamesEn": {
-              "expected": "SALEM ABDULLAH OMAR",
-              "actual": "SALEM ABDULLAH OMAR",
-              "matched": true
-            },
-            "DateOfBirth": {
-              "expected": "09/11/1984",
-              "actual": "09/11/1984",
-              "matched": true
-            },
-            "PlaceOfBirthAr": {
-              "expected": "السعودية - جده",
-              "actual": "جده",
-              "matched": false
-            },
-            "PlaceOfBirthEn": {
-              "expected": "JEDDAH - KSA",
-              "actual": "JEDDAH - KSA",
-              "matched": true
-            },
-            "Sex": {
-              "expected": "M",
-              "actual": "M",
-              "matched": true
-            },
-            "DateOfIssue": {
-              "expected": "27/09/2020",
-              "actual": "27/09/2020",
-              "matched": true
-            },
-            "DateOfExpiry": {
-              "expected": "27/09/2026",
-              "actual": "27/09/2026",
-              "matched": true
-            },
-            "ProfessionAr": {
-              "expected": "طالب",
-              "actual": "طالب",
-              "matched": true
-            },
-            "ProfessionEn": {
-              "expected": "STUDENT",
-              "actual": "STUDENT",
-              "matched": true
-            },
-            "IssuingAuthorityAr": {
-              "expected": "سيئون",
-              "actual": "سيئون",
-              "matched": true
-            },
-            "IssuingAuthorityEn": {
-              "expected": "SEYION",
-              "actual": "SEYION",
-              "matched": true
+              "strict_matched": true,
+              "normalized_expected": "CAIRO",
+              "normalized_actual": "CAIRO",
+              "normalized_matched": true
             }
           }
         }
