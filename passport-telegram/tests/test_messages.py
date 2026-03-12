@@ -27,11 +27,14 @@ from passport_telegram.messages import (
     format_recent_uploads,
     format_success_text,
     format_user_usage_report,
+    help_text,
+    processing_error_text,
     quota_exceeded_text,
     user_blocked_text,
     user_not_found_text,
     user_plan_updated_text,
     user_status_updated_text,
+    welcome_text,
 )
 
 
@@ -78,14 +81,19 @@ def test_format_success_includes_key_fields():
             SurnameEn="ALHASHMI",
             GivenNamesEn="AHMAD ALI",
             DateOfBirth="01/01/1990",
+            PlaceOfBirthAr="صنعاء",
+            ProfessionAr="طالب",
+            IssuingAuthorityAr="القاهرة",
         ),
     )
 
     text = format_success_text(result, position=1, total=1)
 
-    assert "رقم الجواز: A123" in text
-    assert "أحمد علي الهاشمي" in text
-    assert "AHMAD ALI ALHASHMI" in text
+    assert "الاسم الكامل بالعربية: `أحمد علي الهاشمي`" in text
+    assert "الاسم الكامل بالإنجليزية: `AHMAD ALI ALHASHMI`" in text
+    assert "رقم الجواز: `A123`" in text
+    assert "مكان الميلاد: `صنعاء`" in text
+    assert "نسخ سريع لنموذج إنجاز" in text
 
 
 def test_quota_exceeded_text_includes_remaining_limits():
@@ -106,10 +114,26 @@ def test_quota_exceeded_text_includes_remaining_limits():
 
     assert "0" in text
     assert "2" in text
+    assert "@mr3od" in text
+    assert "@naaokun" in text
 
 
 def test_user_blocked_text_mentions_account_stop():
     assert "إيقاف" in user_blocked_text()
+    assert "@mr3od" in user_blocked_text()
+
+
+def test_help_and_welcome_texts_include_support_contacts():
+    assert "@mr3od" in help_text()
+    assert "@naaokun" in help_text()
+    assert "@mr3od" in welcome_text()
+
+
+def test_processing_error_text_includes_support_contacts():
+    text = processing_error_text()
+
+    assert "@mr3od" in text
+    assert "@naaokun" in text
 
 
 def test_admin_texts_cover_commands_and_restrictions():

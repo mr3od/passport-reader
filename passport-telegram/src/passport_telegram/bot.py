@@ -575,6 +575,7 @@ def _build_success_media_group(*, result, caption: str) -> list[InputMediaPhoto]
         InputMediaPhoto(
             media=passport_image,
             caption=caption,
+            parse_mode="Markdown",
         ),
         InputMediaPhoto(
             media=face_crop,

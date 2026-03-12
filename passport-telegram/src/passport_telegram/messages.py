@@ -4,12 +4,17 @@ from passport_core import PassportWorkflowResult
 from passport_platform import MonthlyUsageReport, QuotaDecision, RecentUploadRecord, UserUsageReport
 from passport_platform.models.user import User
 
+SUPPORT_CONTACT_TEXT = (
+    "للاستفسارات أو طلب تغيير الخطة، تواصل مع @mr3od أو @naaokun."
+)
+
 
 def welcome_text() -> str:
     return (
         "أهلًا بك في بوت رفع وتدقيق الجوازات.\n\n"
         "أرسل صورة جواز واحدة أو عدة صور، وسأقوم بالتحقق من الجواز، قص صورة الوجه، "
-        "واستخراج بيانات الجواز لكل صورة."
+        "واستخراج البيانات لكل صورة بشكل مستقل.\n\n"
+        f"{SUPPORT_CONTACT_TEXT}"
     )
 
 
@@ -17,9 +22,11 @@ def help_text() -> str:
     return (
         "طريقة الاستخدام:\n"
         "1. أرسل صورة الجواز كصورة أو كملف.\n"
-        "2. يمكنك إرسال أكثر من صورة في دفعة واحدة.\n"
-        "3. ستصلك النتيجة لكل صورة بشكل مستقل.\n\n"
-        "الملفات المدعومة: JPG, JPEG, PNG, WEBP, TIF, TIFF"
+        "2. تأكد من أن الصورة واضحة وتُظهر كامل صفحة الجواز.\n"
+        "3. يمكنك إرسال أكثر من صورة في دفعة واحدة.\n"
+        "4. ستصلك النتيجة لكل صورة بشكل مستقل، مع صورة الوجه والبيانات المستخرجة.\n\n"
+        "الملفات المدعومة: JPG, JPEG, PNG, WEBP, TIF, TIFF\n\n"
+        f"{SUPPORT_CONTACT_TEXT}"
     )
 
 
@@ -37,50 +44,62 @@ def admin_help_text() -> str:
 
 def batch_started_text(total: int) -> str:
     if total == 1:
-        return "جارٍ معالجة الصورة الآن."
-    return f"جارٍ معالجة {total} صور."
+        return "تم استلام الصورة، وجارٍ معالجتها الآن."
+    return f"تم استلام {total} صور، وجارٍ معالجتها الآن."
 
 
 def format_failure_text(result: PassportWorkflowResult, *, position: int, total: int) -> str:
     prefix = f"الصورة {position} من {total}\n" if total > 1 else ""
 
     if not result.validation.is_passport:
-        return prefix + "تعذر التحقق من أن الصورة تحتوي على جواز صالح للمعالجة."
+        return (
+            prefix
+            + "تعذر التحقق من أن الصورة تخص جوازًا صالحًا للمعالجة. "
+            "تأكد من وضوح الصورة وإظهار كامل صفحة الجواز."
+        )
 
     if not result.has_face_crop:
-        return prefix + "تم التحقق من الجواز، لكن تعذر استخراج صورة الوجه."
+        return (
+            prefix
+            + "تم التحقق من الجواز، لكن تعذر استخراج صورة الوجه. "
+            "يُفضّل إعادة الإرسال بصورة أوضح وأعلى دقة."
+        )
 
-    return prefix + "تعذر إكمال معالجة الصورة."
+    return prefix + "تعذر إكمال معالجة الصورة الحالية. يُرجى إعادة المحاولة بصورة أوضح."
 
 
 def format_success_text(result: PassportWorkflowResult, *, position: int, total: int) -> str:
     prefix = f"الصورة {position} من {total}\n" if total > 1 else ""
     data = result.data
     if data is None:
-        return prefix + "تعذر استخراج البيانات."
+        return prefix + "تعذر استخراج البيانات من الصورة الحالية."
+
+    full_name_ar = _join_values(data.GivenNamesAr, data.SurnameAr)
+    full_name_en = _join_values(data.GivenNamesEn, data.SurnameEn)
 
     lines = [
         prefix + "تمت معالجة الجواز بنجاح.",
-        f"رقم الجواز: {_value(data.PassportNumber)}",
-        f"الاسم بالعربية: {_join_values(data.GivenNamesAr, data.SurnameAr)}",
-        f"الاسم بالإنجليزية: {_join_values(data.GivenNamesEn, data.SurnameEn)}",
-        f"الجنسية: {_value(data.CountryCode)}",
-        f"تاريخ الميلاد: {_value(data.DateOfBirth)}",
-        f"الجنس: {_value(data.Sex)}",
-        f"مكان الميلاد: {_join_values(data.PlaceOfBirthAr, data.PlaceOfBirthEn, separator=' | ')}",
-        f"المهنة: {_join_values(data.ProfessionAr, data.ProfessionEn, separator=' | ')}",
-        (
-            "جهة الإصدار: "
-            + _join_values(data.IssuingAuthorityAr, data.IssuingAuthorityEn, separator=" | ")
-        ),
-        f"تاريخ الإصدار: {_value(data.DateOfIssue)}",
-        f"تاريخ الانتهاء: {_value(data.DateOfExpiry)}",
+        "نسخ سريع لنموذج إنجاز:",
+        f"الاسم الكامل بالعربية: {_code(full_name_ar)}",
+        f"الاسم الكامل بالإنجليزية: {_code(full_name_en)}",
+        f"رقم الجواز: {_code(data.PassportNumber)}",
+        f"الجنسية: {_code(data.CountryCode)}",
+        f"تاريخ الميلاد: {_code(data.DateOfBirth)}",
+        f"الجنس: {_code(data.Sex)}",
+        f"مكان الميلاد: {_code(_first_value(data.PlaceOfBirthAr, data.PlaceOfBirthEn))}",
+        f"المهنة: {_code(_first_value(data.ProfessionAr, data.ProfessionEn))}",
+        f"جهة الإصدار: {_code(_first_value(data.IssuingAuthorityAr, data.IssuingAuthorityEn))}",
+        f"تاريخ الإصدار: {_code(data.DateOfIssue)}",
+        f"تاريخ الانتهاء: {_code(data.DateOfExpiry)}",
     ]
     return "\n".join(line for line in lines if line.strip())
 
 
 def unsupported_file_text() -> str:
-    return "الملف المرسل ليس صورة جواز مدعومة. أرسل صورة أو ملف صورة واضح."
+    return (
+        "الملف المرسل ليس صورة جواز مدعومة. "
+        "أرسل صورة واضحة للجواز كصورة أو كملف صورة."
+    )
 
 
 def unauthorized_text() -> str:
@@ -92,19 +111,26 @@ def admin_only_text() -> str:
 
 
 def processing_error_text() -> str:
-    return "حدث خطأ أثناء المعالجة. حاول مرة أخرى بصورة أوضح."
+    return (
+        "حدث خطأ أثناء المعالجة. حاول مرة أخرى بصورة أوضح. "
+        f"{SUPPORT_CONTACT_TEXT}"
+    )
 
 
 def quota_exceeded_text(decision: QuotaDecision) -> str:
     return (
         "تم استهلاك الحد المسموح لخطة الاستخدام الحالية.\n"
         f"المتبقي من رفع الصور هذا الشهر: {decision.remaining_uploads}\n"
-        f"المتبقي من المعالجات الناجحة هذا الشهر: {decision.remaining_successes}"
+        f"المتبقي من المعالجات الناجحة هذا الشهر: {decision.remaining_successes}\n\n"
+        f"{SUPPORT_CONTACT_TEXT}"
     )
 
 
 def user_blocked_text() -> str:
-    return "تم إيقاف هذا الحساب عن استخدام الخدمة. راجع المسؤول."
+    return (
+        "تم إيقاف هذا الحساب عن استخدام الخدمة مؤقتًا. "
+        f"{SUPPORT_CONTACT_TEXT}"
+    )
 
 
 def admin_usage_help_text() -> str:
@@ -173,6 +199,18 @@ def user_status_updated_text(user: User) -> str:
 
 def _value(value: str | None) -> str:
     return value or "-"
+
+
+def _first_value(*values: str | None) -> str:
+    for value in values:
+        if value and value.strip():
+            return value.strip()
+    return "-"
+
+
+def _code(value: str | None) -> str:
+    escaped = _value(value).replace("\\", "\\\\").replace("`", "'")
+    return f"`{escaped}`"
 
 
 def _join_values(*values: str | None, separator: str = " ") -> str:
