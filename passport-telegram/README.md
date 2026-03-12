@@ -6,7 +6,7 @@ It receives passport images from Telegram users, downloads the image bytes, hand
 
 - the original passport image
 - the cropped face image
-- the extracted passport fields as the caption
+- an Arabic-first caption with the extracted passport fields formatted for easy copying in Telegram
 
 ## Setup
 
@@ -69,8 +69,10 @@ Notes:
 - accepts image documents such as `.jpg`, `.jpeg`, `.png`, `.webp`, `.tif`, `.tiff`
 - supports media groups by collecting images briefly, then processing them as one batch
 - replies in Arabic
-- returns each successful result as one two-image media group with the extracted data in the caption
+- returns each successful result as one two-image media group with an Arabic-first caption
+- formats extracted values in the caption for easier copying into Enjaz KSA visa forms
 - returns partial failure messages when the image is not a passport or when face crop fails
+- directs agencies to `@mr3od` or `@naaokun` for clarifications or plan changes
 - supports admin commands for usage, recent activity, plan changes, and block/unblock flows
 
 ## Environment
