@@ -72,7 +72,7 @@ Package-root public API:
 cd passport-core
 uv venv --python 3.12
 source .venv/bin/activate
-uv sync --extra llm --extra dev
+uv sync --extra dev
 cp .env.example .env
 ```
 
@@ -82,7 +82,7 @@ cp .env.example .env
 cd passport-core
 python -m venv .venv
 source .venv/bin/activate
-pip install -e '.[llm,dev]'
+pip install -e '.[dev]'
 cp .env.example .env
 ```
 
@@ -91,6 +91,8 @@ Then set at least:
 ```bash
 export PASSPORT_REQUESTY_API_KEY=your_key_here
 ```
+
+The LLM extractor is part of the default install. You do not need an extra flag to run `passport-core`.
 
 ## Configuration
 

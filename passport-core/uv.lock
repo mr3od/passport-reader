@@ -524,6 +524,7 @@ dependencies = [
     { name = "numpy" },
     { name = "opencv-python-headless" },
     { name = "pydantic" },
+    { name = "pydantic-ai-slim", extra = ["openai"] },
     { name = "pydantic-settings" },
 ]
 
@@ -534,9 +535,6 @@ dev = [
     { name = "ruff" },
     { name = "ty" },
 ]
-llm = [
-    { name = "pydantic-ai-slim", extra = ["openai"] },
-]
 
 [package.metadata]
 requires-dist = [
@@ -545,14 +543,14 @@ requires-dist = [
     { name = "numpy", specifier = ">=1.26.4" },
     { name = "opencv-python-headless", specifier = ">=4.10.0.84" },
     { name = "pydantic", specifier = ">=2.8.2" },
-    { name = "pydantic-ai-slim", extras = ["openai"], marker = "extra == 'llm'", specifier = ">=0.0.39" },
+    { name = "pydantic-ai-slim", extras = ["openai"], specifier = ">=0.0.39" },
     { name = "pydantic-settings", specifier = ">=2.4.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.2" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5.0.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6.4" },
     { name = "ty", marker = "extra == 'dev'", specifier = ">=0.0.1a16" },
 ]
-provides-extras = ["llm", "dev"]
+provides-extras = ["dev"]
 
 [[package]]
 name = "pluggy"
