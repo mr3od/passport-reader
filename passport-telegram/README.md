@@ -1,0 +1,83 @@
+# Passport Telegram
+
+`passport-telegram` is the first user-facing adapter for `passport-core`.
+
+It receives passport images from Telegram users, downloads the image bytes, runs the frozen `PassportWorkflow`, and replies in Arabic. Successful results are returned as one media group that contains:
+
+- the original passport image
+- the cropped face image
+- the extracted passport fields as the caption
+
+## Setup
+
+```bash
+cd passport-telegram
+uv venv --python 3.12
+source .venv/bin/activate
+uv sync --extra dev
+cp .env.example .env
+```
+
+Then set:
+
+- `PASSPORT_TELEGRAM_BOT_TOKEN`
+- `PASSPORT_TELEGRAM_CORE_ENV_FILE`
+
+`PASSPORT_TELEGRAM_CORE_ENV_FILE` should usually point to `../passport-core/.env`.
+
+That core `.env` must contain the `passport-core` runtime settings, including `PASSPORT_REQUESTY_API_KEY`.
+
+## Run
+
+```bash
+cd passport-telegram
+uv run passport-telegram
+```
+
+## Production
+
+Build from the workspace root so Docker can copy both sibling packages:
+
+```bash
+docker build -f passport-telegram/Dockerfile -t passport-telegram:latest .
+```
+
+Prepare a production env file from [`.env.production.example`](/Users/nexumind/.codex/worktrees/a3ef/Playground/passport-telegram/.env.production.example), then run:
+
+```bash
+docker run --rm \
+  --env-file passport-telegram/.env.production \
+  -v passport-telegram-data:/data \
+  passport-telegram:latest
+```
+
+Notes:
+
+- `PASSPORT_TELEGRAM_CORE_ENV_FILE=/app/passport-core/.env` is used to anchor relative `passport-core` paths inside the container.
+- In production, set the real `PASSPORT_*` values as container env vars instead of relying on a local core `.env` file.
+- Mount `/data` to keep stored images and SQLite results persistent.
+
+## Behavior
+
+- accepts Telegram photos
+- accepts image documents such as `.jpg`, `.jpeg`, `.png`, `.webp`, `.tif`, `.tiff`
+- supports media groups by collecting images briefly, then processing them as one batch
+- replies in Arabic
+- returns each successful result as one two-image media group with the extracted data in the caption
+- returns partial failure messages when the image is not a passport or when face crop fails
+
+## Environment
+
+- `PASSPORT_TELEGRAM_BOT_TOKEN`: Telegram bot token
+- `PASSPORT_TELEGRAM_CORE_ENV_FILE`: path to the `passport-core` `.env`
+- `PASSPORT_TELEGRAM_ALLOWED_CHAT_IDS`: optional comma-separated chat ids
+- `PASSPORT_TELEGRAM_ALBUM_COLLECTION_WINDOW_SECONDS`: media-group wait window
+- `PASSPORT_TELEGRAM_MAX_IMAGES_PER_BATCH`: safety limit
+- `PASSPORT_TELEGRAM_LOG_LEVEL`: default `INFO`
+
+## Development
+
+```bash
+uv run --extra dev pytest -q
+uv run --extra dev ruff check .
+```
