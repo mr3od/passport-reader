@@ -46,6 +46,22 @@ def encode_jpeg(image: ImageArray, quality: int = 95) -> bytes:
     return encoded.tobytes()
 
 
+def load_image_bytes(
+    data: bytes,
+    *,
+    filename: str = "upload.jpg",
+    mime_type: str = "image/jpeg",
+    source: str | None = None,
+) -> LoadedImage:
+    return LoadedImage(
+        source=source or filename,
+        data=data,
+        mime_type=mime_type,
+        filename=filename,
+        bgr=decode_image(data),
+    )
+
+
 def _preferred_extension(content_type: str) -> str:
     explicit = {
         "image/jpeg": ".jpg",
