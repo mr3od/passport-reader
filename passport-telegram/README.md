@@ -42,7 +42,7 @@ Build from the workspace root so Docker can copy both sibling packages:
 docker build -f passport-telegram/Dockerfile -t passport-telegram:latest .
 ```
 
-Prepare a production env file from [`.env.production.example`](/Users/nexumind/.codex/worktrees/a3ef/Playground/passport-telegram/.env.production.example), then run:
+Prepare a production env file from `.env.production.example`, then run:
 
 ```bash
 docker run --rm \

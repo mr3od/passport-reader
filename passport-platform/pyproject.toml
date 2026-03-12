@@ -1,0 +1,32 @@
+[project]
+name = "passport-platform"
+version = "0.1.0"
+description = "Shared application services for passport adapters"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "pydantic-settings>=2.4.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3.2",
+  "ruff>=0.6.4",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "N", "A", "SIM", "RET", "PTH"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/passport_platform"]
