@@ -12,6 +12,7 @@ def main() -> int:
     load_dotenv()
     settings = TelegramSettings()
     load_dotenv(settings.core_env_file, override=False)
+    load_dotenv(settings.platform_env_file, override=False)
 
     logging.basicConfig(
         level=getattr(logging, settings.log_level.upper(), logging.INFO),

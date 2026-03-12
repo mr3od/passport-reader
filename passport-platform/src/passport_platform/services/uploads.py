@@ -26,6 +26,9 @@ class UploadService:
         )
         return upload
 
+    def get_upload(self, upload_id: int) -> Upload | None:
+        return self.uploads.get_by_id(upload_id)
+
     def mark_processing(self, upload_id: int) -> Upload:
         return self.uploads.update_status(upload_id, UploadStatus.PROCESSING)
 

@@ -6,6 +6,6 @@ from passport_platform.models.upload import ProcessingResult, Upload
 
 
 @dataclass(slots=True)
-class TrackedProcessingResult:
+class RecordedProcessing:
     upload: Upload
     processing_result: ProcessingResult

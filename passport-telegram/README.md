@@ -2,7 +2,7 @@
 
 `passport-telegram` is the first user-facing adapter for `passport-core`.
 
-It receives passport images from Telegram users, downloads the image bytes, runs the frozen `PassportWorkflow`, and replies in Arabic. Successful results are returned as one media group that contains:
+It receives passport images from Telegram users, downloads the image bytes, hands the request to `passport-platform` for user/quota/upload orchestration, then runs `passport-core` through that shared processing service. Successful results are returned as one media group that contains:
 
 - the original passport image
 - the cropped face image
@@ -22,10 +22,13 @@ Then set:
 
 - `PASSPORT_TELEGRAM_BOT_TOKEN`
 - `PASSPORT_TELEGRAM_CORE_ENV_FILE`
+- `PASSPORT_TELEGRAM_PLATFORM_ENV_FILE`
 
 `PASSPORT_TELEGRAM_CORE_ENV_FILE` should usually point to `../passport-core/.env`.
+`PASSPORT_TELEGRAM_PLATFORM_ENV_FILE` should usually point to `../passport-platform/.env`.
 
 That core `.env` must contain the `passport-core` runtime settings, including `PASSPORT_REQUESTY_API_KEY`.
+The platform `.env` should contain the shared application database path, such as `PASSPORT_PLATFORM_DB_PATH`.
 
 ## Run
 
@@ -54,8 +57,9 @@ docker run --rm \
 Notes:
 
 - `PASSPORT_TELEGRAM_CORE_ENV_FILE=/app/passport-core/.env` is used to anchor relative `passport-core` paths inside the container.
+- `PASSPORT_TELEGRAM_PLATFORM_ENV_FILE=/app/passport-platform/.env` is used to anchor relative `passport-platform` paths inside the container.
 - In production, set the real `PASSPORT_*` values as container env vars instead of relying on a local core `.env` file.
-- Mount `/data` to keep stored images and SQLite results persistent.
+- Mount `/data` to keep stored images, platform state, and SQLite results persistent.
 
 ## Behavior
 
@@ -70,6 +74,7 @@ Notes:
 
 - `PASSPORT_TELEGRAM_BOT_TOKEN`: Telegram bot token
 - `PASSPORT_TELEGRAM_CORE_ENV_FILE`: path to the `passport-core` `.env`
+- `PASSPORT_TELEGRAM_PLATFORM_ENV_FILE`: path to the `passport-platform` `.env`
 - `PASSPORT_TELEGRAM_ALLOWED_CHAT_IDS`: optional comma-separated chat ids
 - `PASSPORT_TELEGRAM_ALBUM_COLLECTION_WINDOW_SECONDS`: media-group wait window
 - `PASSPORT_TELEGRAM_MAX_IMAGES_PER_BATCH`: safety limit

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from passport_platform.enums import ExternalProvider, PlanName
+from passport_platform.enums import ExternalProvider, PlanName, UserStatus
 from passport_platform.models.user import User
 from passport_platform.repositories.users import UsersRepository
 from passport_platform.schemas.commands import EnsureUserCommand
@@ -33,3 +33,6 @@ class UserService:
 
     def change_plan(self, user_id: int, plan: PlanName) -> User:
         return self.users.update_plan(user_id, plan)
+
+    def change_status(self, user_id: int, status: UserStatus) -> User:
+        return self.users.update_status(user_id, status)

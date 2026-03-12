@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from passport_core import PassportWorkflowResult
+from passport_platform import QuotaDecision
 
 
 def welcome_text() -> str:
@@ -75,6 +76,18 @@ def unauthorized_text() -> str:
 
 def processing_error_text() -> str:
     return "حدث خطأ أثناء المعالجة. حاول مرة أخرى بصورة أوضح."
+
+
+def quota_exceeded_text(decision: QuotaDecision) -> str:
+    return (
+        "تم استهلاك الحد المسموح لخطة الاستخدام الحالية.\n"
+        f"المتبقي من رفع الصور هذا الشهر: {decision.remaining_uploads}\n"
+        f"المتبقي من المعالجات الناجحة هذا الشهر: {decision.remaining_successes}"
+    )
+
+
+def user_blocked_text() -> str:
+    return "تم إيقاف هذا الحساب عن استخدام الخدمة. راجع المسؤول."
 
 
 def _value(value: str | None) -> str:

@@ -9,6 +9,21 @@ from pathlib import Path
 
 from passport_core import PassportWorkflow
 from passport_core.config import Settings as CoreSettings
+from passport_platform import (
+    ChannelName,
+    Database,
+    ExternalProvider,
+    PlatformSettings,
+    ProcessingFailedError,
+    ProcessingService,
+    ProcessUploadCommand,
+    QuotaExceededError,
+    QuotaService,
+    UploadService,
+    UserBlockedError,
+    UserService,
+)
+from passport_platform.repositories import UploadsRepository, UsageRepository, UsersRepository
 from telegram import Document, InputMediaPhoto, Message, PhotoSize, Update
 from telegram.ext import (
     Application,
@@ -25,8 +40,10 @@ from passport_telegram.messages import (
     format_success_text,
     help_text,
     processing_error_text,
+    quota_exceeded_text,
     unauthorized_text,
     unsupported_file_text,
+    user_blocked_text,
     welcome_text,
 )
 
@@ -39,12 +56,16 @@ class TelegramImageUpload:
     filename: str
     mime_type: str
     source_ref: str
+    external_message_id: str
+    external_file_id: str
 
 
 @dataclass(slots=True)
 class PendingMediaGroup:
     chat_id: int
     message_id: int
+    external_user_id: str
+    display_name: str | None
     uploads: list[TelegramImageUpload] = field(default_factory=list)
 
 
@@ -52,10 +73,24 @@ class MediaGroupCollector:
     def __init__(self) -> None:
         self._batches: dict[str, PendingMediaGroup] = {}
 
-    def add(self, key: str, chat_id: int, message_id: int, upload: TelegramImageUpload) -> None:
+    def add(
+        self,
+        key: str,
+        *,
+        chat_id: int,
+        message_id: int,
+        external_user_id: str,
+        display_name: str | None,
+        upload: TelegramImageUpload,
+    ) -> None:
         batch = self._batches.setdefault(
             key,
-            PendingMediaGroup(chat_id=chat_id, message_id=message_id),
+            PendingMediaGroup(
+                chat_id=chat_id,
+                message_id=message_id,
+                external_user_id=external_user_id,
+                display_name=display_name,
+            ),
         )
         batch.uploads.append(upload)
 
@@ -65,16 +100,14 @@ class MediaGroupCollector:
 
 @dataclass(slots=True)
 class BotServices:
-    workflow: PassportWorkflow
+    processing: ProcessingService
 
     def close(self) -> None:
-        self.workflow.close()
+        self.processing.close()
 
 
 def build_application(settings: TelegramSettings) -> Application:
-    core_settings = _build_core_settings(settings)
-    workflow = PassportWorkflow(settings=core_settings)
-    services = BotServices(workflow=workflow)
+    services = BotServices(processing=_build_processing_service(settings))
     collector = MediaGroupCollector()
 
     application = Application.builder().token(settings.bot_token.get_secret_value()).build()
@@ -125,7 +158,14 @@ async def image_message_handler(update: Update, context: ContextTypes.DEFAULT_TY
     if message.media_group_id:
         key = f"{chat.id}:{message.media_group_id}"
         collector: MediaGroupCollector = context.application.bot_data["collector"]
-        collector.add(key, chat.id, message.message_id, upload)
+        collector.add(
+            key,
+            chat_id=chat.id,
+            message_id=message.message_id,
+            external_user_id=_external_user_id(update),
+            display_name=_display_name(update),
+            upload=upload,
+        )
 
         jobs: dict[str, object] = context.application.bot_data["media_group_jobs"]
         existing_job = jobs.get(key)
@@ -143,6 +183,8 @@ async def image_message_handler(update: Update, context: ContextTypes.DEFAULT_TY
     await process_upload_batch(
         context=context,
         chat_id=chat.id,
+        external_user_id=_external_user_id(update),
+        display_name=_display_name(update),
         uploads=[upload],
     )
 
@@ -159,6 +201,8 @@ async def flush_media_group(context: ContextTypes.DEFAULT_TYPE) -> None:
     await process_upload_batch(
         context=context,
         chat_id=pending.chat_id,
+        external_user_id=pending.external_user_id,
+        display_name=pending.display_name,
         uploads=pending.uploads,
     )
 
@@ -167,6 +211,8 @@ async def process_upload_batch(
     *,
     context: ContextTypes.DEFAULT_TYPE,
     chat_id: int,
+    external_user_id: str,
+    display_name: str | None,
     uploads: list[TelegramImageUpload],
 ) -> None:
     settings: TelegramSettings = context.application.bot_data["settings"]
@@ -179,13 +225,32 @@ async def process_upload_batch(
     for index, upload in enumerate(batch, start=1):
         try:
             payload = await _download_upload(context, upload)
-            result = await asyncio.to_thread(
-                services.workflow.process_bytes,
-                payload,
-                filename=upload.filename,
-                mime_type=upload.mime_type,
-                source=upload.source_ref,
+            tracked = await asyncio.to_thread(
+                services.processing.process_bytes,
+                ProcessUploadCommand(
+                    external_provider=ExternalProvider.TELEGRAM,
+                    external_user_id=external_user_id,
+                    display_name=display_name,
+                    channel=ChannelName.TELEGRAM,
+                    filename=upload.filename,
+                    mime_type=upload.mime_type,
+                    source_ref=upload.source_ref,
+                    payload=payload,
+                    external_message_id=upload.external_message_id,
+                    external_file_id=upload.external_file_id,
+                ),
             )
+            result = tracked.workflow_result
+        except QuotaExceededError as exc:
+            await context.bot.send_message(chat_id=chat_id, text=quota_exceeded_text(exc.decision))
+            break
+        except UserBlockedError:
+            await context.bot.send_message(chat_id=chat_id, text=user_blocked_text())
+            break
+        except ProcessingFailedError:
+            logging.getLogger(__name__).exception("telegram_processing_failed")
+            await context.bot.send_message(chat_id=chat_id, text=processing_error_text())
+            continue
         except Exception:
             logging.getLogger(__name__).exception("telegram_processing_failed")
             await context.bot.send_message(chat_id=chat_id, text=processing_error_text())
@@ -214,6 +279,20 @@ async def telegram_error_handler(
     logging.getLogger(__name__).exception("telegram_update_failed", exc_info=context.error)
 
 
+def _build_processing_service(settings: TelegramSettings) -> ProcessingService:
+    core_settings = _build_core_settings(settings)
+    workflow = PassportWorkflow(settings=core_settings)
+    platform_settings = _build_platform_settings(settings)
+    db = Database(platform_settings.db_path)
+    db.initialize()
+    return ProcessingService(
+        users=UserService(UsersRepository(db)),
+        quotas=QuotaService(UsageRepository(db)),
+        uploads=UploadService(UploadsRepository(db), UsageRepository(db)),
+        workflow=workflow,
+    )
+
+
 def _build_core_settings(settings: TelegramSettings) -> CoreSettings:
     core_settings = CoreSettings(_env_file=settings.core_env_file)
     root = settings.core_root_dir
@@ -224,6 +303,12 @@ def _build_core_settings(settings: TelegramSettings) -> CoreSettings:
     core_settings.local_storage_dir = _resolve_path(root, core_settings.local_storage_dir)
     core_settings.data_store_path = _resolve_path(root, core_settings.data_store_path)
     return core_settings
+
+
+def _build_platform_settings(settings: TelegramSettings) -> PlatformSettings:
+    platform_settings = PlatformSettings(_env_file=settings.platform_env_file)
+    platform_settings.db_path = _resolve_path(settings.platform_root_dir, platform_settings.db_path)
+    return platform_settings
 
 
 def _resolve_path(root: Path, value: Path) -> Path:
@@ -249,6 +334,8 @@ def _extract_upload(message: Message) -> TelegramImageUpload | None:
             filename=f"telegram_photo_{message.message_id}.jpg",
             mime_type="image/jpeg",
             source_ref=_source_ref(message, photo.file_id),
+            external_message_id=str(message.message_id),
+            external_file_id=photo.file_id,
         )
 
     document = message.document
@@ -262,6 +349,8 @@ def _extract_upload(message: Message) -> TelegramImageUpload | None:
         filename=filename,
         mime_type=mime_type,
         source_ref=_source_ref(message, document.file_id),
+        external_message_id=str(message.message_id),
+        external_file_id=document.file_id,
     )
 
 
@@ -276,6 +365,22 @@ def _is_supported_document(document: Document) -> bool:
 def _source_ref(message: Message, file_id: str) -> str:
     chat_id = message.chat.id if message.chat else "unknown"
     return f"telegram://chat/{chat_id}/message/{message.message_id}/file/{file_id}"
+
+
+def _external_user_id(update: Update) -> str:
+    user = update.effective_user
+    return str(user.id) if user is not None else "unknown"
+
+
+def _display_name(update: Update) -> str | None:
+    user = update.effective_user
+    if user is None:
+        return None
+    parts = [user.first_name, user.last_name]
+    full_name = " ".join(part.strip() for part in parts if part and part.strip())
+    if full_name:
+        return full_name
+    return user.username
 
 
 def _is_allowed_chat(context: ContextTypes.DEFAULT_TYPE, chat_id: int | None) -> bool:

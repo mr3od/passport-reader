@@ -477,11 +477,30 @@ requires-dist = [
 provides-extras = ["dev"]
 
 [[package]]
+name = "passport-platform"
+version = "0.1.0"
+source = { editable = "../passport-platform" }
+dependencies = [
+    { name = "passport-core" },
+    { name = "pydantic-settings" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "passport-core", editable = "../passport-core" },
+    { name = "pydantic-settings", specifier = ">=2.4.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.2" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6.4" },
+]
+provides-extras = ["dev"]
+
+[[package]]
 name = "passport-telegram"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "passport-core" },
+    { name = "passport-platform" },
     { name = "pydantic-settings" },
     { name = "python-dotenv" },
     { name = "python-telegram-bot", extra = ["job-queue"] },
@@ -496,6 +515,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "passport-core", editable = "../passport-core" },
+    { name = "passport-platform", editable = "../passport-platform" },
     { name = "pydantic-settings", specifier = ">=2.4.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.2" },
     { name = "python-dotenv", specifier = ">=1.0.1" },

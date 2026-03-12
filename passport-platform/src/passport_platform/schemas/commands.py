@@ -34,3 +34,18 @@ class RecordProcessingResultCommand:
     passport_number: str | None = None
     error_code: str | None = None
     completed_at: datetime | None = None
+
+
+@dataclass(slots=True)
+class ProcessUploadCommand:
+    external_provider: ExternalProvider | str
+    external_user_id: str
+    channel: ChannelName | str
+    filename: str
+    mime_type: str
+    source_ref: str
+    payload: bytes
+    display_name: str | None = None
+    default_plan: PlanName = PlanName.FREE
+    external_message_id: str | None = None
+    external_file_id: str | None = None

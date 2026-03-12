@@ -15,6 +15,7 @@ class TelegramSettings(BaseSettings):
 
     bot_token: SecretStr
     core_env_file: Path = Path("../passport-core/.env")
+    platform_env_file: Path = Path("../passport-platform/.env")
     allowed_chat_ids: str = ""
     album_collection_window_seconds: float = 1.5
     max_images_per_batch: int = 10
@@ -23,6 +24,10 @@ class TelegramSettings(BaseSettings):
     @property
     def core_root_dir(self) -> Path:
         return self.core_env_file.expanduser().resolve().parent
+
+    @property
+    def platform_root_dir(self) -> Path:
+        return self.platform_env_file.expanduser().resolve().parent
 
     @property
     def allowed_chat_id_set(self) -> set[int]:

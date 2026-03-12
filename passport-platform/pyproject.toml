@@ -5,6 +5,7 @@ description = "Shared application services for passport adapters"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+  "passport-core",
   "pydantic-settings>=2.4.0",
 ]
 
@@ -23,6 +24,9 @@ select = ["E", "F", "I", "B", "UP", "N", "A", "SIM", "RET", "PTH"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.uv.sources]
+passport-core = { path = "../passport-core", editable = true }
 
 [build-system]
 requires = ["hatchling"]

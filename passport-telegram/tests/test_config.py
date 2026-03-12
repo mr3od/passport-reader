@@ -21,3 +21,13 @@ def test_core_root_dir_resolves_from_env_file():
     )
 
     assert settings.core_root_dir.name == "passport-core"
+
+
+def test_platform_root_dir_resolves_from_env_file():
+    settings = TelegramSettings(
+        _env_file=None,
+        bot_token="token",
+        platform_env_file="../passport-platform/.env",
+    )
+
+    assert settings.platform_root_dir.name == "passport-platform"

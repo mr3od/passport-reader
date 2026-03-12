@@ -97,6 +97,17 @@ class UsersRepository:
             raise KeyError(f"user {user_id} not found")
         return user
 
+    def update_status(self, user_id: int, status: UserStatus) -> User:
+        with self.db.transaction() as conn:
+            conn.execute(
+                "UPDATE users SET status = ? WHERE id = ?",
+                (status.value, user_id),
+            )
+        user = self.get_by_id(user_id)
+        if user is None:
+            raise KeyError(f"user {user_id} not found")
+        return user
+
 
 def _row_to_user(row) -> User | None:
     if row is None:

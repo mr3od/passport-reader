@@ -54,6 +54,7 @@ Adapters should depend on services, not repositories.
 from passport_platform import (
     Database,
     PlatformSettings,
+    ProcessingService,
     QuotaService,
     UploadService,
     UserService,
@@ -62,7 +63,7 @@ from passport_platform import (
 
 ## Current Scope
 
-This first milestone includes:
+This package currently includes:
 
 - config and SQLite bootstrap
 - plan policies
@@ -70,9 +71,16 @@ This first milestone includes:
 - upload registration
 - usage ledger accounting
 - monthly quota evaluation
+- transport-neutral processing orchestration around `passport-core`
 
-Processing orchestration around `passport-core` can be added later in a dedicated
-service once adapters start using the shared app layer.
+The processing service coordinates:
+
+- user resolution
+- quota checks
+- upload registration
+- `passport-core` workflow execution
+- processing result persistence
+- usage ledger updates
 
 ## Development
 

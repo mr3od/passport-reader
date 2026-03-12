@@ -34,6 +34,30 @@ class UploadsRepository:
             ).fetchone()
         return _row_to_upload(row)
 
+    def get_by_source_ref(self, source_ref: str) -> Upload | None:
+        with self.db.connect() as conn:
+            row = conn.execute(
+                """
+                SELECT
+                    id,
+                    user_id,
+                    channel,
+                    external_message_id,
+                    external_file_id,
+                    filename,
+                    mime_type,
+                    source_ref,
+                    status,
+                    created_at
+                FROM uploads
+                WHERE source_ref = ?
+                ORDER BY id DESC
+                LIMIT 1
+                """,
+                (source_ref,),
+            ).fetchone()
+        return _row_to_upload(row)
+
     def create(self, command: RegisterUploadCommand) -> Upload:
         created_at = datetime.now(UTC)
         with self.db.transaction() as conn:
