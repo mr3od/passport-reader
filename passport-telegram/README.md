@@ -23,6 +23,8 @@ Then set:
 - `PASSPORT_TELEGRAM_BOT_TOKEN`
 - `PASSPORT_TELEGRAM_CORE_ENV_FILE`
 - `PASSPORT_TELEGRAM_PLATFORM_ENV_FILE`
+- `PASSPORT_TELEGRAM_ADMIN_USER_IDS`
+- `PASSPORT_TELEGRAM_ADMIN_USERNAMES`
 
 `PASSPORT_TELEGRAM_CORE_ENV_FILE` should usually point to `../passport-core/.env`.
 `PASSPORT_TELEGRAM_PLATFORM_ENV_FILE` should usually point to `../passport-platform/.env`.
@@ -69,6 +71,7 @@ Notes:
 - replies in Arabic
 - returns each successful result as one two-image media group with the extracted data in the caption
 - returns partial failure messages when the image is not a passport or when face crop fails
+- supports admin commands for usage, recent activity, plan changes, and block/unblock flows
 
 ## Environment
 
@@ -76,6 +79,8 @@ Notes:
 - `PASSPORT_TELEGRAM_CORE_ENV_FILE`: path to the `passport-core` `.env`
 - `PASSPORT_TELEGRAM_PLATFORM_ENV_FILE`: path to the `passport-platform` `.env`
 - `PASSPORT_TELEGRAM_ALLOWED_CHAT_IDS`: optional comma-separated chat ids
+- `PASSPORT_TELEGRAM_ADMIN_USER_IDS`: comma-separated admin Telegram user ids, default `552002791,743379791`
+- `PASSPORT_TELEGRAM_ADMIN_USERNAMES`: comma-separated admin usernames, used as fallback, default `mr3od,naaokun`
 - `PASSPORT_TELEGRAM_ALBUM_COLLECTION_WINDOW_SECONDS`: media-group wait window
 - `PASSPORT_TELEGRAM_MAX_IMAGES_PER_BATCH`: safety limit
 - `PASSPORT_TELEGRAM_LOG_LEVEL`: default `INFO`

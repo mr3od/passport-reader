@@ -56,6 +56,7 @@ from passport_platform import (
     PlatformSettings,
     ProcessingService,
     QuotaService,
+    ReportingService,
     UploadService,
     UserService,
 )
@@ -72,6 +73,7 @@ This package currently includes:
 - usage ledger accounting
 - monthly quota evaluation
 - transport-neutral processing orchestration around `passport-core`
+- reporting and admin-facing usage summaries
 
 The processing service coordinates:
 
@@ -81,6 +83,12 @@ The processing service coordinates:
 - `passport-core` workflow execution
 - processing result persistence
 - usage ledger updates
+
+The reporting service provides:
+
+- per-user monthly usage summaries
+- global monthly usage totals
+- recent upload activity for admin tooling
 
 ## Development
 

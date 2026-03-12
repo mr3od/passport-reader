@@ -31,6 +31,12 @@ class UserService:
     ) -> User | None:
         return self.users.get_by_external_identity(external_provider, external_user_id)
 
+    def get_by_id(self, user_id: int) -> User | None:
+        return self.users.get_by_id(user_id)
+
+    def list_users(self, *, limit: int = 50) -> list[User]:
+        return self.users.list_all(limit=limit)
+
     def change_plan(self, user_id: int, plan: PlanName) -> User:
         return self.users.update_plan(user_id, plan)
 

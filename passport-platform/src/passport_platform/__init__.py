@@ -15,9 +15,17 @@ from passport_platform.errors import (
     UnsupportedExternalProviderError,
     UserBlockedError,
 )
-from passport_platform.schemas import ProcessUploadCommand, QuotaDecision, TrackedProcessingResult
+from passport_platform.schemas import (
+    MonthlyUsageReport,
+    ProcessUploadCommand,
+    QuotaDecision,
+    RecentUploadRecord,
+    TrackedProcessingResult,
+    UserUsageReport,
+)
 from passport_platform.services.processing import ProcessingService
 from passport_platform.services.quotas import QuotaService
+from passport_platform.services.reporting import ReportingService
 from passport_platform.services.uploads import UploadService
 from passport_platform.services.users import UserService
 
@@ -25,6 +33,7 @@ __all__ = [
     "ChannelName",
     "Database",
     "ExternalProvider",
+    "MonthlyUsageReport",
     "PlanName",
     "PlatformSettings",
     "ProcessUploadCommand",
@@ -33,11 +42,14 @@ __all__ = [
     "QuotaDecision",
     "QuotaService",
     "QuotaExceededError",
+    "RecentUploadRecord",
+    "ReportingService",
     "TrackedProcessingResult",
     "UnsupportedChannelError",
     "UnsupportedExternalProviderError",
     "UploadService",
     "UploadStatus",
+    "UserUsageReport",
     "UsageEventType",
     "UserBlockedError",
     "UserService",

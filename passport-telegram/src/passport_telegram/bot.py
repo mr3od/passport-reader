@@ -13,17 +13,25 @@ from passport_platform import (
     ChannelName,
     Database,
     ExternalProvider,
+    PlanName,
     PlatformSettings,
     ProcessingFailedError,
     ProcessingService,
     ProcessUploadCommand,
     QuotaExceededError,
     QuotaService,
+    ReportingService,
     UploadService,
     UserBlockedError,
     UserService,
+    UserStatus,
 )
-from passport_platform.repositories import UploadsRepository, UsageRepository, UsersRepository
+from passport_platform.repositories import (
+    ReportingRepository,
+    UploadsRepository,
+    UsageRepository,
+    UsersRepository,
+)
 from telegram import Document, InputMediaPhoto, Message, PhotoSize, Update
 from telegram.ext import (
     Application,
@@ -35,15 +43,26 @@ from telegram.ext import (
 
 from passport_telegram.config import TelegramSettings
 from passport_telegram.messages import (
+    admin_help_text,
+    admin_only_text,
+    admin_setplan_help_text,
+    admin_status_help_text,
+    admin_usage_help_text,
     batch_started_text,
     format_failure_text,
+    format_monthly_usage_report,
+    format_recent_uploads,
     format_success_text,
+    format_user_usage_report,
     help_text,
     processing_error_text,
     quota_exceeded_text,
     unauthorized_text,
     unsupported_file_text,
     user_blocked_text,
+    user_not_found_text,
+    user_plan_updated_text,
+    user_status_updated_text,
     welcome_text,
 )
 
@@ -101,13 +120,15 @@ class MediaGroupCollector:
 @dataclass(slots=True)
 class BotServices:
     processing: ProcessingService
+    users: UserService
+    reporting: ReportingService
 
     def close(self) -> None:
         self.processing.close()
 
 
 def build_application(settings: TelegramSettings) -> Application:
-    services = BotServices(processing=_build_processing_service(settings))
+    services = _build_bot_services(settings)
     collector = MediaGroupCollector()
 
     application = Application.builder().token(settings.bot_token.get_secret_value()).build()
@@ -118,6 +139,13 @@ def build_application(settings: TelegramSettings) -> Application:
 
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("admin", admin_command))
+    application.add_handler(CommandHandler("stats", stats_command))
+    application.add_handler(CommandHandler("recent", recent_command))
+    application.add_handler(CommandHandler("usage", usage_command))
+    application.add_handler(CommandHandler("setplan", setplan_command))
+    application.add_handler(CommandHandler("block", block_command))
+    application.add_handler(CommandHandler("unblock", unblock_command))
     application.add_handler(
         MessageHandler(filters.PHOTO | filters.Document.ALL, image_message_handler)
     )
@@ -135,7 +163,78 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     if not _is_allowed_chat(context, update.effective_chat.id if update.effective_chat else None):
         await _reply_text(update, unauthorized_text())
         return
-    await _reply_text(update, help_text())
+    text = help_text()
+    if _is_admin_user(context, update):
+        text = f"{text}\n\n{admin_help_text()}"
+    await _reply_text(update, text)
+
+
+async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _require_admin(update, context):
+        return
+    await _reply_text(update, admin_help_text())
+
+
+async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _require_admin(update, context):
+        return
+    services: BotServices = context.application.bot_data["services"]
+    report = await asyncio.to_thread(services.reporting.get_monthly_usage_report)
+    await _reply_text(update, format_monthly_usage_report(report))
+
+
+async def recent_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _require_admin(update, context):
+        return
+    limit = 10
+    if context.args:
+        limit = _safe_positive_int(context.args[0], default=10, maximum=20)
+    services: BotServices = context.application.bot_data["services"]
+    records = await asyncio.to_thread(services.reporting.list_recent_uploads, limit=limit)
+    await _reply_text(update, format_recent_uploads(records))
+
+
+async def usage_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _require_admin(update, context):
+        return
+    if len(context.args) != 1:
+        await _reply_text(update, admin_usage_help_text())
+        return
+    services: BotServices = context.application.bot_data["services"]
+    user = services.users.get_by_external_identity(ExternalProvider.TELEGRAM, context.args[0])
+    if user is None:
+        await _reply_text(update, user_not_found_text(context.args[0]))
+        return
+    report = await asyncio.to_thread(services.reporting.get_user_usage_report, user.id)
+    await _reply_text(update, format_user_usage_report(report))
+
+
+async def setplan_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _require_admin(update, context):
+        return
+    if len(context.args) != 2:
+        await _reply_text(update, admin_setplan_help_text())
+        return
+    services: BotServices = context.application.bot_data["services"]
+    user = services.users.get_by_external_identity(ExternalProvider.TELEGRAM, context.args[0])
+    if user is None:
+        await _reply_text(update, user_not_found_text(context.args[0]))
+        return
+    try:
+        plan = PlanName(context.args[1].lower())
+    except ValueError:
+        await _reply_text(update, admin_setplan_help_text())
+        return
+    updated = services.users.change_plan(user.id, plan)
+    await _reply_text(update, user_plan_updated_text(updated))
+
+
+async def block_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await _set_user_status(update, context, UserStatus.BLOCKED, "block")
+
+
+async def unblock_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await _set_user_status(update, context, UserStatus.ACTIVE, "unblock")
 
 
 async def image_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -280,16 +379,34 @@ async def telegram_error_handler(
 
 
 def _build_processing_service(settings: TelegramSettings) -> ProcessingService:
+    return _build_bot_services(settings).processing
+
+
+def _build_bot_services(settings: TelegramSettings) -> BotServices:
     core_settings = _build_core_settings(settings)
     workflow = PassportWorkflow(settings=core_settings)
     platform_settings = _build_platform_settings(settings)
     db = Database(platform_settings.db_path)
     db.initialize()
-    return ProcessingService(
-        users=UserService(UsersRepository(db)),
-        quotas=QuotaService(UsageRepository(db)),
-        uploads=UploadService(UploadsRepository(db), UsageRepository(db)),
+    users = UserService(UsersRepository(db))
+    usage = UsageRepository(db)
+    quotas = QuotaService(usage)
+    uploads = UploadService(UploadsRepository(db), usage)
+    processing = ProcessingService(
+        users=users,
+        quotas=quotas,
+        uploads=uploads,
         workflow=workflow,
+    )
+    reporting = ReportingService(
+        users=users,
+        quotas=quotas,
+        reporting=ReportingRepository(db),
+    )
+    return BotServices(
+        processing=processing,
+        users=users,
+        reporting=reporting,
     )
 
 
@@ -383,12 +500,62 @@ def _display_name(update: Update) -> str | None:
     return user.username
 
 
+def _safe_positive_int(value: str, *, default: int, maximum: int) -> int:
+    try:
+        parsed = int(value)
+    except ValueError:
+        return default
+    if parsed < 1:
+        return default
+    return min(parsed, maximum)
+
+
 def _is_allowed_chat(context: ContextTypes.DEFAULT_TYPE, chat_id: int | None) -> bool:
     if chat_id is None:
         return False
     settings: TelegramSettings = context.application.bot_data["settings"]
     allowed = settings.allowed_chat_id_set
     return not allowed or chat_id in allowed
+
+
+def _is_admin_user(context: ContextTypes.DEFAULT_TYPE, update: Update) -> bool:
+    settings: TelegramSettings = context.application.bot_data["settings"]
+    user = update.effective_user
+    if user is None:
+        return False
+    if user.id in settings.admin_user_id_set:
+        return True
+    username = user.username
+    if not username:
+        return False
+    return username.lower() in settings.admin_username_set
+
+
+async def _require_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    if _is_admin_user(context, update):
+        return True
+    await _reply_text(update, admin_only_text())
+    return False
+
+
+async def _set_user_status(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    status: UserStatus,
+    command_name: str,
+) -> None:
+    if not await _require_admin(update, context):
+        return
+    if len(context.args) != 1:
+        await _reply_text(update, admin_status_help_text(command_name))
+        return
+    services: BotServices = context.application.bot_data["services"]
+    user = services.users.get_by_external_identity(ExternalProvider.TELEGRAM, context.args[0])
+    if user is None:
+        await _reply_text(update, user_not_found_text(context.args[0]))
+        return
+    updated = services.users.change_status(user.id, status)
+    await _reply_text(update, user_status_updated_text(updated))
 
 
 async def _reply_text(update: Update, text: str) -> None:

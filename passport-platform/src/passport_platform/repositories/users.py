@@ -86,6 +86,26 @@ class UsersRepository:
             raise RuntimeError("created user could not be loaded")
         return user
 
+    def list_all(self, *, limit: int = 50) -> list[User]:
+        with self.db.connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT
+                    id,
+                    external_provider,
+                    external_user_id,
+                    display_name,
+                    plan,
+                    status,
+                    created_at
+                FROM users
+                ORDER BY created_at DESC, id DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        return [user for row in rows if (user := _row_to_user(row)) is not None]
+
     def update_plan(self, user_id: int, plan: PlanName) -> User:
         with self.db.transaction() as conn:
             conn.execute(

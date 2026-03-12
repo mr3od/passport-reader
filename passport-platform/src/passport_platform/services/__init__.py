@@ -1,11 +1,13 @@
 from passport_platform.services.processing import ProcessingService
 from passport_platform.services.quotas import QuotaService
+from passport_platform.services.reporting import ReportingService
 from passport_platform.services.uploads import UploadService
 from passport_platform.services.users import UserService
 
 __all__ = [
     "ProcessingService",
     "QuotaService",
+    "ReportingService",
     "UploadService",
     "UserService",
 ]
