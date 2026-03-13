@@ -1,0 +1,46 @@
+name: Docker Build Test
+
+on:
+  pull_request:
+    branches:
+      - main
+      - production
+  push:
+    branches:
+      - develop
+      - feature/*
+
+jobs:
+  test-build:
+    name: Test Docker Build
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build Docker image (no push)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          tags: passport-reader:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Test image size
+        run: |
+          docker images passport-reader:test --format "{{.Size}}"
+          SIZE=$(docker images passport-reader:test --format "{{.Size}}")
+          echo "Image size: $SIZE"
+          
+          # Optional: Fail if image is too large (e.g., > 1GB)
+          # SIZE_MB=$(docker images passport-reader:test --format "{{.Size}}" | sed 's/MB//' | sed 's/GB/*1024/')
+          # if [ "$SIZE_MB" -gt 1024 ]; then
+          #   echo "Error: Image size exceeds 1GB"
+          #   exit 1
+          # fi

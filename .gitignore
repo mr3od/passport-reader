@@ -1,2 +1,49 @@
 .DS_Store
 **/.DS_Store
+
+# Kubernetes configs (sensitive)
+k8s/
+*.secret.yaml
+
+# MicroK8s example configs
+example-microk8s-config/
+
+# Environment files
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Data directories
+data/
+binaries/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+.kiro/
+
+# Deployment docs (generated)
+FILES_CREATED.txt
+ARCHITECTURE.md
+CHECKLIST.md
+CI_CD_REVIEW.md
+DEPLOYMENT.md
+GITHUB_SECRETS.md
+INGRESS_SUMMARY.md
+QUICKSTART.md
+README_DEPLOYMENT.md
+SETUP_SUMMARY.md
+START_HERE.md
+deploy.sh
+validate-setup.sh

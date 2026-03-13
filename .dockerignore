@@ -1,21 +1,67 @@
+# Version control
 .git
 .gitignore
+.github
+
+# OS files
 .DS_Store
 **/.DS_Store
+
+# Python
 **/__pycache__/
 **/.pycache/
 **/*.pyc
+**/*.pyo
+**/*.pyd
+.Python
 **/.pytest_cache/
 **/.ruff_cache/
 **/.mypy_cache/
 **/.venv/
+**/venv/
+**/*.egg-info/
+
+# Environment files
 **/.env
-**/.env.local
-**/.env.production
+**/.env.*
+!**/.env.example
+!**/.env.*.example
+
+# Data and cache
 passport-core/data/
-passport-core/.pytest_cache/
-passport-core/.ruff_cache/
-passport-telegram/.pytest_cache/
-passport-telegram/.ruff_cache/
+passport-platform/data/
+data/
+binaries/
+*.sqlite3
+*.db
+
+# Tests
+**/tests/
+**/.pytest_cache/
+**/test_*.py
+**/*_test.py
+
+# Documentation
+*.md
+!README.md
+docs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Kubernetes and deployment
+k8s/
+deploy.sh
+.dockerignore
+Dockerfile
+docker-compose.yml
+
+# Assets (keep only what's needed)
 bot-avatar.svg
 bot-avatar.png
+
+# CI/CD
+.github/
