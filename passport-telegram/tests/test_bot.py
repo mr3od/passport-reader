@@ -1,12 +1,20 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime
 from types import SimpleNamespace
 
-from passport_platform import PlanName, QuotaDecision
+from passport_platform import IssuedTempToken, PlanName, QuotaDecision
 from passport_platform.enums import UserStatus
 
-from passport_telegram.bot import TelegramImageUpload, process_upload_batch
+from passport_telegram.bot import (
+    TelegramImageUpload,
+    account_command,
+    plan_command,
+    process_upload_batch,
+    token_command,
+    usage_command,
+)
 
 
 class FakeBot:
@@ -17,6 +25,14 @@ class FakeBot:
         self.messages.append((chat_id, text))
 
 
+class FakeReplyMessage:
+    def __init__(self) -> None:
+        self.replies: list[str] = []
+
+    async def reply_text(self, text: str) -> None:
+        self.replies.append(text)
+
+
 class FakeProcessingService:
     def __init__(self) -> None:
         self.calls = 0
@@ -24,6 +40,172 @@ class FakeProcessingService:
     def process_bytes(self, *args, **kwargs):
         self.calls += 1
         raise AssertionError("process_bytes should not be called when batch exceeds the limit")
+
+
+def test_token_command_issues_single_use_token_text():
+    reply = FakeReplyMessage()
+    services = SimpleNamespace(
+        users=SimpleNamespace(
+            get_or_create_user=lambda command: SimpleNamespace(
+                id=1,
+                external_user_id="12345",
+                status=UserStatus.ACTIVE,
+            )
+        ),
+        auth=SimpleNamespace(
+            issue_temp_token=lambda user_id: IssuedTempToken(
+                token="tmp-token",
+                expires_at=datetime(2026, 3, 13, 12, 0, tzinfo=UTC),
+                record=None,  # type: ignore[arg-type]
+            )
+        ),
+    )
+    context = SimpleNamespace(
+        application=SimpleNamespace(
+            bot_data={
+                "settings": SimpleNamespace(allowed_chat_id_set=set()),
+                "services": services,
+            }
+        )
+    )
+    update = SimpleNamespace(
+        effective_chat=SimpleNamespace(id=1),
+        effective_user=SimpleNamespace(id=12345, first_name="Agency", last_name="A", username=None),
+        effective_message=reply,
+    )
+
+    asyncio.run(token_command(update, context))
+
+    assert len(reply.replies) == 1
+    assert "tmp-token" in reply.replies[0]
+    assert "مرة واحدة" in reply.replies[0]
+
+
+def test_account_command_returns_user_usage_summary():
+    reply = FakeReplyMessage()
+    report = SimpleNamespace(
+        user=SimpleNamespace(
+            display_name="Agency A",
+            external_user_id="12345",
+            plan=SimpleNamespace(value="free"),
+            status=SimpleNamespace(value="active"),
+        ),
+        upload_count=2,
+        success_count=1,
+        failure_count=1,
+        quota_decision=SimpleNamespace(remaining_uploads=18, remaining_successes=19),
+    )
+    services = SimpleNamespace(
+        users=SimpleNamespace(
+            get_or_create_user=lambda command: SimpleNamespace(
+                id=1,
+                external_user_id="12345",
+                status=UserStatus.ACTIVE,
+            )
+        ),
+        reporting=SimpleNamespace(get_user_usage_report=lambda user_id: report),
+    )
+    context = SimpleNamespace(
+        application=SimpleNamespace(
+            bot_data={
+                "settings": SimpleNamespace(allowed_chat_id_set=set()),
+                "services": services,
+            }
+        )
+    )
+    update = SimpleNamespace(
+        effective_chat=SimpleNamespace(id=1),
+        effective_user=SimpleNamespace(id=12345, first_name="Agency", last_name="A", username=None),
+        effective_message=reply,
+    )
+
+    asyncio.run(account_command(update, context))
+
+    assert len(reply.replies) == 1
+    assert "Agency A" in reply.replies[0]
+    assert "12345" in reply.replies[0]
+    assert "18" in reply.replies[0]
+
+
+def test_usage_command_returns_self_usage_without_admin_args():
+    reply = FakeReplyMessage()
+    report = SimpleNamespace(
+        user=SimpleNamespace(
+            display_name="Agency A",
+            external_user_id="12345",
+            plan=SimpleNamespace(value="free"),
+            status=SimpleNamespace(value="active"),
+        ),
+        upload_count=2,
+        success_count=1,
+        failure_count=1,
+        quota_decision=SimpleNamespace(remaining_uploads=18, remaining_successes=19),
+    )
+    services = SimpleNamespace(
+        users=SimpleNamespace(
+            get_or_create_user=lambda command: SimpleNamespace(
+                id=1,
+                external_user_id="12345",
+                status=UserStatus.ACTIVE,
+            )
+        ),
+        reporting=SimpleNamespace(get_user_usage_report=lambda user_id: report),
+    )
+    context = SimpleNamespace(
+        args=[],
+        application=SimpleNamespace(
+            bot_data={
+                "settings": SimpleNamespace(allowed_chat_id_set=set()),
+                "services": services,
+            }
+        ),
+    )
+    update = SimpleNamespace(
+        effective_chat=SimpleNamespace(id=1),
+        effective_user=SimpleNamespace(id=12345, first_name="Agency", last_name="A", username=None),
+        effective_message=reply,
+    )
+
+    asyncio.run(usage_command(update, context))
+
+    assert len(reply.replies) == 1
+    assert "Agency A" in reply.replies[0]
+    assert "18" in reply.replies[0]
+
+
+def test_plan_command_returns_short_user_plan_summary():
+    reply = FakeReplyMessage()
+    services = SimpleNamespace(
+        users=SimpleNamespace(
+            get_or_create_user=lambda command: SimpleNamespace(
+                id=1,
+                display_name="Agency A",
+                external_user_id="12345",
+                plan=SimpleNamespace(value="pro"),
+                status=SimpleNamespace(value="active"),
+            )
+        )
+    )
+    context = SimpleNamespace(
+        application=SimpleNamespace(
+            bot_data={
+                "settings": SimpleNamespace(allowed_chat_id_set=set()),
+                "services": services,
+            }
+        ),
+    )
+    update = SimpleNamespace(
+        effective_chat=SimpleNamespace(id=1),
+        effective_user=SimpleNamespace(id=12345, first_name="Agency", last_name="A", username=None),
+        effective_message=reply,
+    )
+
+    asyncio.run(plan_command(update, context))
+
+    assert len(reply.replies) == 1
+    assert "Agency A" in reply.replies[0]
+    assert "pro" in reply.replies[0]
+    assert "active" in reply.replies[0]
 
 
 def test_process_upload_batch_rejects_batches_above_plan_limit():

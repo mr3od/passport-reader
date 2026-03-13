@@ -10,6 +10,7 @@ from pathlib import Path
 from passport_core import PassportWorkflow
 from passport_core.config import Settings as CoreSettings
 from passport_platform import (
+    AuthService,
     ChannelName,
     Database,
     ExternalProvider,
@@ -28,6 +29,7 @@ from passport_platform import (
     UserStatus,
 )
 from passport_platform.repositories import (
+    AuthTokensRepository,
     ReportingRepository,
     UploadsRepository,
     UsageRepository,
@@ -56,10 +58,12 @@ from passport_telegram.messages import (
     format_monthly_usage_report,
     format_recent_uploads,
     format_success_text,
+    format_user_plan_text,
     format_user_usage_report,
     help_text,
     processing_error_text,
     quota_exceeded_text,
+    temp_token_text,
     unauthorized_text,
     unsupported_file_text,
     user_blocked_text,
@@ -122,6 +126,7 @@ class MediaGroupCollector:
 
 @dataclass(slots=True)
 class BotServices:
+    auth: AuthService
     processing: ProcessingService
     users: UserService
     quotas: QuotaService
@@ -143,6 +148,9 @@ def build_application(settings: TelegramSettings) -> Application:
 
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("account", account_command))
+    application.add_handler(CommandHandler("plan", plan_command))
+    application.add_handler(CommandHandler("token", token_command))
     application.add_handler(CommandHandler("admin", admin_command))
     application.add_handler(CommandHandler("stats", stats_command))
     application.add_handler(CommandHandler("recent", recent_command))
@@ -179,6 +187,59 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     await _reply_text(update, admin_help_text())
 
 
+async def account_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not _is_allowed_chat(context, update.effective_chat.id if update.effective_chat else None):
+        await _reply_text(update, unauthorized_text())
+        return
+    services: BotServices = context.application.bot_data["services"]
+    user = await asyncio.to_thread(
+        services.users.get_or_create_user,
+        EnsureUserCommand(
+            external_provider=ExternalProvider.TELEGRAM,
+            external_user_id=_external_user_id(update),
+            display_name=_display_name(update),
+        ),
+    )
+    report = await asyncio.to_thread(services.reporting.get_user_usage_report, user.id)
+    await _reply_text(update, format_user_usage_report(report))
+
+
+async def plan_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not _is_allowed_chat(context, update.effective_chat.id if update.effective_chat else None):
+        await _reply_text(update, unauthorized_text())
+        return
+    services: BotServices = context.application.bot_data["services"]
+    user = await asyncio.to_thread(
+        services.users.get_or_create_user,
+        EnsureUserCommand(
+            external_provider=ExternalProvider.TELEGRAM,
+            external_user_id=_external_user_id(update),
+            display_name=_display_name(update),
+        ),
+    )
+    await _reply_text(update, format_user_plan_text(user))
+
+
+async def token_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not _is_allowed_chat(context, update.effective_chat.id if update.effective_chat else None):
+        await _reply_text(update, unauthorized_text())
+        return
+    services: BotServices = context.application.bot_data["services"]
+    user = await asyncio.to_thread(
+        services.users.get_or_create_user,
+        EnsureUserCommand(
+            external_provider=ExternalProvider.TELEGRAM,
+            external_user_id=_external_user_id(update),
+            display_name=_display_name(update),
+        ),
+    )
+    if user.status is UserStatus.BLOCKED:
+        await _reply_text(update, user_blocked_text())
+        return
+    issued = await asyncio.to_thread(services.auth.issue_temp_token, user.id)
+    await _reply_text(update, temp_token_text(issued))
+
+
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not await _require_admin(update, context):
         return
@@ -199,12 +260,27 @@ async def recent_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 async def usage_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not _is_allowed_chat(context, update.effective_chat.id if update.effective_chat else None):
+        await _reply_text(update, unauthorized_text())
+        return
+    services: BotServices = context.application.bot_data["services"]
+    if not context.args:
+        user = await asyncio.to_thread(
+            services.users.get_or_create_user,
+            EnsureUserCommand(
+                external_provider=ExternalProvider.TELEGRAM,
+                external_user_id=_external_user_id(update),
+                display_name=_display_name(update),
+            ),
+        )
+        report = await asyncio.to_thread(services.reporting.get_user_usage_report, user.id)
+        await _reply_text(update, format_user_usage_report(report))
+        return
     if not await _require_admin(update, context):
         return
     if len(context.args) != 1:
         await _reply_text(update, admin_usage_help_text())
         return
-    services: BotServices = context.application.bot_data["services"]
     user = services.users.get_by_external_identity(ExternalProvider.TELEGRAM, context.args[0])
     if user is None:
         await _reply_text(update, user_not_found_text(context.args[0]))
@@ -413,6 +489,7 @@ def _build_bot_services(settings: TelegramSettings) -> BotServices:
     db = Database(platform_settings.db_path)
     db.initialize()
     users = UserService(UsersRepository(db))
+    auth = AuthService(AuthTokensRepository(db), users)
     usage = UsageRepository(db)
     quotas = QuotaService(usage)
     uploads = UploadService(UploadsRepository(db), usage)
@@ -429,6 +506,7 @@ def _build_bot_services(settings: TelegramSettings) -> BotServices:
         reporting=ReportingRepository(db),
     )
     return BotServices(
+        auth=auth,
         processing=processing,
         users=users,
         quotas=quotas,

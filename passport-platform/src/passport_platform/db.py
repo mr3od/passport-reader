@@ -48,6 +48,26 @@ CREATE TABLE IF NOT EXISTS processing_results (
     FOREIGN KEY (upload_id) REFERENCES uploads(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS temp_tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    token_hash TEXT NOT NULL UNIQUE,
+    expires_at TEXT NOT NULL,
+    used_at TEXT,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS extension_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    session_token_hash TEXT NOT NULL UNIQUE,
+    expires_at TEXT NOT NULL,
+    revoked_at TEXT,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS usage_ledger (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
@@ -69,6 +89,12 @@ CREATE INDEX IF NOT EXISTS idx_uploads_user_created_at
 
 CREATE INDEX IF NOT EXISTS idx_processing_results_upload_id
     ON processing_results (upload_id);
+
+CREATE INDEX IF NOT EXISTS idx_temp_tokens_user_created_at
+    ON temp_tokens (user_id, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_extension_sessions_user_created_at
+    ON extension_sessions (user_id, created_at);
 
 CREATE INDEX IF NOT EXISTS idx_usage_ledger_user_event_created_at
     ON usage_ledger (user_id, event_type, created_at);

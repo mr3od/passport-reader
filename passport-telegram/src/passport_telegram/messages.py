@@ -1,7 +1,15 @@
 from __future__ import annotations
 
+from datetime import UTC
+
 from passport_core import PassportWorkflowResult
-from passport_platform import MonthlyUsageReport, QuotaDecision, RecentUploadRecord, UserUsageReport
+from passport_platform import (
+    IssuedTempToken,
+    MonthlyUsageReport,
+    QuotaDecision,
+    RecentUploadRecord,
+    UserUsageReport,
+)
 from passport_platform.models.user import User
 
 SUPPORT_CONTACT_TEXT = (
@@ -14,6 +22,11 @@ def welcome_text() -> str:
         "أهلًا بك في بوت رفع وتدقيق الجوازات.\n\n"
         "أرسل صورة جواز واحدة أو عدة صور، وسأقوم بالتحقق من الجواز، قص صورة الوجه، "
         "واستخراج البيانات لكل صورة بشكل مستقل.\n\n"
+        "أوامر المستخدم:\n"
+        "/account - عرض الخطة والاستخدام الحالي\n"
+        "/usage - عرض تفاصيل الاستخدام الشهري\n"
+        "/plan - عرض الخطة الحالية وحالة الحساب\n"
+        "/token - إصدار رمز مؤقت لتسجيل الدخول في الإضافة\n\n"
         f"{SUPPORT_CONTACT_TEXT}"
     )
 
@@ -25,6 +38,11 @@ def help_text() -> str:
         "2. تأكد من أن الصورة واضحة وتُظهر كامل صفحة الجواز.\n"
         "3. يمكنك إرسال أكثر من صورة في دفعة واحدة.\n"
         "4. ستصلك النتيجة لكل صورة بشكل مستقل، مع صورة الوجه والبيانات المستخرجة.\n\n"
+        "أوامر المستخدم:\n"
+        "/account - عرض الخطة والاستخدام الحالي\n"
+        "/usage - عرض تفاصيل الاستخدام الشهري\n"
+        "/plan - عرض الخطة الحالية وحالة الحساب\n"
+        "/token - إصدار رمز مؤقت لتسجيل الدخول في الإضافة\n\n"
         "الملفات المدعومة: JPG, JPEG, PNG, WEBP, TIF, TIFF\n\n"
         f"{SUPPORT_CONTACT_TEXT}"
     )
@@ -156,6 +174,17 @@ def user_not_found_text(external_user_id: str) -> str:
     return f"تعذر العثور على المستخدم: {external_user_id}"
 
 
+def temp_token_text(issued: IssuedTempToken) -> str:
+    expires_at = issued.expires_at.astimezone(UTC).strftime("%Y-%m-%d %H:%M UTC")
+    return (
+        "تم إصدار رمز تسجيل دخول مؤقت للإضافة.\n"
+        f"الرمز: `{issued.token}`\n"
+        f"ينتهي في: {expires_at}\n"
+        "هذا الرمز صالح للاستخدام مرة واحدة فقط.\n"
+        "الصقه في شاشة تسجيل الدخول داخل الإضافة."
+    )
+
+
 def format_monthly_usage_report(report: MonthlyUsageReport) -> str:
     return (
         "ملخص الاستخدام الشهري:\n"
@@ -180,6 +209,16 @@ def format_user_usage_report(report: UserUsageReport) -> str:
         f"المعالجات الفاشلة: {report.failure_count}\n"
         f"المتبقي من رفع الصور: {report.quota_decision.remaining_uploads}\n"
         f"المتبقي من المعالجات الناجحة: {report.quota_decision.remaining_successes}"
+    )
+
+
+def format_user_plan_text(user: User) -> str:
+    return (
+        f"المستخدم: {_user_label(user)}\n"
+        f"معرف تيليجرام: {user.external_user_id}\n"
+        f"الخطة الحالية: {user.plan.value}\n"
+        f"حالة الحساب: {user.status.value}\n\n"
+        f"{SUPPORT_CONTACT_TEXT}"
     )
 
 

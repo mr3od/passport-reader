@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from passport_core import (
     BoundingBox,
     FaceCropResult,
@@ -10,6 +12,7 @@ from passport_core import (
     ValidationResult,
 )
 from passport_platform import (
+    IssuedTempToken,
     MonthlyUsageReport,
     PlanName,
     QuotaDecision,
@@ -26,10 +29,12 @@ from passport_telegram.messages import (
     format_monthly_usage_report,
     format_recent_uploads,
     format_success_text,
+    format_user_plan_text,
     format_user_usage_report,
     help_text,
     processing_error_text,
     quota_exceeded_text,
+    temp_token_text,
     user_blocked_text,
     user_not_found_text,
     user_plan_updated_text,
@@ -124,8 +129,16 @@ def test_user_blocked_text_mentions_account_stop():
 
 
 def test_help_and_welcome_texts_include_support_contacts():
+    assert "/account" in help_text()
+    assert "/usage" in help_text()
+    assert "/plan" in help_text()
+    assert "/token" in help_text()
     assert "@mr3od" in help_text()
     assert "@naaokun" in help_text()
+    assert "/account" in welcome_text()
+    assert "/usage" in welcome_text()
+    assert "/plan" in welcome_text()
+    assert "/token" in welcome_text()
     assert "@mr3od" in welcome_text()
 
 
@@ -224,3 +237,35 @@ def test_admin_user_update_texts_include_identifier():
     assert "12345" in user_plan_updated_text(user)
     assert "12345" in user_status_updated_text(user)
     assert "999" in user_not_found_text("999")
+
+
+def test_format_user_plan_text_includes_plan_and_status():
+    user = User(
+        id=1,
+        external_provider="telegram",  # type: ignore[arg-type]
+        external_user_id="12345",
+        display_name="Agency A",
+        plan=PlanName.PRO,
+        status=UserStatus.ACTIVE,
+        created_at=None,  # type: ignore[arg-type]
+    )
+
+    text = format_user_plan_text(user)
+
+    assert "Agency A" in text
+    assert "pro" in text
+    assert "active" in text
+
+
+def test_temp_token_text_includes_token_and_expiry():
+    text = temp_token_text(
+        IssuedTempToken(
+            token="abc123",
+            expires_at=datetime(2026, 3, 13, 12, 0, tzinfo=UTC),
+            record=None,  # type: ignore[arg-type]
+        )
+    )
+
+    assert "abc123" in text
+    assert "2026-03-13 12:00 UTC" in text
+    assert "مرة واحدة" in text

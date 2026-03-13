@@ -1,3 +1,8 @@
+from passport_platform.schemas.auth import (
+    AuthenticatedSession,
+    IssuedExtensionSession,
+    IssuedTempToken,
+)
 from passport_platform.schemas.commands import (
     EnsureUserCommand,
     ProcessUploadCommand,
@@ -13,7 +18,10 @@ from passport_platform.schemas.results import (
 )
 
 __all__ = [
+    "AuthenticatedSession",
     "EnsureUserCommand",
+    "IssuedExtensionSession",
+    "IssuedTempToken",
     "MonthlyUsageReport",
     "ProcessUploadCommand",
     "QuotaDecision",

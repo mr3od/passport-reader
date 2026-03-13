@@ -42,3 +42,15 @@ class ProcessingFailedError(PlatformError):
         self.result = result
         self.cause = cause
         super().__init__(f"processing failed for upload {result.upload.id}")
+
+
+class InvalidTempTokenError(PlatformError):
+    def __init__(self, reason: str = "invalid temp token") -> None:
+        self.reason = reason
+        super().__init__(reason)
+
+
+class InvalidExtensionSessionError(PlatformError):
+    def __init__(self, reason: str = "invalid extension session") -> None:
+        self.reason = reason
+        super().__init__(reason)

@@ -9,6 +9,8 @@ from passport_platform.enums import (
     UserStatus,
 )
 from passport_platform.errors import (
+    InvalidExtensionSessionError,
+    InvalidTempTokenError,
     ProcessingFailedError,
     QuotaExceededError,
     UnsupportedChannelError,
@@ -16,6 +18,9 @@ from passport_platform.errors import (
     UserBlockedError,
 )
 from passport_platform.schemas import (
+    AuthenticatedSession,
+    IssuedExtensionSession,
+    IssuedTempToken,
     MonthlyUsageReport,
     ProcessUploadCommand,
     QuotaDecision,
@@ -23,6 +28,7 @@ from passport_platform.schemas import (
     TrackedProcessingResult,
     UserUsageReport,
 )
+from passport_platform.services.auth import AuthService
 from passport_platform.services.processing import ProcessingService
 from passport_platform.services.quotas import QuotaService
 from passport_platform.services.reporting import ReportingService
@@ -34,6 +40,12 @@ __all__ = [
     "ChannelName",
     "Database",
     "ExternalProvider",
+    "AuthenticatedSession",
+    "AuthService",
+    "InvalidExtensionSessionError",
+    "InvalidTempTokenError",
+    "IssuedExtensionSession",
+    "IssuedTempToken",
     "MonthlyUsageReport",
     "PlanName",
     "PlatformSettings",
