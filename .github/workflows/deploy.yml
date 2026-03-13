@@ -41,6 +41,7 @@ jobs:
             --exclude='.venv/' \
             --exclude='*.pyc' \
             ./ $SERVER_USER@$SERVER_HOST:$DEPLOY_PATH/
+          ssh $SERVER_USER@$SERVER_HOST "chmod +x $DEPLOY_PATH/deploy.sh"
       
       - name: Deploy
         env:
