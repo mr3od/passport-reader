@@ -15,6 +15,9 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.9.0
         with:
@@ -25,13 +28,27 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
       
+      - name: Sync code to server
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          rsync -avz --delete \
+            --exclude='.git' \
+            --exclude='data/' \
+            --exclude='__pycache__/' \
+            --exclude='.venv/' \
+            --exclude='*.pyc' \
+            ./ $SERVER_USER@$SERVER_HOST:$DEPLOY_PATH/
+      
       - name: Deploy
         env:
           SERVER_HOST: ${{ secrets.SERVER_HOST }}
           SERVER_USER: ${{ secrets.SERVER_USER }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
-          ssh $SERVER_USER@$SERVER_HOST "cd $DEPLOY_PATH && git pull origin main && ./deploy.sh build latest && ./deploy.sh push latest && ./deploy.sh restart"
+          ssh $SERVER_USER@$SERVER_HOST "cd $DEPLOY_PATH && ./deploy.sh build latest && ./deploy.sh push latest && ./deploy.sh restart"
       
       - name: Verify deployment
         if: always()
