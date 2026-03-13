@@ -5,7 +5,6 @@ description = "Core passport processing services for Yemeni travel agencies"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-  "boto3>=1.34.0",
   "httpx>=0.27.0",
   "numpy>=1.26.4",
   "onnxruntime==1.19.2",
@@ -24,7 +23,6 @@ dev = [
 ]
 
 [project.scripts]
-passport-core = "passport_core.cli:main"
 passport-benchmark = "passport_core.benchmark:main"
 
 [tool.ruff]

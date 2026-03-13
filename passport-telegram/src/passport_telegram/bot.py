@@ -13,6 +13,7 @@ from passport_platform import (
     ChannelName,
     Database,
     ExternalProvider,
+    LocalArtifactStore,
     PlanName,
     PlatformSettings,
     ProcessingFailedError,
@@ -420,6 +421,7 @@ def _build_bot_services(settings: TelegramSettings) -> BotServices:
         quotas=quotas,
         uploads=uploads,
         workflow=workflow,
+        artifacts=LocalArtifactStore(platform_settings.artifacts_dir),
     )
     reporting = ReportingService(
         users=users,
@@ -441,14 +443,16 @@ def _build_core_settings(settings: TelegramSettings) -> CoreSettings:
     core_settings.assets_dir = _resolve_path(root, core_settings.assets_dir)
     core_settings.template_path = _resolve_path(root, core_settings.template_path)
     core_settings.face_model_path = _resolve_path(root, core_settings.face_model_path)
-    core_settings.local_storage_dir = _resolve_path(root, core_settings.local_storage_dir)
-    core_settings.data_store_path = _resolve_path(root, core_settings.data_store_path)
     return core_settings
 
 
 def _build_platform_settings(settings: TelegramSettings) -> PlatformSettings:
     platform_settings = PlatformSettings(_env_file=settings.platform_env_file)
     platform_settings.db_path = _resolve_path(settings.platform_root_dir, platform_settings.db_path)
+    platform_settings.artifacts_dir = _resolve_path(
+        settings.platform_root_dir,
+        platform_settings.artifacts_dir,
+    )
     return platform_settings
 
 

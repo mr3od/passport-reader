@@ -137,10 +137,13 @@ class UploadsRepository:
                     has_face,
                     is_complete,
                     passport_number,
+                    passport_image_uri,
+                    face_crop_uri,
+                    core_result_json,
                     error_code,
                     completed_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     command.upload_id,
@@ -148,6 +151,9 @@ class UploadsRepository:
                     int(command.has_face),
                     int(command.is_complete),
                     command.passport_number,
+                    command.passport_image_uri,
+                    command.face_crop_uri,
+                    command.core_result_json,
                     command.error_code,
                     completed_at.isoformat(),
                 ),
@@ -169,6 +175,9 @@ class UploadsRepository:
                     has_face,
                     is_complete,
                     passport_number,
+                    passport_image_uri,
+                    face_crop_uri,
+                    core_result_json,
                     error_code,
                     completed_at
                 FROM processing_results
@@ -208,6 +217,9 @@ def _row_to_processing_result(row) -> ProcessingResult | None:
         has_face=bool(row["has_face"]),
         is_complete=bool(row["is_complete"]),
         passport_number=row["passport_number"],
+        passport_image_uri=row["passport_image_uri"],
+        face_crop_uri=row["face_crop_uri"],
+        core_result_json=row["core_result_json"],
         error_code=row["error_code"],
         completed_at=datetime.fromisoformat(row["completed_at"]),
     )

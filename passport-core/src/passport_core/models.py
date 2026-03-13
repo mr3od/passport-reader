@@ -1,10 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
-
 from pydantic import BaseModel, ConfigDict, Field
-
-from passport_core.errors import ErrorCode
 
 
 class PassportData(BaseModel):
@@ -62,25 +58,3 @@ class FaceCropResult(BaseModel):
     width: int
     height: int
     jpeg_bytes: bytes
-    stored_uri: str | None = None
-
-
-class ProcessingError(BaseModel):
-    code: ErrorCode
-    stage: str
-    message: str
-    retryable: bool = False
-
-
-class PassportProcessingResult(BaseModel):
-    source: str
-    trace_id: str
-    passport_image_uri: str | None = None
-    face_crop_uri: str | None = None
-    validation: ValidationResult = Field(
-        default_factory=lambda: ValidationResult(is_passport=False)
-    )
-    face: FaceDetectionResult | None = None
-    data: PassportData | None = None
-    error_details: list[ProcessingError] = Field(default_factory=list)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

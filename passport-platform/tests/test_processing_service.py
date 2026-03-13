@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -38,6 +40,7 @@ from passport_platform.services.processing import ProcessingService
 from passport_platform.services.quotas import QuotaService
 from passport_platform.services.uploads import UploadService
 from passport_platform.services.users import UserService
+from passport_platform.storage import LocalArtifactStore
 
 
 class FakeWorkflow:
@@ -63,6 +66,21 @@ class FakeWorkflow:
         if self.result is None:
             raise RuntimeError("fake workflow result was not configured")
         return self.result
+
+    def load_bytes(
+        self,
+        data: bytes,
+        *,
+        filename: str = "upload.jpg",
+        mime_type: str = "image/jpeg",
+        source: str | None = None,
+    ):
+        return load_image_bytes(
+            data,
+            filename=filename,
+            mime_type=mime_type,
+            source=source,
+        )
 
     def close(self) -> None:
         self.closed = True
@@ -153,6 +171,17 @@ def test_processing_service_creates_user_and_persists_successful_result(tmp_path
     assert tracked.user.display_name == "Agency A"
     assert tracked.processing_result.is_complete is True
     assert tracked.processing_result.passport_number == "12345678"
+    assert tracked.processing_result.passport_image_uri is not None
+    assert tracked.processing_result.face_crop_uri is not None
+    assert Path(tracked.processing_result.passport_image_uri).exists()
+    assert Path(tracked.processing_result.face_crop_uri).exists()
+    assert tracked.processing_result.core_result_json is not None
+    persisted = json.loads(tracked.processing_result.core_result_json)
+    assert persisted["source"] == "telegram://chat/1/message/2/file/abc"
+    assert persisted["passport_image_uri"] == tracked.processing_result.passport_image_uri
+    assert persisted["face_crop_uri"] == tracked.processing_result.face_crop_uri
+    assert persisted["data"]["PassportNumber"] == "12345678"
+    assert persisted["error_details"] == []
     assert tracked.upload.status.value == "processed"
     assert usage_total(usage, tracked.user.id, UsageEventType.UPLOAD_RECEIVED) == 1
     assert usage_total(usage, tracked.user.id, UsageEventType.SUCCESSFUL_PROCESS) == 1
@@ -238,6 +267,16 @@ def test_processing_service_records_failed_result_when_workflow_raises(tmp_path)
 
     tracked = exc_info.value.result
     assert tracked.processing_result.is_complete is False
+    assert tracked.processing_result.passport_image_uri is not None
+    assert Path(tracked.processing_result.passport_image_uri).exists()
+    assert tracked.processing_result.face_crop_uri is None
+    assert tracked.processing_result.core_result_json is not None
+    persisted = json.loads(tracked.processing_result.core_result_json)
+    assert persisted["passport_image_uri"] == tracked.processing_result.passport_image_uri
+    assert persisted["face_crop_uri"] is None
+    assert persisted["validation"]["is_passport"] is False
+    assert persisted["error_details"][0]["code"] == "INTERNAL_ERROR"
+    assert persisted["error_details"][0]["stage"] == "workflow"
     assert tracked.processing_result.error_code == "workflow_exception"
     assert tracked.upload.status.value == "failed"
     assert usage_total(usage, tracked.user.id, UsageEventType.UPLOAD_RECEIVED) == 1
@@ -345,6 +384,7 @@ def build_processing_service(
         quotas=QuotaService(usage_repo),
         uploads=UploadService(uploads_repo, usage_repo),
         workflow=workflow,
+        artifacts=LocalArtifactStore(tmp_path / "artifacts"),
     )
     return service, usage_repo
 

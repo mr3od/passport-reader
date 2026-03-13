@@ -32,6 +32,9 @@ class RecordProcessingResultCommand:
     has_face: bool
     is_complete: bool
     passport_number: str | None = None
+    passport_image_uri: str | None = None
+    face_crop_uri: str | None = None
+    core_result_json: str | None = None
     error_code: str | None = None
     completed_at: datetime | None = None
 

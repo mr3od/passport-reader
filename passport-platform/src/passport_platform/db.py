@@ -40,6 +40,9 @@ CREATE TABLE IF NOT EXISTS processing_results (
     has_face INTEGER NOT NULL,
     is_complete INTEGER NOT NULL,
     passport_number TEXT,
+    passport_image_uri TEXT,
+    face_crop_uri TEXT,
+    core_result_json TEXT,
     error_code TEXT,
     completed_at TEXT NOT NULL,
     FOREIGN KEY (upload_id) REFERENCES uploads(id) ON DELETE CASCADE
@@ -83,6 +86,7 @@ class Database:
     def initialize(self) -> None:
         with self.transaction() as conn:
             conn.executescript(SCHEMA_SQL)
+            self._upgrade_schema(conn)
             conn.executescript(INDEX_SQL)
 
     @contextmanager
@@ -107,3 +111,16 @@ class Database:
             except Exception:
                 conn.rollback()
                 raise
+
+    @staticmethod
+    def _upgrade_schema(conn: sqlite3.Connection) -> None:
+        columns = {
+            row["name"]
+            for row in conn.execute("PRAGMA table_info(processing_results)").fetchall()
+        }
+        if "passport_image_uri" not in columns:
+            conn.execute("ALTER TABLE processing_results ADD COLUMN passport_image_uri TEXT")
+        if "face_crop_uri" not in columns:
+            conn.execute("ALTER TABLE processing_results ADD COLUMN face_crop_uri TEXT")
+        if "core_result_json" not in columns:
+            conn.execute("ALTER TABLE processing_results ADD COLUMN core_result_json TEXT")

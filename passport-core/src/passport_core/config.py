@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal
 
 from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -17,14 +16,6 @@ class Settings(BaseSettings):
     assets_dir: Path = Path("assets")
     template_path: Path = Path("assets/passport_template_v2.jpg")
     face_model_path: Path = Path("assets/face_detection_retinaface_mobile0.25.onnx")
-
-    storage_backend: Literal["local", "s3"] = "local"
-    local_storage_dir: Path = Path("data")
-    s3_bucket: str | None = None
-    s3_prefix: str = "passport-core"
-
-    data_store_backend: Literal["json", "csv", "sqlite"] = "sqlite"
-    data_store_path: Path = Path("data")
 
     http_timeout_seconds: float = 30.0
     max_download_bytes: int = 15 * 1024 * 1024

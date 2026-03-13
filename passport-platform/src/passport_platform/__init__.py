@@ -28,6 +28,7 @@ from passport_platform.services.quotas import QuotaService
 from passport_platform.services.reporting import ReportingService
 from passport_platform.services.uploads import UploadService
 from passport_platform.services.users import UserService
+from passport_platform.storage import LocalArtifactStore
 
 __all__ = [
     "ChannelName",
@@ -44,6 +45,7 @@ __all__ = [
     "QuotaExceededError",
     "RecentUploadRecord",
     "ReportingService",
+    "LocalArtifactStore",
     "TrackedProcessingResult",
     "UnsupportedChannelError",
     "UnsupportedExternalProviderError",

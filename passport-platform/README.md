@@ -37,6 +37,8 @@ cp .env.example .env
 ## Environment
 
 - `PASSPORT_PLATFORM_DB_PATH`: SQLite database file path
+- `PASSPORT_PLATFORM_ARTIFACT_STORE_BACKEND`: currently `local`
+- `PASSPORT_PLATFORM_ARTIFACTS_DIR`: local root for stored upload and face-crop artifacts
 - `PASSPORT_PLATFORM_LOG_LEVEL`: logging level
 
 ## Database
@@ -70,6 +72,7 @@ This package currently includes:
 - plan policies
 - user registration and lookup
 - upload registration
+- local artifact persistence for uploaded images and face crops
 - usage ledger accounting
 - monthly quota evaluation
 - transport-neutral processing orchestration around `passport-core`

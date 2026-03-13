@@ -28,5 +28,8 @@ class ProcessingResult:
     has_face: bool
     is_complete: bool
     passport_number: str | None
+    passport_image_uri: str | None
+    face_crop_uri: str | None
+    core_result_json: str | None
     error_code: str | None
     completed_at: datetime
