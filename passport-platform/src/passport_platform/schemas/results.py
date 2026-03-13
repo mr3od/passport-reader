@@ -76,3 +76,23 @@ class RecentUploadRecord:
     error_code: str | None
     created_at: datetime
     completed_at: datetime | None
+
+
+@dataclass(slots=True)
+class UserRecord:
+    upload_id: int
+    user_id: int
+    filename: str
+    mime_type: str
+    source_ref: str
+    upload_status: UploadStatus
+    created_at: datetime
+    completed_at: datetime | None
+    is_passport: bool | None
+    has_face: bool | None
+    is_complete: bool | None
+    passport_number: str | None
+    passport_image_uri: str | None
+    face_crop_uri: str | None
+    core_result: dict[str, Any] | None
+    error_code: str | None

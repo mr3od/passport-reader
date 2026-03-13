@@ -14,6 +14,7 @@ from passport_platform.schemas.results import (
     QuotaDecision,
     RecentUploadRecord,
     TrackedProcessingResult,
+    UserRecord,
     UserUsageReport,
 )
 
@@ -29,5 +30,6 @@ __all__ = [
     "RecordProcessingResultCommand",
     "RegisterUploadCommand",
     "TrackedProcessingResult",
+    "UserRecord",
     "UserUsageReport",
 ]
