@@ -31,13 +31,7 @@ jobs:
           SERVER_USER: ${{ secrets.SERVER_USER }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
-          ssh $SERVER_USER@$SERVER_HOST << 'ENDSSH'
-            cd $DEPLOY_PATH
-            git pull origin main
-            ./deploy.sh build latest
-            ./deploy.sh push latest
-            ./deploy.sh restart
-          ENDSSH
+          ssh $SERVER_USER@$SERVER_HOST "cd $DEPLOY_PATH && git pull origin main && ./deploy.sh build latest && ./deploy.sh push latest && ./deploy.sh restart"
       
       - name: Verify deployment
         if: always()
@@ -46,8 +40,4 @@ jobs:
           SERVER_USER: ${{ secrets.SERVER_USER }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
-          ssh $SERVER_USER@$SERVER_HOST << 'ENDSSH'
-            cd $DEPLOY_PATH
-            ./deploy.sh status
-            ./deploy.sh logs 50
-          ENDSSH
+          ssh $SERVER_USER@$SERVER_HOST "cd $DEPLOY_PATH && ./deploy.sh status && ./deploy.sh logs 50"
