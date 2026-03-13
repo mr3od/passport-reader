@@ -54,6 +54,7 @@ class ValidationResult(BaseModel):
 class FaceDetectionResult(BaseModel):
     bbox_aligned: BoundingBox | None = None
     bbox_original: BoundingBox | None = None
+    landmarks_original: list[tuple[int, int]] | None = None
 
 
 class FaceCropResult(BaseModel):

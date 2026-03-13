@@ -11,9 +11,11 @@ from passport_core.models import (
     FaceCropResult,
     FaceDetectionResult,
     PassportData,
+    PassportProcessingResult,
     ValidationResult,
 )
-from passport_core.pipeline import PassportCoreService
+from passport_core.pipeline import PassportCoreService, to_processing_result
+from passport_core.workflow import PassportWorkflowResult
 
 
 def _mk_service() -> PassportCoreService:
@@ -36,21 +38,26 @@ def test_process_source_happy_path():
         bgr=image,
     )
     svc.workflow.load_source.return_value = loaded
-    svc.binary_store.save.return_value = "orig://1"
-    svc.workflow.crop_face.return_value = FaceCropResult(
+    crop = FaceCropResult(
         bbox_original=BoundingBox(x=30, y=40, width=50, height=60, score=0.9),
         width=50,
         height=60,
         jpeg_bytes=b"jpeg",
     )
     svc.binary_store.save.side_effect = ["orig://1", "faces://1"]
-    svc.workflow.validate_passport.return_value = ValidationResult(
-        is_passport=True,
-        page_quad=[(10, 20), (110, 20), (110, 120), (10, 120)],
+    prepared = PassportWorkflowResult(
+        loaded=loaded,
+        processed_loaded=loaded,
+        validation=ValidationResult(
+            is_passport=True,
+            page_quad=[(10, 20), (110, 20), (110, 120), (10, 120)],
+        ),
+        face=FaceDetectionResult(
+            bbox_original=BoundingBox(x=30, y=40, width=50, height=60, score=0.9),
+        ),
+        face_crop=crop,
     )
-    svc.workflow.detect_face.return_value = FaceDetectionResult(
-        bbox_original=BoundingBox(x=30, y=40, width=50, height=60, score=0.9),
-    )
+    svc.workflow.prepare_loaded.return_value = prepared
     svc.workflow.extract_data.return_value = PassportData(PassportNumber="A123")
 
     result = svc.process_source("/tmp/a.jpg")
@@ -63,14 +70,7 @@ def test_process_source_happy_path():
     assert result.face_crop_uri == "faces://1"
     assert result.error_details == []
     svc.result_store.save.assert_called_once()
-    svc.workflow.detect_face.assert_called_once_with(
-        loaded,
-        [(10, 20), (110, 20), (110, 120), (10, 120)],
-    )
-    svc.workflow.crop_face.assert_called_once_with(
-        loaded,
-        svc.workflow.detect_face.return_value.bbox_original,
-    )
+    svc.workflow.prepare_loaded.assert_called_once_with(loaded)
     svc.workflow.extract_data.assert_called_once_with(loaded)
 
 
@@ -85,7 +85,11 @@ def test_process_source_not_passport_skips_extraction():
         bgr=image,
     )
     svc.binary_store.save.return_value = "orig://1"
-    svc.workflow.validate_passport.return_value = ValidationResult(is_passport=False)
+    svc.workflow.prepare_loaded.return_value = PassportWorkflowResult(
+        loaded=svc.workflow.load_source.return_value,
+        processed_loaded=svc.workflow.load_source.return_value,
+        validation=ValidationResult(is_passport=False),
+    )
 
     result = svc.process_source("/tmp/a.jpg")
 
@@ -93,6 +97,7 @@ def test_process_source_not_passport_skips_extraction():
     assert result.data is None
     assert result.passport_image_uri == "orig://1"
     assert result.face_crop_uri is None
+    svc.workflow.prepare_loaded.assert_called_once()
     svc.workflow.extract_data.assert_not_called()
 
 
@@ -120,14 +125,18 @@ def test_process_source_skips_extraction_when_face_crop_missing():
     )
     svc.workflow.load_source.return_value = loaded
     svc.binary_store.save.return_value = "orig://1"
-    svc.workflow.validate_passport.return_value = ValidationResult(
-        is_passport=True,
-        page_quad=[(10, 20), (110, 20), (110, 120), (10, 120)],
+    svc.workflow.prepare_loaded.return_value = PassportWorkflowResult(
+        loaded=loaded,
+        processed_loaded=loaded,
+        validation=ValidationResult(
+            is_passport=True,
+            page_quad=[(10, 20), (110, 20), (110, 120), (10, 120)],
+        ),
+        face=FaceDetectionResult(
+            bbox_original=BoundingBox(x=30, y=40, width=50, height=60, score=0.9),
+        ),
+        face_crop=None,
     )
-    svc.workflow.detect_face.return_value = FaceDetectionResult(
-        bbox_original=BoundingBox(x=30, y=40, width=50, height=60, score=0.9),
-    )
-    svc.workflow.crop_face.return_value = None
 
     result = svc.process_source("/tmp/a.jpg")
 
@@ -135,7 +144,52 @@ def test_process_source_skips_extraction_when_face_crop_missing():
     assert result.face_crop_uri is None
     assert result.error_details
     assert result.error_details[0].code == ErrorCode.FACE_DETECTION_ERROR
+    svc.workflow.prepare_loaded.assert_called_once_with(loaded)
     svc.workflow.extract_data.assert_not_called()
+
+
+def test_process_source_preserves_partial_state_when_extraction_fails():
+    svc = _mk_service()
+    image = np.zeros((200, 300, 3), dtype=np.uint8)
+    loaded = LoadedImage(
+        source="/tmp/a.jpg",
+        data=b"raw",
+        filename="x.jpg",
+        mime_type="image/jpeg",
+        bgr=image,
+    )
+    crop = FaceCropResult(
+        bbox_original=BoundingBox(x=30, y=40, width=50, height=60, score=0.9),
+        width=50,
+        height=60,
+        jpeg_bytes=b"jpeg",
+    )
+    prepared = PassportWorkflowResult(
+        loaded=loaded,
+        processed_loaded=loaded,
+        validation=ValidationResult(
+            is_passport=True,
+            page_quad=[(10, 20), (110, 20), (110, 120), (10, 120)],
+        ),
+        face=FaceDetectionResult(
+            bbox_original=BoundingBox(x=30, y=40, width=50, height=60, score=0.9),
+        ),
+        face_crop=crop,
+    )
+    svc.workflow.load_source.return_value = loaded
+    svc.workflow.prepare_loaded.return_value = prepared
+    svc.workflow.extract_data.side_effect = RuntimeError("requesty down")
+    svc.binary_store.save.side_effect = ["orig://1", "faces://1"]
+
+    result = svc.process_source("/tmp/a.jpg")
+
+    assert result.validation.is_passport is True
+    assert result.face is not None
+    assert result.face.bbox_original is not None
+    assert result.face_crop_uri == "faces://1"
+    assert result.data is None
+    assert result.error_details
+    assert result.error_details[0].code == ErrorCode.EXTRACTION_ERROR
 
 
 def test_crop_face_returns_cropped_face_for_valid_passport():
@@ -149,18 +203,23 @@ def test_crop_face_returns_cropped_face_for_valid_passport():
         bgr=image,
     )
     svc.workflow.load_source.return_value = loaded
-    svc.workflow.validate_passport.return_value = ValidationResult(
-        is_passport=True,
-        page_quad=[(10, 20), (110, 20), (110, 120), (10, 120)],
-    )
-    svc.workflow.detect_face.return_value = FaceDetectionResult(
-        bbox_original=BoundingBox(x=30, y=40, width=50, height=60, score=0.9),
-    )
-    svc.workflow.crop_face.return_value = FaceCropResult(
+    crop = FaceCropResult(
         bbox_original=BoundingBox(x=30, y=40, width=50, height=60, score=0.9),
         width=50,
         height=60,
         jpeg_bytes=b"jpeg",
+    )
+    svc.workflow.prepare_loaded.return_value = PassportWorkflowResult(
+        loaded=loaded,
+        processed_loaded=loaded,
+        validation=ValidationResult(
+            is_passport=True,
+            page_quad=[(10, 20), (110, 20), (110, 120), (10, 120)],
+        ),
+        face=FaceDetectionResult(
+            bbox_original=BoundingBox(x=30, y=40, width=50, height=60, score=0.9),
+        ),
+        face_crop=crop,
     )
     svc.binary_store.save.return_value = "faces://1"
 
@@ -169,11 +228,8 @@ def test_crop_face_returns_cropped_face_for_valid_passport():
     assert result is not None
     assert result.width == 50
     assert result.stored_uri == "faces://1"
-    svc.workflow.detect_face.assert_called_once_with(
-        loaded,
-        [(10, 20), (110, 20), (110, 120), (10, 120)],
-    )
-    svc.workflow.crop_face.assert_called_once()
+    svc.workflow.prepare_loaded.assert_called_once_with(loaded)
+    svc.workflow.extract_data.assert_not_called()
     svc.binary_store.save.assert_called_once_with(
         b"jpeg",
         folder="faces",
@@ -185,17 +241,55 @@ def test_crop_face_returns_cropped_face_for_valid_passport():
 def test_crop_face_returns_none_when_not_passport():
     svc = _mk_service()
     image = np.zeros((200, 300, 3), dtype=np.uint8)
-    svc.workflow.load_source.return_value = LoadedImage(
+    loaded = LoadedImage(
         source="/tmp/a.jpg",
         data=b"raw",
         filename="a.jpg",
         mime_type="image/jpeg",
         bgr=image,
     )
-    svc.workflow.validate_passport.return_value = ValidationResult(is_passport=False)
+    svc.workflow.load_source.return_value = loaded
+    svc.workflow.prepare_loaded.return_value = PassportWorkflowResult(
+        loaded=loaded,
+        processed_loaded=loaded,
+        validation=ValidationResult(is_passport=False),
+    )
 
     result = svc.crop_face("/tmp/a.jpg")
 
     assert result is None
-    svc.workflow.detect_face.assert_not_called()
-    svc.workflow.crop_face.assert_not_called()
+    svc.workflow.prepare_loaded.assert_called_once_with(loaded)
+
+
+def test_to_processing_result_maps_workflow_result():
+    loaded = LoadedImage(
+        source="telegram://mapped",
+        data=b"raw",
+        filename="a.jpg",
+        mime_type="image/jpeg",
+        bgr=np.zeros((10, 10, 3), dtype=np.uint8),
+    )
+    workflow_result = PassportWorkflowResult(
+        loaded=loaded,
+        processed_loaded=loaded,
+        validation=ValidationResult(is_passport=True),
+        face=FaceDetectionResult(
+            bbox_original=BoundingBox(x=1, y=2, width=3, height=4, score=0.9),
+        ),
+        data=PassportData(PassportNumber="A123"),
+    )
+
+    result = to_processing_result(
+        workflow_result,
+        trace_id="trace-1",
+        passport_image_uri="orig://1",
+        face_crop_uri="face://1",
+    )
+
+    assert isinstance(result, PassportProcessingResult)
+    assert result.source == "telegram://mapped"
+    assert result.trace_id == "trace-1"
+    assert result.passport_image_uri == "orig://1"
+    assert result.face_crop_uri == "face://1"
+    assert result.data is not None
+    assert result.data.PassportNumber == "A123"

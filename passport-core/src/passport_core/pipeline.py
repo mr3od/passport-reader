@@ -6,7 +6,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from passport_core.config import Settings
-from passport_core.errors import ErrorCode, ExtractionError, FaceDetectionError, StorageError
+from passport_core.errors import ErrorCode, ExtractionError, StorageError
 from passport_core.io import EnjazCsvExporter, build_binary_store, build_result_store
 from passport_core.log import bind_logger
 from passport_core.models import (
@@ -17,7 +17,27 @@ from passport_core.models import (
     ProcessingError,
     ValidationResult,
 )
-from passport_core.workflow import PassportWorkflow
+from passport_core.workflow import PassportWorkflow, PassportWorkflowResult
+
+
+def to_processing_result(
+    workflow_result: PassportWorkflowResult,
+    *,
+    trace_id: str,
+    passport_image_uri: str | None = None,
+    face_crop_uri: str | None = None,
+    error_details: list[ProcessingError] | None = None,
+) -> PassportProcessingResult:
+    return PassportProcessingResult(
+        source=workflow_result.source,
+        trace_id=trace_id,
+        passport_image_uri=passport_image_uri,
+        face_crop_uri=face_crop_uri,
+        validation=workflow_result.validation,
+        face=workflow_result.face,
+        data=workflow_result.data,
+        error_details=error_details or [],
+    )
 
 
 class PassportCoreService:
@@ -43,6 +63,7 @@ class PassportCoreService:
         face: FaceDetectionResult | None = None
         data: PassportData | None = None
         error_details: list[ProcessingError] = []
+        workflow_result: PassportWorkflowResult | None = None
 
         log.info("pipeline_started")
 
@@ -61,6 +82,7 @@ class PassportCoreService:
                 extra={"stage": "load", "error_code": ErrorCode.INPUT_LOAD_ERROR},
             )
             return self._finalize_result(
+                workflow_result=workflow_result,
                 trace_id=trace_id,
                 source=source_str,
                 passport_image_uri=passport_image_uri,
@@ -91,20 +113,24 @@ class PassportCoreService:
             log.error("stage_failed", extra={"stage": wrapped.stage, "error_code": wrapped.code})
 
         try:
-            validation = self.workflow.validate_passport(loaded)
+            workflow_result = self.workflow.prepare_loaded(loaded)
+            validation = workflow_result.validation
+            face = workflow_result.face
+            crop = workflow_result.face_crop
         except Exception as exc:
             self._append_error(
                 error_details,
-                code=ErrorCode.VALIDATION_ERROR,
-                stage="validate",
+                code=ErrorCode.INTERNAL_ERROR,
+                stage="prepare",
                 message=str(exc),
                 retryable=False,
             )
             log.error(
                 "stage_failed",
-                extra={"stage": "validate", "error_code": ErrorCode.VALIDATION_ERROR},
+                extra={"stage": "prepare", "error_code": ErrorCode.INTERNAL_ERROR},
             )
             return self._finalize_result(
+                workflow_result=workflow_result,
                 trace_id=trace_id,
                 source=source_str,
                 passport_image_uri=passport_image_uri,
@@ -117,41 +143,11 @@ class PassportCoreService:
             )
 
         if validation.is_passport:
-            try:
-                face = self.workflow.detect_face(loaded, validation.page_quad)
-                crop = self.workflow.crop_face(loaded, face.bbox_original)
-                if crop is not None:
-                    face_crop_uri = self.binary_store.save(
-                        crop.jpeg_bytes,
-                        folder="faces",
-                        filename=f"{Path(source_str).stem}_face.jpg",
-                        content_type="image/jpeg",
-                    )
-                else:
-                    self._append_error(
-                        error_details,
-                        code=ErrorCode.FACE_DETECTION_ERROR,
-                        stage="face_detect",
-                        message="No face crop could be produced from the passport image.",
-                        retryable=False,
-                    )
-            except Exception as exc:
-                wrapped = FaceDetectionError(str(exc))
-                self._append_error(
-                    error_details,
-                    code=wrapped.code,
-                    stage=wrapped.stage,
-                    message=wrapped.message,
-                    retryable=wrapped.retryable,
-                )
-                log.error(
-                    "stage_failed",
-                    extra={"stage": wrapped.stage, "error_code": wrapped.code},
-                )
-
-            if face_crop_uri is not None:
+            if crop is not None:
                 try:
-                    data = self.workflow.extract_data(loaded)
+                    extraction_input = workflow_result.processed_loaded or loaded
+                    data = self.workflow.extract_data(extraction_input)
+                    workflow_result.data = data
                 except Exception as exc:
                     wrapped = ExtractionError(str(exc))
                     self._append_error(
@@ -165,8 +161,37 @@ class PassportCoreService:
                         "stage_failed",
                         extra={"stage": wrapped.stage, "error_code": wrapped.code},
                     )
+                try:
+                    face_crop_uri = self.binary_store.save(
+                        crop.jpeg_bytes,
+                        folder="faces",
+                        filename=f"{Path(source_str).stem}_face.jpg",
+                        content_type="image/jpeg",
+                    )
+                except Exception as exc:
+                    wrapped = StorageError(str(exc))
+                    self._append_error(
+                        error_details,
+                        code=wrapped.code,
+                        stage=wrapped.stage,
+                        message=wrapped.message,
+                        retryable=wrapped.retryable,
+                    )
+                    log.error(
+                        "stage_failed",
+                        extra={"stage": wrapped.stage, "error_code": wrapped.code},
+                    )
+            else:
+                self._append_error(
+                    error_details,
+                    code=ErrorCode.FACE_DETECTION_ERROR,
+                    stage="face_detect",
+                    message="No face crop could be produced from the passport image.",
+                    retryable=False,
+                )
 
         return self._finalize_result(
+            workflow_result=workflow_result,
             trace_id=trace_id,
             source=source_str,
             passport_image_uri=passport_image_uri,
@@ -193,23 +218,18 @@ class PassportCoreService:
 
     def crop_face(self, source: str | Path) -> FaceCropResult | None:
         loaded = self.workflow.load_source(source)
-        validation = self.workflow.validate_passport(loaded)
-        if not validation.is_passport:
-            return None
-
-        face = self.workflow.detect_face(loaded, validation.page_quad)
-        crop = self.workflow.crop_face(loaded, face.bbox_original)
-        if crop is None:
+        result = self.workflow.prepare_loaded(loaded)
+        if not result.validation.is_passport or result.face_crop is None:
             return None
 
         stored_uri = self.binary_store.save(
-            crop.jpeg_bytes,
+            result.face_crop.jpeg_bytes,
             folder="faces",
             filename=f"{Path(str(source)).stem}_face.jpg",
             content_type="image/jpeg",
         )
-        crop.stored_uri = stored_uri
-        return crop
+        result.face_crop.stored_uri = stored_uri
+        return result.face_crop
 
     @staticmethod
     def _append_error(
@@ -232,6 +252,7 @@ class PassportCoreService:
     def _finalize_result(
         self,
         *,
+        workflow_result: PassportWorkflowResult | None = None,
         trace_id: str,
         source: str,
         passport_image_uri: str | None,
@@ -242,16 +263,25 @@ class PassportCoreService:
         error_details: list[ProcessingError],
         log: logging.LoggerAdapter[logging.Logger],
     ) -> PassportProcessingResult:
-        result = PassportProcessingResult(
-            source=source,
-            trace_id=trace_id,
-            passport_image_uri=passport_image_uri,
-            face_crop_uri=face_crop_uri,
-            validation=validation,
-            face=face,
-            data=data,
-            error_details=error_details,
-        )
+        if workflow_result is None:
+            result = PassportProcessingResult(
+                source=source,
+                trace_id=trace_id,
+                passport_image_uri=passport_image_uri,
+                face_crop_uri=face_crop_uri,
+                validation=validation,
+                face=face,
+                data=data,
+                error_details=error_details,
+            )
+        else:
+            result = to_processing_result(
+                workflow_result,
+                trace_id=trace_id,
+                passport_image_uri=passport_image_uri,
+                face_crop_uri=face_crop_uri,
+                error_details=error_details,
+            )
 
         try:
             self.result_store.save(result)

@@ -45,10 +45,13 @@ The extractor returns these fields:
 ## Requirements
 
 - Python 3.12+
-- OpenCV with SIFT and `FaceDetectorYN` support
+- OpenCV with SIFT support
+- an ONNX RetinaFace face detection model file
 - `assets/passport_template_v2.jpg`
-- `assets/face_detection_yunet_2023mar.onnx`
+- `assets/face_detection_retinaface_mobile0.25.onnx` or another compatible model path set via `PASSPORT_FACE_MODEL_PATH`
 - A Requesty API key in `PASSPORT_REQUESTY_API_KEY`
+
+For headless servers and containers, `passport-core` uses `onnxruntime` with `opencv-python-headless` for face detection and image preprocessing.
 
 The public package API is adapter-oriented. Use `PassportWorkflow` and the public models from the package root. `pipeline.py` remains internal CLI orchestration.
 
@@ -101,7 +104,17 @@ All settings use the `PASSPORT_` prefix and are loaded from environment variable
 Common settings:
 
 - `PASSPORT_TEMPLATE_PATH`: masked passport template used by SIFT validation
-- `PASSPORT_FACE_MODEL_PATH`: YuNet ONNX model used for face detection
+- `PASSPORT_FACE_MODEL_PATH`: RetinaFace ONNX model used for face detection
+- `PASSPORT_FACE_NMS_THRESHOLD`: NMS threshold for RetinaFace detections
+- `PASSPORT_FACE_INPUT_WIDTH`: RetinaFace input width when the ONNX model uses dynamic shapes
+- `PASSPORT_FACE_INPUT_HEIGHT`: RetinaFace input height when the ONNX model uses dynamic shapes
+- `PASSPORT_VALIDATOR_RANSAC_THRESHOLD`: homography RANSAC threshold for SIFT matching
+- `PASSPORT_VALIDATOR_MIN_QUAD_AREA_RATIO`: minimum projected passport-page area ratio relative to the source image
+- `PASSPORT_VALIDATOR_MAX_QUAD_AREA_RATIO`: maximum projected passport-page area ratio relative to the source image
+- `PASSPORT_CANDIDATE_EARLY_STOP_VALIDATION_SCORE`: stop candidate search early after a strong passport match
+- `PASSPORT_CANDIDATE_EARLY_STOP_FACE_SCORE`: stop candidate search early after a strong face detection
+- `PASSPORT_CANDIDATE_EARLY_STOP_LANDMARK_SCORE`: stop candidate search early after a strong upright-landmark score
+- `PASSPORT_CANDIDATE_MAX_EXTRACTION_ATTEMPTS`: maximum extracted candidates tried per image
 - `PASSPORT_STORAGE_BACKEND`: `local` or `s3`
 - `PASSPORT_LOCAL_STORAGE_DIR`: local binary output directory, default `data`
 - `PASSPORT_S3_BUCKET`: required when `PASSPORT_STORAGE_BACKEND=s3`
@@ -222,6 +235,17 @@ result = workflow.process_bytes(
 ```
 
 Adapters can send the original image from `result.image_bytes` and the cropped face from `result.face_crop_bytes`.
+
+If you want the best matched passport candidate, face metadata, and face crop without invoking the extractor yet:
+
+```python
+loaded = workflow.load_source("tests/fixtures/abdullah_passport.jpg")
+prepared = workflow.prepare_loaded(loaded)
+
+print(prepared.validation.is_passport)
+print(prepared.face.bbox_original if prepared.face else None)
+print(prepared.face_crop.width if prepared.face_crop else None)
+```
 
 If you want explicit stage-by-stage control:
 

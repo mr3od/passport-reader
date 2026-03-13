@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import Protocol
+from typing import Any, Protocol
 
 from passport_core.config import Settings
 from passport_core.models import PassportData
@@ -54,23 +54,23 @@ def build_extractor(settings: Settings) -> PassportExtractor:
 
 
 def _normalize(data: PassportData) -> PassportData:
+    updates: dict[str, Any] = {}
     for field_name in PassportData.model_fields:
         value = getattr(data, field_name)
         if isinstance(value, str):
             value = value.strip()
             if value == "" or value.upper() == "NULL":
                 value = None
-            setattr(data, field_name, value)
+        updates[field_name] = value
 
     for date_field in ("DateOfBirth", "DateOfIssue", "DateOfExpiry"):
-        value = getattr(data, date_field)
+        value = updates[date_field]
         if value is not None and not DATE_PATTERN.fullmatch(value):
-            setattr(data, date_field, None)
+            updates[date_field] = None
 
-    if data.Sex not in {"M", "F"}:
-        data.Sex = None
+    updates["Sex"] = updates["Sex"] if updates["Sex"] in {"M", "F"} else None
 
-    return data
+    return data.model_copy(update=updates)
 
 
 class PydanticAIRequestyExtractor:

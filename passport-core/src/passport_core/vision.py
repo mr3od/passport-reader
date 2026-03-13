@@ -24,7 +24,14 @@ FloatArray = NDArray[np.float64]
 @dataclass(slots=True)
 class PassportMatch:
     result: ValidationResult
-    homography_template_to_image: FloatArray | None
+    homography_image_to_template: FloatArray | None
+
+
+@dataclass(slots=True)
+class RetinaFacePriorConfig:
+    min_sizes: tuple[tuple[int, ...], ...] = ((16, 32), (64, 128), (256, 512))
+    steps: tuple[int, ...] = (8, 16, 32)
+    variance: tuple[float, float] = (0.1, 0.2)
 
 
 class PassportFeatureValidator:
@@ -91,8 +98,17 @@ class PassportFeatureValidator:
             dtype=np.float32,
         ).reshape(-1, 1, 2)
 
-        homography, inlier_mask = cv2.findHomography(src_points, dst_points, cv2.RANSAC, 5.0)
+        homography, inlier_mask = cv2.findHomography(
+            src_points,
+            dst_points,
+            cv2.RANSAC,
+            self.settings.validator_ransac_threshold,
+        )
         if homography is None or inlier_mask is None:
+            return self._invalid_match(good_matches=len(good_matches))
+
+        determinant = float(np.linalg.det(homography))
+        if abs(determinant) < 1e-6 or determinant < 0:
             return self._invalid_match(good_matches=len(good_matches))
 
         inliers = int(inlier_mask.ravel().sum())
@@ -121,7 +137,15 @@ class PassportFeatureValidator:
             ],
             dtype=np.float32,
         ).reshape(-1, 1, 2)
-        projected = cv2.perspectiveTransform(corners, homography).reshape(-1, 2)
+        template_to_image = np.linalg.inv(homography)
+        projected = cv2.perspectiveTransform(corners, template_to_image).reshape(-1, 2)
+        if not self._is_valid_projected_quad(projected, image_bgr.shape):
+            return self._invalid_match(
+                good_matches=len(good_matches),
+                inliers=inliers,
+                inlier_ratio=inlier_ratio,
+                score=score,
+            )
         page_quad = [(int(round(x)), int(round(y))) for x, y in projected]
 
         return PassportMatch(
@@ -135,7 +159,7 @@ class PassportFeatureValidator:
                     score=score,
                 ),
             ),
-            homography_template_to_image=homography.astype(np.float64),
+            homography_image_to_template=homography.astype(np.float64),
         )
 
     @staticmethod
@@ -149,6 +173,27 @@ class PassportFeatureValidator:
         # Keep non-black template regions as feature mask.
         _, mask = cv2.threshold(template_gray, 8, 255, cv2.THRESH_BINARY)
         return cast(ImageArray, mask)
+
+    def _is_valid_projected_quad(
+        self,
+        projected: NDArray[np.float32],
+        image_shape: tuple[int, ...],
+    ) -> bool:
+        quad_int = projected.reshape(-1, 1, 2).astype(np.int32)
+        if not cv2.isContourConvex(quad_int):
+            return False
+
+        image_area = image_shape[0] * image_shape[1]
+        quad_area = cv2.contourArea(projected.astype(np.float32))
+        if quad_area <= 0:
+            return False
+
+        ratio = quad_area / float(image_area)
+        return (
+            self.settings.validator_min_quad_area_ratio
+            <= ratio
+            <= self.settings.validator_max_quad_area_ratio
+        )
 
     def _invalid_match(
         self,
@@ -169,26 +214,28 @@ class PassportFeatureValidator:
                     score=score,
                 ),
             ),
-            homography_template_to_image=None,
+            homography_image_to_template=None,
         )
 
 
-class PassportFaceDetector:
+class RetinaFaceDetector:
     def __init__(self, settings: Settings) -> None:
-        if not hasattr(cv2, "FaceDetectorYN_create"):
-            raise RuntimeError("OpenCV build does not include FaceDetectorYN support.")
-
         if not settings.face_model_path.exists():
-            raise FileNotFoundError(f"YuNet face model not found at {settings.face_model_path}")
+            raise FileNotFoundError(
+                f"RetinaFace ONNX model not found at {settings.face_model_path}"
+            )
 
-        self.detector = cv2.FaceDetectorYN_create(
+        import onnxruntime as ort
+
+        self.settings = settings
+        self.prior_config = RetinaFacePriorConfig()
+        self.session = ort.InferenceSession(
             str(settings.face_model_path),
-            "",
-            (320, 320),
-            settings.face_score_threshold,
-            0.3,
-            5000,
+            providers=["CPUExecutionProvider"],
         )
+        self.input_name = self.session.get_inputs()[0].name
+        self.model_width, self.model_height = self._resolve_input_size()
+        self._priors = self._prior_boxes()
 
     def detect(
         self,
@@ -204,15 +251,37 @@ class PassportFaceDetector:
             if cropped is not None:
                 detection_image, offset_x, offset_y = cropped
 
-        self.detector.setInputSize((detection_image.shape[1], detection_image.shape[0]))
-        _, faces = self.detector.detect(detection_image)
-
-        if faces is None or len(faces) == 0:
+        batched, scale_x, scale_y = self._preprocess(detection_image)
+        outputs = self.session.run(
+            None,
+            {self.input_name: batched},
+        )
+        decoded = self._decode(outputs, scale_x=scale_x, scale_y=scale_y)
+        if not decoded:
             return FaceDetectionResult()
 
-        best = max(faces, key=lambda row: float(row[2] * row[3] * row[-1]))
-        bbox = self._bbox_from_face_row(best, offset_x=offset_x, offset_y=offset_y)
-        return FaceDetectionResult(bbox_aligned=None, bbox_original=bbox)
+        best = max(
+            decoded,
+            key=lambda row: float(
+                max(0.0, row[2] - row[0]) * max(0.0, row[3] - row[1]) * row[4]
+            ),
+        )
+        bbox = self._bbox_from_xyxy(
+            best[:4],
+            score=float(best[4]),
+            offset_x=offset_x,
+            offset_y=offset_y,
+        )
+        landmarks = self._landmarks_from_decoded(
+            best,
+            offset_x=offset_x,
+            offset_y=offset_y,
+        )
+        return FaceDetectionResult(
+            bbox_aligned=None,
+            bbox_original=bbox,
+            landmarks_original=landmarks,
+        )
 
     @staticmethod
     def _crop_to_page_quad(
@@ -235,27 +304,195 @@ class PassportFaceDetector:
         cropped = image_bgr[min_y:max_y, min_x:max_x].copy()
         shifted = points - np.array([[min_x, min_y]], dtype=np.int32)
         mask = np.zeros(cropped.shape[:2], dtype=np.uint8)
-        cv2.fillConvexPoly(mask, shifted, 255)
+        cv2.fillPoly(mask, [shifted], 255)
         cropped[mask == 0] = 0
         return cropped, min_x, min_y
 
-    def _bbox_from_face_row(
-        self,
-        row: NDArray[np.float32],
+    @staticmethod
+    def _bbox_from_xyxy(
+        xyxy: NDArray[np.float32],
         *,
+        score: float,
         offset_x: int = 0,
         offset_y: int = 0,
     ) -> BoundingBox:
-        x, y, width, height = row[:4]
-        score = float(row[-1])
+        x1, y1, x2, y2 = xyxy[:4]
+        width = max(0.0, float(x2) - float(x1))
+        height = max(0.0, float(y2) - float(y1))
 
         return BoundingBox(
-            x=max(0, int(round(float(x))) + offset_x),
-            y=max(0, int(round(float(y))) + offset_y),
-            width=max(0, int(round(float(width)))),
-            height=max(0, int(round(float(height)))),
+            x=max(0, int(round(float(x1))) + offset_x),
+            y=max(0, int(round(float(y1))) + offset_y),
+            width=max(0, int(round(width))),
+            height=max(0, int(round(height))),
             score=score,
         )
+
+    def _resolve_input_size(self) -> tuple[int, int]:
+        input_shape = self.session.get_inputs()[0].shape
+        width = input_shape[-1]
+        height = input_shape[-2]
+        resolved_width = (
+            int(width) if isinstance(width, int) and width > 0 else self.settings.face_input_width
+        )
+        resolved_height = (
+            int(height)
+            if isinstance(height, int) and height > 0
+            else self.settings.face_input_height
+        )
+        return resolved_width, resolved_height
+
+    def _preprocess(self, image_bgr: ImageArray) -> tuple[NDArray[np.float32], float, float]:
+        resized = cv2.resize(
+            image_bgr,
+            (self.model_width, self.model_height),
+            interpolation=cv2.INTER_LINEAR,
+        )
+        blob = resized.astype(np.float32)
+        blob -= np.asarray([104.0, 117.0, 123.0], dtype=np.float32)
+        blob = np.transpose(blob, (2, 0, 1))
+        blob = np.expand_dims(blob, axis=0)
+        scale_x = image_bgr.shape[1] / self.model_width
+        scale_y = image_bgr.shape[0] / self.model_height
+        return blob, float(scale_x), float(scale_y)
+
+    def _decode(
+        self,
+        outputs: list[Any],
+        *,
+        scale_x: float,
+        scale_y: float,
+    ) -> list[NDArray[np.float32]]:
+        if len(outputs) < 3:
+            raise ValueError("RetinaFace ONNX model must return bbox, conf, and landmark outputs.")
+
+        loc, conf, landms = (np.asarray(output) for output in outputs[:3])
+        priors = self._priors
+
+        loc = np.squeeze(loc, axis=0)
+        conf = np.squeeze(conf, axis=0)
+        landms = np.squeeze(landms, axis=0)
+        if conf.ndim != 2 or conf.shape[1] < 2:
+            raise ValueError("RetinaFace confidence output shape is unsupported.")
+
+        scores = conf[:, 1]
+        keep = scores >= self.settings.face_score_threshold
+        if not np.any(keep):
+            return []
+
+        priors = priors[keep]
+        loc = loc[keep]
+        scores = scores[keep]
+        landms = landms[keep]
+
+        boxes = self._decode_boxes(loc, priors)
+        decoded_landms = self._decode_landmarks(landms, priors)
+        boxes[:, 0] *= self.model_width * scale_x
+        boxes[:, 1] *= self.model_height * scale_y
+        boxes[:, 2] *= self.model_width * scale_x
+        boxes[:, 3] *= self.model_height * scale_y
+        decoded_landms[:, 0::2] *= self.model_width * scale_x
+        decoded_landms[:, 1::2] *= self.model_height * scale_y
+
+        detections = np.concatenate([boxes, scores[:, None], decoded_landms], axis=1).astype(
+            np.float32
+        )
+        keep_indices = self._nms(detections, self.settings.face_nms_threshold)
+        return [detections[index] for index in keep_indices]
+
+    def _prior_boxes(self) -> NDArray[np.float32]:
+        priors: list[list[float]] = []
+        for min_sizes, step in zip(
+            self.prior_config.min_sizes,
+            self.prior_config.steps,
+            strict=True,
+        ):
+            feature_height = int(np.ceil(self.model_height / step))
+            feature_width = int(np.ceil(self.model_width / step))
+            for i in range(feature_height):
+                for j in range(feature_width):
+                    for min_size in min_sizes:
+                        s_kx = min_size / self.model_width
+                        s_ky = min_size / self.model_height
+                        cx = (j + 0.5) * step / self.model_width
+                        cy = (i + 0.5) * step / self.model_height
+                        priors.append([cx, cy, s_kx, s_ky])
+        return np.asarray(priors, dtype=np.float32)
+
+    def _decode_boxes(
+        self,
+        loc: NDArray[np.float32],
+        priors: NDArray[np.float32],
+    ) -> NDArray[np.float32]:
+        variance0, variance1 = self.prior_config.variance
+        boxes = np.empty_like(loc, dtype=np.float32)
+        boxes[:, :2] = priors[:, :2] + loc[:, :2] * variance0 * priors[:, 2:]
+        boxes[:, 2:] = priors[:, 2:] * np.exp(loc[:, 2:] * variance1)
+        boxes[:, :2] -= boxes[:, 2:] / 2
+        boxes[:, 2:] += boxes[:, :2]
+        return boxes
+
+    def _decode_landmarks(
+        self,
+        landms: NDArray[np.float32],
+        priors: NDArray[np.float32],
+    ) -> NDArray[np.float32]:
+        variance0 = self.prior_config.variance[0]
+        centers = np.tile(priors[:, :2], (1, 5))
+        sizes = np.tile(priors[:, 2:], (1, 5))
+        return (centers + landms * variance0 * sizes).astype(np.float32)
+
+    @staticmethod
+    def _landmarks_from_decoded(
+        detection: NDArray[np.float32],
+        *,
+        offset_x: int,
+        offset_y: int,
+    ) -> list[tuple[int, int]] | None:
+        if detection.shape[0] < 15:
+            return None
+        landmarks: list[tuple[int, int]] = []
+        for index in range(5):
+            x = int(round(float(detection[5 + index * 2]))) + offset_x
+            y = int(round(float(detection[6 + index * 2]))) + offset_y
+            landmarks.append((x, y))
+        return landmarks
+
+    @staticmethod
+    def _nms(detections: NDArray[np.float32], threshold: float) -> list[int]:
+        x1 = detections[:, 0]
+        y1 = detections[:, 1]
+        x2 = detections[:, 2]
+        y2 = detections[:, 3]
+        scores = detections[:, 4]
+
+        areas = np.maximum(0.0, x2 - x1) * np.maximum(0.0, y2 - y1)
+        order = scores.argsort()[::-1]
+        keep: list[int] = []
+
+        while order.size > 0:
+            index = int(order[0])
+            keep.append(index)
+            if order.size == 1:
+                break
+
+            rest = order[1:]
+            xx1 = np.maximum(x1[index], x1[rest])
+            yy1 = np.maximum(y1[index], y1[rest])
+            xx2 = np.minimum(x2[index], x2[rest])
+            yy2 = np.minimum(y2[index], y2[rest])
+
+            width = np.maximum(0.0, xx2 - xx1)
+            height = np.maximum(0.0, yy2 - yy1)
+            intersection = width * height
+            union = areas[index] + areas[rest] - intersection
+            overlap = np.where(union > 0.0, intersection / union, 0.0)
+            order = rest[overlap <= threshold]
+
+        return keep
+
+
+PassportFaceDetector = RetinaFaceDetector
 
 
 class PassportFaceCropper:
