@@ -31,7 +31,7 @@ Three-layer design:
 
 ### Key Technologies
 - Python 3.12+
-- OpenCV (SIFT validation, YuNet face detection)
+- OpenCV (SIFT validation, image preprocessing) + ONNX Runtime (RetinaFace face detection)
 - Requesty AI (LLM routing)
 - python-telegram-bot
 - SQLite (via passport-platform)
@@ -179,7 +179,7 @@ uv run passport-telegram
 **passport-core** (prefix: `PASSPORT_`):
 - `PASSPORT_REQUESTY_API_KEY` - Required for LLM extraction
 - `PASSPORT_TEMPLATE_PATH` - Passport template for validation
-- `PASSPORT_FACE_MODEL_PATH` - YuNet ONNX model
+- `PASSPORT_FACE_MODEL_PATH` - RetinaFace ONNX model
 - `PASSPORT_STORAGE_BACKEND` - `local` or `s3`
 - `PASSPORT_DATA_STORE_BACKEND` - `sqlite`, `json`, or `csv`
 - `PASSPORT_LLM_MODEL` - Default: `openai-responses/gpt-5-mini`
@@ -455,7 +455,7 @@ def test_process_bytes(sample_jpeg_bytes):
 
 **Key Responsibilities**:
 - Passport validation using SIFT feature matching
-- Face detection using YuNet ONNX model
+- Face detection using a RetinaFace ONNX model
 - Face cropping with bounding box mapping
 - LLM-based field extraction via Requesty
 - Binary artifact storage (local/S3)
@@ -768,7 +768,7 @@ rm data/platform.db
 **Face Detection Fails**:
 ```bash
 # Check model path
-ls -la passport-core/assets/face_detection_yunet_2023mar.onnx
+ls -la passport-core/assets/face_detection_retinaface_mobile0.25.onnx
 
 # Check OpenCV installation
 python -c "import cv2; print(cv2.__version__)"
