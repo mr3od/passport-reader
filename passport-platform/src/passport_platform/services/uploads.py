@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from passport_platform.enums import UploadStatus, UsageEventType
 from passport_platform.models.upload import ProcessingResult, Upload
+from passport_platform.models.user import User
 from passport_platform.repositories.uploads import UploadsRepository
 from passport_platform.repositories.usage import UsageRepository
 from passport_platform.schemas.commands import RecordProcessingResultCommand, RegisterUploadCommand
+from passport_platform.schemas.results import QuotaDecision
+from passport_platform.services.quotas import QuotaService
 
 
 class UploadService:
@@ -25,6 +30,26 @@ class UploadService:
             units=1,
         )
         return upload
+
+    def reserve_upload(
+        self,
+        *,
+        user: User,
+        quotas: QuotaService,
+        command: RegisterUploadCommand,
+        at: datetime | None = None,
+    ) -> tuple[Upload, QuotaDecision]:
+        with self.uploads.db.transaction(immediate=True) as conn:
+            decision = quotas.assert_can_upload(user, at=at, conn=conn)
+            upload = self.uploads.create(command, conn=conn)
+            self.usage.record(
+                user_id=command.user_id,
+                upload_id=upload.id,
+                event_type=UsageEventType.UPLOAD_RECEIVED,
+                units=1,
+                conn=conn,
+            )
+        return upload, decision
 
     def get_upload(self, upload_id: int) -> Upload | None:
         return self.uploads.get_by_id(upload_id)

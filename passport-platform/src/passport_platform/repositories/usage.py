@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sqlite3
+from contextlib import nullcontext
 from datetime import UTC, datetime
 
 from passport_platform.db import Database
@@ -19,10 +21,12 @@ class UsageRepository:
         units: int = 1,
         upload_id: int | None = None,
         created_at: datetime | None = None,
+        conn: sqlite3.Connection | None = None,
     ) -> UsageLedgerEntry:
         created_at = created_at or datetime.now(UTC)
-        with self.db.transaction() as conn:
-            cursor = conn.execute(
+        context = nullcontext(conn) if conn is not None else self.db.transaction()
+        with context as active_conn:
+            cursor = active_conn.execute(
                 """
                 INSERT INTO usage_ledger (user_id, upload_id, event_type, units, created_at)
                 VALUES (?, ?, ?, ?, ?)
@@ -36,6 +40,15 @@ class UsageRepository:
                 ),
             )
             entry_id = int(cursor.lastrowid)
+        if conn is not None:
+            return UsageLedgerEntry(
+                id=entry_id,
+                user_id=user_id,
+                upload_id=upload_id,
+                event_type=event_type,
+                units=units,
+                created_at=created_at,
+            )
         entry = self.get_by_id(entry_id)
         if entry is None:
             raise RuntimeError("created usage entry could not be loaded")
@@ -60,9 +73,11 @@ class UsageRepository:
         event_type: UsageEventType,
         period_start: datetime,
         period_end: datetime,
+        conn: sqlite3.Connection | None = None,
     ) -> int:
-        with self.db.connect() as conn:
-            row = conn.execute(
+        context = nullcontext(conn) if conn is not None else self.db.connect()
+        with context as active_conn:
+            row = active_conn.execute(
                 """
                 SELECT COALESCE(SUM(units), 0) AS total_units
                 FROM usage_ledger

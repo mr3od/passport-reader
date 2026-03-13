@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sqlite3
 from datetime import UTC, datetime
 
 from passport_platform.enums import UsageEventType
@@ -19,6 +20,7 @@ class QuotaService:
         user: User,
         *,
         at: datetime | None = None,
+        conn: sqlite3.Connection | None = None,
     ) -> QuotaDecision:
         now = at.astimezone(UTC) if at is not None else datetime.now(UTC)
         period_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
@@ -33,12 +35,14 @@ class QuotaService:
             event_type=UsageEventType.UPLOAD_RECEIVED,
             period_start=period_start,
             period_end=period_end,
+            conn=conn,
         )
         successes_used = self.usage.sum_units_for_period(
             user_id=user.id,
             event_type=UsageEventType.SUCCESSFUL_PROCESS,
             period_start=period_start,
             period_end=period_end,
+            conn=conn,
         )
         remaining_uploads = max(plan.monthly_upload_limit - uploads_used, 0)
         remaining_successes = max(plan.monthly_success_limit - successes_used, 0)
@@ -64,8 +68,14 @@ class QuotaService:
             reason=reason,
         )
 
-    def assert_can_upload(self, user: User, *, at: datetime | None = None) -> QuotaDecision:
-        decision = self.evaluate_user_quota(user, at=at)
+    def assert_can_upload(
+        self,
+        user: User,
+        *,
+        at: datetime | None = None,
+        conn: sqlite3.Connection | None = None,
+    ) -> QuotaDecision:
+        decision = self.evaluate_user_quota(user, at=at, conn=conn)
         if not decision.allowed:
             raise QuotaExceededError(decision)
         return decision

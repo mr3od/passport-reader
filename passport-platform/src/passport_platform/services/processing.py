@@ -70,10 +70,10 @@ class ProcessingService:
         if user.status is UserStatus.BLOCKED:
             raise UserBlockedError(user)
 
-        quota_decision = self.quotas.assert_can_upload(user)
-
-        upload = self.uploads.register_upload(
-            RegisterUploadCommand(
+        upload, quota_decision = self.uploads.reserve_upload(
+            user=user,
+            quotas=self.quotas,
+            command=RegisterUploadCommand(
                 user_id=user.id,
                 channel=channel,
                 filename=command.filename,
@@ -81,7 +81,7 @@ class ProcessingService:
                 source_ref=command.source_ref,
                 external_message_id=command.external_message_id,
                 external_file_id=command.external_file_id,
-            )
+            ),
         )
         upload = self.uploads.mark_processing(upload.id)
 

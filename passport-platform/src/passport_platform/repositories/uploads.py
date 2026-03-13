@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sqlite3
+from contextlib import nullcontext
 from datetime import UTC, datetime
 
 from passport_platform.db import Database
@@ -58,10 +60,16 @@ class UploadsRepository:
             ).fetchone()
         return _row_to_upload(row)
 
-    def create(self, command: RegisterUploadCommand) -> Upload:
+    def create(
+        self,
+        command: RegisterUploadCommand,
+        *,
+        conn: sqlite3.Connection | None = None,
+    ) -> Upload:
         created_at = datetime.now(UTC)
-        with self.db.transaction() as conn:
-            cursor = conn.execute(
+        context = nullcontext(conn) if conn is not None else self.db.transaction()
+        with context as active_conn:
+            cursor = active_conn.execute(
                 """
                 INSERT INTO uploads (
                     user_id,
@@ -89,6 +97,19 @@ class UploadsRepository:
                 ),
             )
             upload_id = int(cursor.lastrowid)
+        if conn is not None:
+            return Upload(
+                id=upload_id,
+                user_id=command.user_id,
+                channel=command.channel,
+                external_message_id=command.external_message_id,
+                external_file_id=command.external_file_id,
+                filename=command.filename,
+                mime_type=command.mime_type,
+                source_ref=command.source_ref,
+                status=UploadStatus.RECEIVED,
+                created_at=created_at,
+            )
         upload = self.get_by_id(upload_id)
         if upload is None:
             raise RuntimeError("created upload could not be loaded")

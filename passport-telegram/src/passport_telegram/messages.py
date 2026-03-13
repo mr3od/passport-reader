@@ -48,6 +48,13 @@ def batch_started_text(total: int) -> str:
     return f"تم استلام {total} صور، وجارٍ معالجتها الآن."
 
 
+def batch_limit_exceeded_text(*, total: int, limit: int) -> str:
+    return (
+        f"عدد الصور المرسلة ({total}) يتجاوز الحد المسموح في الدفعة الواحدة ({limit}).\n"
+        "قسّم الصور إلى دفعات أصغر ثم أعد الإرسال."
+    )
+
+
 def format_failure_text(result: PassportWorkflowResult, *, position: int, total: int) -> str:
     prefix = f"الصورة {position} من {total}\n" if total > 1 else ""
 

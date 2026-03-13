@@ -32,6 +32,7 @@ from passport_platform.repositories import (
     UsageRepository,
     UsersRepository,
 )
+from passport_platform.schemas.commands import EnsureUserCommand
 from telegram import Document, InputMediaPhoto, Message, PhotoSize, Update
 from telegram.ext import (
     Application,
@@ -48,6 +49,7 @@ from passport_telegram.messages import (
     admin_setplan_help_text,
     admin_status_help_text,
     admin_usage_help_text,
+    batch_limit_exceeded_text,
     batch_started_text,
     format_failure_text,
     format_monthly_usage_report,
@@ -121,6 +123,7 @@ class MediaGroupCollector:
 class BotServices:
     processing: ProcessingService
     users: UserService
+    quotas: QuotaService
     reporting: ReportingService
 
     def close(self) -> None:
@@ -316,8 +319,28 @@ async def process_upload_batch(
 ) -> None:
     settings: TelegramSettings = context.application.bot_data["settings"]
     services: BotServices = context.application.bot_data["services"]
+    user = await asyncio.to_thread(
+        services.users.get_or_create_user,
+        EnsureUserCommand(
+            external_provider=ExternalProvider.TELEGRAM,
+            external_user_id=external_user_id,
+            display_name=display_name,
+        ),
+    )
+    if user.status is UserStatus.BLOCKED:
+        await context.bot.send_message(chat_id=chat_id, text=user_blocked_text())
+        return
 
-    batch = uploads[: settings.max_images_per_batch]
+    quota_decision = await asyncio.to_thread(services.quotas.evaluate_user_quota, user)
+    max_batch_size = min(settings.max_images_per_batch, quota_decision.max_batch_size)
+    if len(uploads) > max_batch_size:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=batch_limit_exceeded_text(total=len(uploads), limit=max_batch_size),
+        )
+        return
+
+    batch = uploads
     if len(batch) > 1:
         await context.bot.send_message(chat_id=chat_id, text=batch_started_text(len(batch)))
 
@@ -406,6 +429,7 @@ def _build_bot_services(settings: TelegramSettings) -> BotServices:
     return BotServices(
         processing=processing,
         users=users,
+        quotas=quotas,
         reporting=reporting,
     )
 

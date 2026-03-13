@@ -97,9 +97,11 @@ class Database:
             conn.close()
 
     @contextmanager
-    def transaction(self) -> Iterator[sqlite3.Connection]:
+    def transaction(self, *, immediate: bool = False) -> Iterator[sqlite3.Connection]:
         with self.connect() as conn:
             try:
+                if immediate:
+                    conn.execute("BEGIN IMMEDIATE")
                 yield conn
                 conn.commit()
             except Exception:
