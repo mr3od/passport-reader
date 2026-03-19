@@ -108,6 +108,24 @@ class AuthService:
             raise UserBlockedError(user)
         return AuthenticatedSession(user=user, session=session)
 
+    def issue_dev_session(self, user_id: int, *, now: datetime | None = None) -> IssuedExtensionSession:
+        current_time = _utc(now)
+        session_token = secrets.token_urlsafe(32)
+        session_token_hash = _hash_token(session_token)
+        session = self.auth_tokens.create_extension_session(
+            user_id=user_id,
+            session_token_hash=session_token_hash,
+            expires_at=current_time + self.extension_session_ttl,
+        )
+        user = self.users.get_by_id(session.user_id)
+        if user is None:
+            raise RuntimeError(f"user {session.user_id} not found")
+        return IssuedExtensionSession(
+            session_token=session_token,
+            expires_at=session.expires_at,
+            authenticated=AuthenticatedSession(user=user, session=session),
+        )
+
     def revoke_session(
         self,
         raw_session_token: str,

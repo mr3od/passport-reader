@@ -16,6 +16,7 @@ class ApiSettings(BaseSettings):
     port: int = 8000
     log_level: str = "INFO"
     platform_env_file: Path = Path("../passport-platform/.env")
+    dev_token_secret: str | None = None
 
     @property
     def platform_root_dir(self) -> Path:
