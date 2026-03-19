@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- Background -->
+  <rect width="128" height="128" rx="24" fill="#1a56db"/>
+
+  <!-- Passport booklet -->
+  <rect x="28" y="22" width="72" height="90" rx="6" fill="#ffffff" opacity="0.15"/>
+  <rect x="24" y="18" width="72" height="90" rx="6" fill="#ffffff"/>
+
+  <!-- Spine -->
+  <rect x="24" y="18" width="10" height="90" rx="4" fill="#e2e8f0"/>
+
+  <!-- Face circle -->
+  <circle cx="72" cy="52" r="16" fill="#bfdbfe"/>
+  <circle cx="72" cy="47" r="7" fill="#1a56db"/>
+  <ellipse cx="72" cy="64" rx="12" ry="7" fill="#1a56db"/>
+
+  <!-- Lines (data) -->
+  <rect x="38" y="76" width="52" height="4" rx="2" fill="#94a3b8"/>
+  <rect x="38" y="85" width="40" height="4" rx="2" fill="#cbd5e1"/>
+  <rect x="38" y="94" width="46" height="4" rx="2" fill="#cbd5e1"/>
+
+  <!-- Green checkmark badge -->
+  <circle cx="96" cy="96" r="18" fill="#16a34a"/>
+  <polyline points="87,96 93,103 106,89" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
