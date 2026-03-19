@@ -18,7 +18,7 @@ chrome.webRequest.onSendHeaders.addListener(
 
 // ─── Masar API helpers ────────────────────────────────────────────────────────
 
-async function getMasarHeaders() {
+async function getMasarEntityHeaders() {
   return new Promise((resolve) => {
     chrome.storage.local.get(
       ["masar_entity_id", "masar_entity_type_id", "masar_contract_id"],
@@ -27,22 +27,13 @@ async function getMasarHeaders() {
   });
 }
 
-async function getMasarCookieHeader() {
-  return new Promise((resolve) => {
-    chrome.cookies.getAll({ domain: "masar.nusuk.sa" }, (cookies) => {
-      const header = cookies.map((c) => `${c.name}=${c.value}`).join("; ");
-      resolve(header);
-    });
-  });
-}
-
+// Build custom entity headers — do NOT include Cookie.
+// The browser sends cookies automatically via credentials:'include' for
+// requests that match host_permissions. Setting Cookie manually is a
+// forbidden-header no-op in the Fetch API.
 async function buildMasarHeaders() {
-  const [cookieHeader, stored] = await Promise.all([
-    getMasarCookieHeader(),
-    getMasarHeaders(),
-  ]);
+  const stored = await getMasarEntityHeaders();
   return {
-    Cookie: cookieHeader,
     activeentityid: stored.masar_entity_id || "",
     activeentitytypeid: stored.masar_entity_type_id || "",
     contractid: stored.masar_contract_id || "",
@@ -53,13 +44,43 @@ async function buildMasarHeaders() {
   };
 }
 
+// All masar fetches must use credentials:'include' so the browser attaches
+// the user's session cookies automatically.
+async function masarFetch(url, options = {}) {
+  const entityHeaders = await buildMasarHeaders();
+  const { headers: extraHeaders, ...rest } = options;
+  return fetch(url, {
+    credentials: "include",
+    ...rest,
+    headers: { ...entityHeaders, ...(extraHeaders || {}) },
+  });
+}
+
+// Multipart variant — omits Content-Type so the browser sets the boundary.
+async function masarFetchMultipart(url, body) {
+  const stored = await getMasarEntityHeaders();
+  return fetch(url, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      activeentityid: stored.masar_entity_id || "",
+      activeentitytypeid: stored.masar_entity_type_id || "",
+      contractid: stored.masar_contract_id || "",
+      "entity-id": stored.masar_entity_id || "",
+      accept: "application/json, text/plain, */*",
+      "accept-language": "en",
+    },
+    body,
+  });
+}
+
 async function checkMasarSession() {
   try {
-    const headers = await buildMasarHeaders();
-    if (!headers.activeentityid) return { ok: false, reason: "no_entity_ids" };
-    const res = await fetch(
+    const stored = await getMasarEntityHeaders();
+    if (!stored.masar_entity_id) return { ok: false, reason: "no_entity_ids" };
+    const res = await masarFetch(
       "https://masar.nusuk.sa/umrah/groups_apis/api/Groups/GroupsStatistics",
-      { method: "POST", headers, body: "{}" }
+      { method: "POST", body: "{}" }
     );
     return { ok: res.ok, status: res.status };
   } catch {
@@ -68,12 +89,10 @@ async function checkMasarSession() {
 }
 
 async function fetchGroups() {
-  const headers = await buildMasarHeaders();
-  const res = await fetch(
+  const res = await masarFetch(
     "https://masar.nusuk.sa/umrah/groups_apis/api/Groups/GetGroupList",
     {
       method: "POST",
-      headers,
       body: JSON.stringify({
         limit: 50,
         offset: 0,
@@ -125,7 +144,6 @@ async function fetchImageBytes(uri) {
 }
 
 async function submitToMasar(record) {
-  const masarHeaders = await buildMasarHeaders();
   const settings = await new Promise((resolve) =>
     chrome.storage.local.get(["agency_email", "agency_phone", "agency_phone_country_code"], resolve)
   );
@@ -134,23 +152,12 @@ async function submitToMasar(record) {
   const imageBytes = await fetchImageBytes(record.passport_image_uri);
   const imageBlob = new Blob([imageBytes], { type: "image/jpeg" });
 
-  // Multipart headers: no Content-Type (browser sets it with boundary automatically)
-  const multipartHeaders = {
-    Cookie: masarHeaders.Cookie,
-    activeentityid: masarHeaders.activeentityid,
-    activeentitytypeid: masarHeaders.activeentitytypeid,
-    contractid: masarHeaders.contractid,
-    "entity-id": masarHeaders["entity-id"],
-    accept: masarHeaders.accept,
-    "accept-language": masarHeaders["accept-language"],
-  };
-
   // ── Step 1: ScanPassport ──────────────────────────────────────────────────
   const step1Form = new FormData();
   step1Form.append("passportImage", imageBlob, imageName);
-  const step1Res = await fetch(
+  const step1Res = await masarFetchMultipart(
     "https://masar.nusuk.sa/umrah/groups_apis/api/Mutamer/ScanPassport",
-    { method: "POST", headers: multipartHeaders, body: step1Form }
+    step1Form
   );
   if (!step1Res.ok) throw new Error(`ScanPassport failed: ${step1Res.status}`);
   const step1Json = await step1Res.json();
@@ -187,9 +194,9 @@ async function submitToMasar(record) {
     personalPictureId: personalPictureMeta.id,
     signature: scan.signature,
   };
-  const step2Res = await fetch(
+  const step2Res = await masarFetch(
     "https://masar.nusuk.sa/umrah/groups_apis/api/Mutamer/SubmitPassportInforamtionWithNationality",
-    { method: "POST", headers: masarHeaders, body: JSON.stringify(step2Body) }
+    { method: "POST", body: JSON.stringify(step2Body) }
   );
   if (!step2Res.ok) throw new Error(`SubmitPassport failed: ${step2Res.status}`);
   const step2Json = await step2Res.json();
@@ -201,9 +208,9 @@ async function submitToMasar(record) {
   const step3Form = new FormData();
   step3Form.append("type", "3");
   step3Form.append("file", imageBlob, imageName);
-  const step3Res = await fetch(
+  const step3Res = await masarFetchMultipart(
     "https://masar.nusuk.sa/umrah/common_apis/api/Attachment/Upload",
-    { method: "POST", headers: multipartHeaders, body: step3Form }
+    step3Form
   );
   if (!step3Res.ok) throw new Error(`Attachment upload failed: ${step3Res.status}`);
   const step3Json = await step3Res.json();
@@ -213,9 +220,9 @@ async function submitToMasar(record) {
   // ── Step 3.5: GetPersonalAndContactInfos ─────────────────────────────────
   // Fetch to get the server-assigned personalPictureId (differs from scan ID)
   const encodedMutamerId = encodeURIComponent(mutamerId);
-  const step35Res = await fetch(
+  const step35Res = await masarFetch(
     `https://masar.nusuk.sa/umrah/groups_apis/api/Mutamer/GetPersonalAndContactInfos?Id=${encodedMutamerId}`,
-    { method: "POST", headers: masarHeaders, body: "{}" }
+    { method: "POST", body: "{}" }
   );
   if (!step35Res.ok) throw new Error(`GetPersonalAndContactInfos failed: ${step35Res.status}`);
   const step35Json = await step35Res.json();
@@ -257,9 +264,9 @@ async function submitToMasar(record) {
     birthCountryId: scan.countryId,
     birthCityName: scan.birthCity || "",
   };
-  const step4Res = await fetch(
+  const step4Res = await masarFetch(
     "https://masar.nusuk.sa/umrah/groups_apis/api/Mutamer/SubmitPersonalAndContactInfos",
-    { method: "POST", headers: masarHeaders, body: JSON.stringify(step4Body) }
+    { method: "POST", body: JSON.stringify(step4Body) }
   );
   if (!step4Res.ok) throw new Error(`SubmitPersonal failed: ${step4Res.status}`);
 
@@ -287,9 +294,9 @@ async function submitToMasar(record) {
       { questionId: 16, answer: false, simpleReason: null, detailedAnswers: [] },
     ],
   };
-  const step5Res = await fetch(
+  const step5Res = await masarFetch(
     "https://masar.nusuk.sa/umrah/groups_apis/api/Mutamer/SubmitDisclosureForm",
-    { method: "POST", headers: masarHeaders, body: JSON.stringify(step5Body) }
+    { method: "POST", body: JSON.stringify(step5Body) }
   );
   if (!step5Res.ok) throw new Error(`SubmitDisclosure failed: ${step5Res.status}`);
 
