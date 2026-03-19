@@ -33,3 +33,6 @@ class ProcessingResult:
     core_result_json: str | None
     error_code: str | None
     completed_at: datetime
+    masar_status: str | None
+    masar_mutamer_id: str | None
+    masar_scan_result_json: str | None

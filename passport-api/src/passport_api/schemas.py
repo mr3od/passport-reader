@@ -41,3 +41,10 @@ class RecordResponse(BaseModel):
     face_crop_uri: str | None
     core_result: dict[str, Any] | None
     error_code: str | None
+    masar_status: str | None
+
+
+class MasarStatusUpdate(BaseModel):
+    status: str
+    masar_mutamer_id: str | None = None
+    masar_scan_result: dict[str, Any] | None = None

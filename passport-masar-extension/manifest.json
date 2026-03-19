@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "Passport Masar Submitter",
+  "version": "1.0.0",
+  "description": "Auto-submit passport records to masar.nusuk.sa",
+  "permissions": [
+    "cookies",
+    "storage",
+    "scripting",
+    "activeTab",
+    "webRequest"
+  ],
+  "host_permissions": [
+    "https://masar.nusuk.sa/*",
+    "https://*.nusuk.sa/*",
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

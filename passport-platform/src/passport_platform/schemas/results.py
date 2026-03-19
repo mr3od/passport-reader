@@ -96,3 +96,6 @@ class UserRecord:
     face_crop_uri: str | None
     core_result: dict[str, Any] | None
     error_code: str | None
+    masar_status: str | None
+    masar_mutamer_id: str | None
+    masar_scan_result: dict[str, Any] | None

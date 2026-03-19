@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Passport Masar Submitter</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Token setup screen -->
+    <div id="screen-setup" class="screen hidden">
+      <h2>Setup</h2>
+      <label for="api-token-input">Access token</label>
+      <input id="api-token-input" type="password" placeholder="Paste token from /token command" />
+      <label for="api-base-url-input">API base URL</label>
+      <input id="api-base-url-input" type="text" placeholder="https://your-api.example.com" />
+      <button id="btn-save-token">Save</button>
+    </div>
+
+    <!-- Entity IDs not yet captured -->
+    <div id="screen-activate" class="screen hidden">
+      <div class="status-banner warning">
+        Open <strong>masar.nusuk.sa</strong> in this browser to activate.
+      </div>
+      <button id="btn-open-masar-activate">Open Masar</button>
+    </div>
+
+    <!-- Session expired -->
+    <div id="screen-session-expired" class="screen hidden">
+      <div class="status-banner error">
+        Your masar session has expired.
+      </div>
+      <button id="btn-open-masar-expired">Log into Masar</button>
+    </div>
+
+    <!-- Group selection (first launch) -->
+    <div id="screen-group-select" class="screen hidden">
+      <h2>Select your group</h2>
+      <select id="group-select"></select>
+      <button id="btn-confirm-group">Confirm</button>
+    </div>
+
+    <!-- Main queue screen -->
+    <div id="screen-main" class="screen hidden">
+      <div class="header">
+        <span id="pending-count" class="pending-label"></span>
+        <button id="btn-settings" class="icon-btn" title="Settings">&#9881;</button>
+      </div>
+      <div id="queue-list"></div>
+    </div>
+
+    <!-- Settings panel -->
+    <div id="screen-settings" class="screen hidden">
+      <div class="header">
+        <button id="btn-back" class="icon-btn">&larr;</button>
+        <h2>Settings</h2>
+      </div>
+      <label for="settings-email">Agency email</label>
+      <input id="settings-email" type="email" placeholder="agency@example.com" />
+      <label for="settings-phone-cc">Phone country code</label>
+      <input id="settings-phone-cc" type="text" placeholder="966" maxlength="5" />
+      <label for="settings-phone">Phone number</label>
+      <input id="settings-phone" type="tel" placeholder="5XXXXXXXX" />
+      <button id="btn-change-group">Change group</button>
+      <button id="btn-save-settings">Save</button>
+      <hr />
+      <button id="btn-reset-token" class="danger">Reset token</button>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
