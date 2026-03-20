@@ -150,3 +150,9 @@ class Database:
             conn.execute("ALTER TABLE processing_results ADD COLUMN face_crop_uri TEXT")
         if "core_result_json" not in columns:
             conn.execute("ALTER TABLE processing_results ADD COLUMN core_result_json TEXT")
+        if "masar_status" not in columns:
+            conn.execute("ALTER TABLE processing_results ADD COLUMN masar_status TEXT")
+        if "masar_mutamer_id" not in columns:
+            conn.execute("ALTER TABLE processing_results ADD COLUMN masar_mutamer_id TEXT")
+        if "masar_scan_result_json" not in columns:
+            conn.execute("ALTER TABLE processing_results ADD COLUMN masar_scan_result_json TEXT")

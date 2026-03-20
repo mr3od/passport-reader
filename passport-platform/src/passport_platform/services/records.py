@@ -13,6 +13,9 @@ class RecordsService:
     def list_user_records(self, user_id: int, *, limit: int = 50) -> list[UserRecord]:
         return self.records.list_user_records(user_id, limit=limit)
 
+    def get_user_record(self, user_id: int, upload_id: int) -> UserRecord | None:
+        return self.records.get_user_record(user_id, upload_id)
+
     def get_masar_pending(self, user_id: int) -> list[UserRecord]:
         return self.records.get_masar_pending(user_id)
 

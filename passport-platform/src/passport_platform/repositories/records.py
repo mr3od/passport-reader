@@ -75,12 +75,44 @@ class RecordsRepository:
                 INNER JOIN processing_results ON processing_results.upload_id = uploads.id
                 WHERE uploads.user_id = ?
                   AND processing_results.is_complete = 1
-                  AND processing_results.masar_status IS NULL
+                  AND (processing_results.masar_status IS NULL OR processing_results.masar_status = 'failed')
                 ORDER BY uploads.created_at ASC, uploads.id ASC
                 """,
                 (user_id,),
             ).fetchall()
         return [_row_to_user_record(row) for row in rows]
+
+    def get_user_record(self, user_id: int, upload_id: int) -> UserRecord | None:
+        with self.db.connect() as conn:
+            row = conn.execute(
+                """
+                SELECT
+                    uploads.id AS upload_id,
+                    uploads.user_id AS user_id,
+                    uploads.filename AS filename,
+                    uploads.mime_type AS mime_type,
+                    uploads.source_ref AS source_ref,
+                    uploads.status AS upload_status,
+                    uploads.created_at AS created_at,
+                    processing_results.completed_at AS completed_at,
+                    processing_results.is_passport AS is_passport,
+                    processing_results.has_face AS has_face,
+                    processing_results.is_complete AS is_complete,
+                    processing_results.passport_number AS passport_number,
+                    processing_results.passport_image_uri AS passport_image_uri,
+                    processing_results.face_crop_uri AS face_crop_uri,
+                    processing_results.core_result_json AS core_result_json,
+                    processing_results.error_code AS error_code,
+                    processing_results.masar_status AS masar_status,
+                    processing_results.masar_mutamer_id AS masar_mutamer_id,
+                    processing_results.masar_scan_result_json AS masar_scan_result_json
+                FROM uploads
+                LEFT JOIN processing_results ON processing_results.upload_id = uploads.id
+                WHERE uploads.user_id = ? AND uploads.id = ?
+                """,
+                (user_id, upload_id),
+            ).fetchone()
+        return _row_to_user_record(row) if row else None
 
     def update_masar_status(
         self,

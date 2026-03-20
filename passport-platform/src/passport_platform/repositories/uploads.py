@@ -179,7 +179,10 @@ class UploadsRepository:
                     face_crop_uri,
                     core_result_json,
                     error_code,
-                    completed_at
+                    completed_at,
+                    masar_status,
+                    masar_mutamer_id,
+                    masar_scan_result_json
                 FROM processing_results
                 WHERE upload_id = ?
                 """,
@@ -222,4 +225,7 @@ def _row_to_processing_result(row) -> ProcessingResult | None:
         core_result_json=row["core_result_json"],
         error_code=row["error_code"],
         completed_at=datetime.fromisoformat(row["completed_at"]),
+        masar_status=row["masar_status"],
+        masar_mutamer_id=row["masar_mutamer_id"],
+        masar_scan_result_json=row["masar_scan_result_json"],
     )
