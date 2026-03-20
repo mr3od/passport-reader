@@ -34,6 +34,18 @@ chrome.webRequest.onSendHeaders.addListener(
   ["requestHeaders", "extraHeaders"]
 );
 
+// ─── Badge ────────────────────────────────────────────────────────────────────
+
+function updateBadge(records) {
+  const failed = records.filter((r) => r.masar_status === "failed").length;
+  if (failed > 0) {
+    chrome.action.setBadgeText({ text: String(failed) });
+    chrome.action.setBadgeBackgroundColor({ color: "#e53e3e" });
+  } else {
+    chrome.action.setBadgeText({ text: "" });
+  }
+}
+
 // ─── Submission serializer ────────────────────────────────────────────────────
 // Only one SUBMIT_RECORD runs at a time. Concurrent calls queue behind the
 // current one — prevents parallel Attachment/Upload 429s from Cloudflare and
@@ -653,6 +665,7 @@ async function handleMessage(msg) {
       if (!res.ok) return { ok: false, status: res.status };
       const data = await res.json();
       log("FETCH_PENDING — count:", Array.isArray(data) ? data.length : data);
+      updateBadge(Array.isArray(data) ? data : []);
       return { ok: true, data };
     } catch (err) {
       logError("FETCH_PENDING — error:", err.message);
@@ -676,12 +689,20 @@ async function handleMessage(msg) {
       });
       log("SUBMIT_RECORD — patch status:", patchRes.status);
       if (!patchRes.ok) throw new Error(`patch failed: ${patchRes.status}`);
+      // Refresh badge after successful submit — failure count may have dropped.
+      apiFetch("/records/masar/pending").then(async (r) => {
+        if (r.ok) updateBadge(await r.json());
+      }).catch(() => {});
       return { ok: true, mutamerId };
     } catch (err) {
       logError("SUBMIT_RECORD — failed:", err.message);
       apiFetch(`/records/${record.upload_id}/masar-status`, {
         method: "PATCH",
         body: JSON.stringify({ status: "failed", masar_mutamer_id: null, masar_scan_result: null }),
+      }).then(async () => {
+        // Refresh badge so the new failure shows immediately.
+        const r = await apiFetch("/records/masar/pending");
+        if (r.ok) updateBadge(await r.json());
       }).catch(() => {});
       return { ok: false, error: err.message };
     }
