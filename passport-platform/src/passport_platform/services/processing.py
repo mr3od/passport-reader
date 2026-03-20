@@ -7,7 +7,7 @@ from uuid import uuid4
 
 import numpy as np
 
-from passport_platform.enums import ChannelName, ExternalProvider, UserStatus
+from passport_platform.enums import ChannelName, ExternalProvider, UploadStatus, UserStatus
 from passport_platform.errors import (
     ProcessingFailedError,
     UnsupportedChannelError,
@@ -112,32 +112,38 @@ class ProcessingService:
             )
         except Exception as exc:
             workflow_result = self._failed_workflow_result(command)
-            processing_result = self.uploads.record_processing_result(
-                user.id,
-                RecordProcessingResultCommand(
-                    upload_id=upload.id,
-                    is_passport=False,
-                    has_face=False,
-                    is_complete=False,
-                    passport_image_uri=passport_image_uri,
-                    core_result_json=_serialize_workflow_result(
-                        workflow_result,
-                        trace_id=trace_id,
+            try:
+                processing_result = self.uploads.record_processing_result(
+                    user.id,
+                    RecordProcessingResultCommand(
+                        upload_id=upload.id,
+                        is_passport=False,
+                        has_face=False,
+                        is_complete=False,
                         passport_image_uri=passport_image_uri,
-                        face_crop_uri=None,
-                        error_details=artifact_errors
-                        + [
-                            {
-                                "code": "INTERNAL_ERROR",
-                                "stage": "workflow",
-                                "message": str(exc),
-                                "retryable": False,
-                            }
-                        ],
+                        core_result_json=_serialize_workflow_result(
+                            workflow_result,
+                            trace_id=trace_id,
+                            passport_image_uri=passport_image_uri,
+                            face_crop_uri=None,
+                            error_details=artifact_errors
+                            + [
+                                {
+                                    "code": "INTERNAL_ERROR",
+                                    "stage": "workflow",
+                                    "message": str(exc),
+                                    "retryable": False,
+                                }
+                            ],
+                        ),
+                        error_code="workflow_exception",
                     ),
-                    error_code="workflow_exception",
-                ),
-            )
+                )
+            except Exception:
+                # Last resort: at minimum move the upload out of PROCESSING
+                # so it does not stay stuck forever.
+                self.uploads.uploads.update_status(upload.id, UploadStatus.FAILED)
+                raise
             final_upload = self._load_upload(upload.id)
             tracked = TrackedProcessingResult(
                 user=user,

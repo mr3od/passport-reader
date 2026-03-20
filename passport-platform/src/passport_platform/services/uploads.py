@@ -62,17 +62,20 @@ class UploadService:
         user_id: int,
         command: RecordProcessingResultCommand,
     ) -> ProcessingResult:
-        result = self.uploads.create_processing_result(command)
         status = UploadStatus.PROCESSED if command.is_complete else UploadStatus.FAILED
-        self.uploads.update_status(command.upload_id, status)
-        self.usage.record(
-            user_id=user_id,
-            upload_id=command.upload_id,
-            event_type=(
-                UsageEventType.SUCCESSFUL_PROCESS
-                if command.is_complete
-                else UsageEventType.FAILED_PROCESS
-            ),
-            units=1,
+        event_type = (
+            UsageEventType.SUCCESSFUL_PROCESS
+            if command.is_complete
+            else UsageEventType.FAILED_PROCESS
         )
+        with self.uploads.db.transaction(immediate=True) as conn:
+            result = self.uploads.create_processing_result(command, conn=conn)
+            self.uploads.update_status(command.upload_id, status, conn=conn)
+            self.usage.record(
+                user_id=user_id,
+                upload_id=command.upload_id,
+                event_type=event_type,
+                units=1,
+                conn=conn,
+            )
         return result

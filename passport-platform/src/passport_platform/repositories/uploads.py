@@ -115,9 +115,15 @@ class UploadsRepository:
             raise RuntimeError("created upload could not be loaded")
         return upload
 
-    def update_status(self, upload_id: int, status: UploadStatus) -> Upload:
-        with self.db.transaction() as conn:
-            conn.execute(
+    def update_status(
+        self,
+        upload_id: int,
+        status: UploadStatus,
+        conn: sqlite3.Connection | None = None,
+    ) -> Upload:
+        context = nullcontext(conn) if conn is not None else self.db.transaction()
+        with context as active_conn:
+            active_conn.execute(
                 "UPDATE uploads SET status = ? WHERE id = ?",
                 (status.value, upload_id),
             )
@@ -126,10 +132,15 @@ class UploadsRepository:
             raise KeyError(f"upload {upload_id} not found")
         return upload
 
-    def create_processing_result(self, command: RecordProcessingResultCommand) -> ProcessingResult:
+    def create_processing_result(
+        self,
+        command: RecordProcessingResultCommand,
+        conn: sqlite3.Connection | None = None,
+    ) -> ProcessingResult:
         completed_at = command.completed_at or datetime.now(UTC)
-        with self.db.transaction() as conn:
-            cursor = conn.execute(
+        context = nullcontext(conn) if conn is not None else self.db.transaction()
+        with context as active_conn:
+            cursor = active_conn.execute(
                 """
                 INSERT INTO processing_results (
                     upload_id,
@@ -158,11 +169,25 @@ class UploadsRepository:
                     completed_at.isoformat(),
                 ),
             )
-            result_id = int(cursor.lastrowid)
-        result = self.get_processing_result(command.upload_id)
-        if result is None:
-            raise RuntimeError(f"created processing result {result_id} could not be loaded")
-        return result
+            row_id = int(cursor.lastrowid)
+        # Build the result from known values — avoids a read-after-write that
+        # would fail when called inside a shared (uncommitted) transaction.
+        return ProcessingResult(
+            id=row_id,
+            upload_id=command.upload_id,
+            is_passport=command.is_passport,
+            has_face=command.has_face,
+            is_complete=command.is_complete,
+            passport_number=command.passport_number,
+            passport_image_uri=command.passport_image_uri,
+            face_crop_uri=command.face_crop_uri,
+            core_result_json=command.core_result_json,
+            error_code=command.error_code,
+            completed_at=completed_at,
+            masar_status=None,
+            masar_mutamer_id=None,
+            masar_scan_result_json=None,
+        )
 
     def get_processing_result(self, upload_id: int) -> ProcessingResult | None:
         with self.db.connect() as conn:
