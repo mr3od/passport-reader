@@ -22,6 +22,7 @@ from passport_platform import (
     ProcessUploadCommand,
     QuotaExceededError,
     QuotaService,
+    RecordsService,
     ReportingService,
     UploadService,
     UserBlockedError,
@@ -30,6 +31,7 @@ from passport_platform import (
 )
 from passport_platform.repositories import (
     AuthTokensRepository,
+    RecordsRepository,
     ReportingRepository,
     UploadsRepository,
     UsageRepository,
@@ -55,6 +57,7 @@ from passport_telegram.messages import (
     batch_limit_exceeded_text,
     batch_started_text,
     format_failure_text,
+    format_masar_status_text,
     format_monthly_usage_report,
     format_recent_uploads,
     format_success_text,
@@ -131,6 +134,7 @@ class BotServices:
     users: UserService
     quotas: QuotaService
     reporting: ReportingService
+    records: RecordsService
 
     def close(self) -> None:
         self.processing.close()
@@ -151,6 +155,7 @@ def build_application(settings: TelegramSettings) -> Application:
     application.add_handler(CommandHandler("account", account_command))
     application.add_handler(CommandHandler("plan", plan_command))
     application.add_handler(CommandHandler("token", token_command))
+    application.add_handler(CommandHandler("masar", masar_command))
     application.add_handler(CommandHandler("admin", admin_command))
     application.add_handler(CommandHandler("stats", stats_command))
     application.add_handler(CommandHandler("recent", recent_command))
@@ -238,6 +243,26 @@ async def token_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         return
     issued = await asyncio.to_thread(services.auth.issue_temp_token, user.id)
     await _reply_text(update, temp_token_text(issued))
+
+
+async def masar_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not _is_allowed_chat(context, update.effective_chat.id if update.effective_chat else None):
+        await _reply_text(update, unauthorized_text())
+        return
+    services: BotServices = context.application.bot_data["services"]
+    user = await asyncio.to_thread(
+        services.users.get_or_create_user,
+        EnsureUserCommand(
+            external_provider=ExternalProvider.TELEGRAM,
+            external_user_id=_external_user_id(update),
+            display_name=_display_name(update),
+        ),
+    )
+    if user.status is UserStatus.BLOCKED:
+        await _reply_text(update, user_blocked_text())
+        return
+    records = await asyncio.to_thread(services.records.get_masar_pending, user.id)
+    await _reply_text(update, format_masar_status_text(records))
 
 
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -505,12 +530,14 @@ def _build_bot_services(settings: TelegramSettings) -> BotServices:
         quotas=quotas,
         reporting=ReportingRepository(db),
     )
+    records = RecordsService(RecordsRepository(db))
     return BotServices(
         auth=auth,
         processing=processing,
         users=users,
         quotas=quotas,
         reporting=reporting,
+        records=records,
     )
 
 

@@ -10,6 +10,7 @@ from passport_platform import (
     RecentUploadRecord,
     UserUsageReport,
 )
+from passport_platform.schemas.results import UserRecord
 from passport_platform.models.user import User
 
 SUPPORT_CONTACT_TEXT = (
@@ -26,7 +27,8 @@ def welcome_text() -> str:
         "/account - عرض الخطة والاستخدام الحالي\n"
         "/usage - عرض تفاصيل الاستخدام الشهري\n"
         "/plan - عرض الخطة الحالية وحالة الحساب\n"
-        "/token - إصدار رمز مؤقت لتسجيل الدخول في الإضافة\n\n"
+        "/token - إصدار رمز مؤقت لتسجيل الدخول في الإضافة\n"
+        "/masar - عرض الجوازات المعلقة أو الفاشلة في مسار\n\n"
         f"{SUPPORT_CONTACT_TEXT}"
     )
 
@@ -42,7 +44,8 @@ def help_text() -> str:
         "/account - عرض الخطة والاستخدام الحالي\n"
         "/usage - عرض تفاصيل الاستخدام الشهري\n"
         "/plan - عرض الخطة الحالية وحالة الحساب\n"
-        "/token - إصدار رمز مؤقت لتسجيل الدخول في الإضافة\n\n"
+        "/token - إصدار رمز مؤقت لتسجيل الدخول في الإضافة\n"
+        "/masar - عرض الجوازات المعلقة أو الفاشلة في مسار\n\n"
         "الملفات المدعومة: JPG, JPEG, PNG, WEBP, TIF, TIFF\n\n"
         f"{SUPPORT_CONTACT_TEXT}"
     )
@@ -183,6 +186,23 @@ def temp_token_text(issued: IssuedTempToken) -> str:
         "هذا الرمز صالح للاستخدام مرة واحدة فقط.\n"
         "الصقه في شاشة تسجيل الدخول داخل الإضافة."
     )
+
+
+def format_masar_status_text(records: list[UserRecord]) -> str:
+    if not records:
+        return "جميع الجوازات تم رفعها إلى مسار."
+    pending = [r for r in records if r.masar_status is None]
+    failed  = [r for r in records if r.masar_status == "failed"]
+    lines = []
+    if pending:
+        lines.append(f"بانتظار الرفع إلى مسار ({len(pending)}):")
+        for r in pending:
+            lines.append(f"  - {r.passport_number or str(r.upload_id)}")
+    if failed:
+        lines.append(f"فشل الرفع ({len(failed)}) — افتح الإضافة وأعد المحاولة:")
+        for r in failed:
+            lines.append(f"  - {r.passport_number or str(r.upload_id)}")
+    return "\n".join(lines)
 
 
 def format_monthly_usage_report(report: MonthlyUsageReport) -> str:
