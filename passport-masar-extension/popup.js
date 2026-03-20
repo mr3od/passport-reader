@@ -4,7 +4,17 @@ function $(id) { return document.getElementById(id); }
 
 function showScreen(name) {
   document.querySelectorAll(".screen").forEach((el) => el.classList.add("hidden"));
-  $(`screen-${name}`).classList.remove("hidden");
+  const el = $(`screen-${name}`);
+  if (el) {
+    el.classList.remove("hidden");
+  } else {
+    console.error("[masar-ext popup] showScreen: no element with id screen-" + name);
+  }
+}
+
+function showError(msg) {
+  $("error-detail").textContent = msg;
+  showScreen("error");
 }
 
 function storageGet(keys) {
@@ -17,23 +27,95 @@ function storageRemove(keys) {
   return new Promise((resolve) => chrome.storage.local.remove(keys, resolve));
 }
 
+// sendMsg with a 15-second timeout so popup never hangs blank.
 function sendMsg(msg) {
-  return new Promise((resolve) => chrome.runtime.sendMessage(msg, resolve));
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      console.error("[masar-ext popup] sendMsg timeout for", msg.type);
+      resolve({ ok: false, error: "timeout" });
+    }, 15000);
+    chrome.runtime.sendMessage(msg, (resp) => {
+      clearTimeout(timer);
+      if (chrome.runtime.lastError) {
+        console.error("[masar-ext popup] sendMsg error:", chrome.runtime.lastError.message);
+        resolve({ ok: false, error: chrome.runtime.lastError.message });
+        return;
+      }
+      resolve(resp);
+    });
+  });
 }
 
 // ─── Name helpers ─────────────────────────────────────────────────────────────
 
 function buildDisplayName(record) {
-  if (record.core_result) {
-    const r = record.core_result;
-    const parts = [r.first_name_en, r.last_name_en].filter(Boolean);
-    if (parts.length) return parts.join(" ");
+  const d = record.core_result?.data;
+  if (d) {
+    const parts = [d.GivenNamesEn, d.SurnameEn].filter(Boolean);
+    if (parts.length) return parts.join(" — ");
   }
   return record.passport_number || `Record #${record.upload_id}`;
 }
 
 function buildNationality(record) {
-  return record.core_result?.nationality || "";
+  return record.core_result?.data?.CountryCode || "";
+}
+
+// ─── Context panel ────────────────────────────────────────────────────────────
+
+async function populateContextPanel() {
+  const data = await storageGet([
+    "masar_entity_id",
+    "masar_user_name",
+    "masar_contract_id",
+    "masar_contract_number",
+    "masar_contract_name_en",
+    "masar_contract_end_date",
+    "masar_contract_state",
+    "masar_group_id",
+    "masar_group_name",
+    "masar_group_number",
+    "masar_last_synced",
+  ]);
+
+  // Account row
+  const entityParts = [data.masar_user_name, data.masar_entity_id ? `(${data.masar_entity_id})` : null].filter(Boolean);
+  $("ctx-entity").textContent = entityParts.join(" ") || "—";
+
+  // Contract row
+  const contractParts = [
+    data.masar_contract_number ? `#${data.masar_contract_number}` : null,
+    data.masar_contract_name_en,
+  ].filter(Boolean);
+  $("ctx-contract").textContent = contractParts.join(" · ") || (data.masar_contract_id || "—");
+
+  // Contract end date + state
+  const state = data.masar_contract_state || "unknown";
+  const endEl = $("ctx-contract-end");
+  if (data.masar_contract_end_date) {
+    const dateStr = data.masar_contract_end_date.slice(0, 10);
+    const labels = { active: "Active", "expires-today": "Expires today", expired: "Expired", unknown: "" };
+    const label = labels[state] || "";
+    endEl.innerHTML = `<span class="status-dot ${state}"></span>${dateStr}${label ? ` · ${label}` : ""}`;
+  } else {
+    endEl.innerHTML = "—";
+  }
+
+  // Group row
+  const groupParts = [data.masar_group_number, data.masar_group_name].filter(Boolean);
+  $("ctx-group").textContent = groupParts.join(" · ") || (data.masar_group_id || "—");
+
+  // Last synced
+  if (data.masar_last_synced) {
+    const ago = Math.round((Date.now() - data.masar_last_synced) / 1000);
+    $("ctx-synced").textContent = ago < 60 ? "Synced just now" : `Synced ${Math.round(ago / 60)}m ago`;
+  } else {
+    $("ctx-synced").textContent = "Not synced";
+  }
+
+  // Show/hide banners based on contract state
+  $("banner-contract-expired").classList.toggle("hidden", state !== "expired");
+  $("banner-contract-expiring").classList.toggle("hidden", state !== "expires-today");
 }
 
 // ─── Queue rendering ──────────────────────────────────────────────────────────
@@ -95,39 +177,61 @@ async function submitRecord(record, item) {
 
   const res = await sendMsg({ type: "SUBMIT_RECORD", record });
 
+  // Always re-fetch from API — source of truth.
+  // This handles the case where Chrome closes the message port during a long
+  // retry wait and sendMsg returns null even though the submission succeeded.
+  const freshRes = await sendMsg({ type: "FETCH_PENDING" });
+  if (freshRes && freshRes.ok) {
+    pendingRecords = freshRes.data;
+  }
+
   if (res && res.ok) {
     statusEl.className = "status-msg success";
     statusEl.textContent = "Submitted successfully";
-    // Remove from list after a brief pause
-    setTimeout(() => {
-      pendingRecords = pendingRecords.filter((r) => r.upload_id !== record.upload_id);
-      renderQueue();
-    }, 1200);
+    setTimeout(() => renderQueue(), 1200);
   } else {
+    // Check if this record is actually gone from the API (succeeded despite lost port)
+    const stillPending = pendingRecords.some((r) => r.upload_id === record.upload_id);
+    if (!stillPending) {
+      statusEl.className = "status-msg success";
+      statusEl.textContent = "Submitted successfully";
+      setTimeout(() => renderQueue(), 1200);
+      return;
+    }
     const err = res?.error || "Unknown error";
     statusEl.className = "status-msg error";
-    if (err.includes("401") || err.includes("403")) {
+    if (err.includes("401") || err.includes("403") || err.includes("session") || err.includes("login")) {
       statusEl.textContent = "Log into masar.nusuk.sa then retry";
     } else {
       statusEl.textContent = `Error: ${err}`;
     }
     btnSubmit.disabled = false;
     btnSkip.disabled = false;
+    renderQueue();
   }
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 async function init() {
+  showScreen("loading");
+
   const stored = await storageGet([
     "api_token",
-    "api_base_url",
     "masar_entity_id",
     "masar_group_id",
+    "masar_auth_token",
     "agency_email",
     "agency_phone",
     "agency_phone_country_code",
   ]);
+
+  console.log("[masar-ext popup] init — stored:", {
+    api_token: !!stored.api_token,
+    masar_entity_id: stored.masar_entity_id,
+    masar_auth_token: stored.masar_auth_token ? stored.masar_auth_token.slice(0, 20) + "..." : null,
+    masar_group_id: stored.masar_group_id,
+  });
 
   // 1. No token → show setup
   if (!stored.api_token) {
@@ -141,21 +245,22 @@ async function init() {
     return;
   }
 
-  // 3. Check masar session
-  const sessionCheck = await sendMsg({ type: "CHECK_SESSION" });
-  if (!sessionCheck || !sessionCheck.ok) {
-    showScreen("session-expired");
-    return;
-  }
+  // 3. Sync session data from open masar tab (best-effort, don't block on failure)
+  const syncRes = await sendMsg({ type: "SYNC_SESSION" });
+  console.log("[masar-ext popup] SYNC_SESSION:", syncRes);
 
   // 4. No group selected → show group picker
   if (!stored.masar_group_id) {
-    await loadGroupPicker();
-    return;
+    // Re-read storage after sync in case group was captured
+    const refreshed = await storageGet(["masar_group_id"]);
+    if (!refreshed.masar_group_id) {
+      await loadGroupPicker();
+      return;
+    }
   }
 
   // 5. Main queue
-  await loadMainQueue(stored);
+  await loadMainQueue();
 }
 
 async function loadGroupPicker() {
@@ -164,26 +269,46 @@ async function loadGroupPicker() {
   const select = $("group-select");
   select.innerHTML = "";
 
+  console.log("[masar-ext popup] FETCH_GROUPS response:", JSON.stringify(res).slice(0, 500));
+
   if (!res || !res.ok) {
-    select.innerHTML = '<option value="">Failed to load groups</option>';
+    select.innerHTML = `<option value="">Failed to load groups</option>`;
+    $("group-select-hint").classList.remove("hidden");
     return;
   }
+  $("group-select-hint").classList.add("hidden");
 
-  const groups = Array.isArray(res.data) ? res.data : (res.data?.data || res.data?.items || []);
+  // Unwrap the masar envelope: { response: { data: { content: [...] } } }
+  const groups = res.data?.response?.data?.content || [];
+
+  console.log("[masar-ext popup] groups count:", groups.length, "first:", JSON.stringify(groups[0]).slice(0, 200));
+
+  if (groups.length === 0) {
+    select.innerHTML = '<option value="">No groups found</option>';
+    $("group-select-hint").classList.remove("hidden");
+    return;
+  }
+  $("group-select-hint").classList.add("hidden");
+
   groups.forEach((g) => {
     const opt = document.createElement("option");
-    opt.value = g.id || g.groupId;
-    opt.textContent = g.name || g.groupName || opt.value;
+    opt.value = g.id;
+    opt.dataset.groupName = g.groupName || "";
+    opt.dataset.groupNumber = g.groupNumber || "";
+    const label = [g.groupNumber, g.groupName].filter(Boolean).join(" · ");
+    opt.textContent = label || String(g.id);
     select.appendChild(opt);
   });
 }
 
 async function loadMainQueue() {
   showScreen("main");
+  await populateContextPanel();
+
   const res = await sendMsg({ type: "FETCH_PENDING" });
 
   if (!res || !res.ok) {
-    $("queue-list").innerHTML = `<div class="status-msg error">Failed to load queue (${res?.status || "network error"})</div>`;
+    $("queue-list").innerHTML = `<div class="status-msg error">Failed to load queue (${res?.status || res?.error || "network error"})</div>`;
     return;
   }
 
@@ -196,9 +321,8 @@ async function loadMainQueue() {
 // Setup screen
 $("btn-save-token").addEventListener("click", async () => {
   const token = $("api-token-input").value.trim();
-  const baseUrl = $("api-base-url-input").value.trim().replace(/\/$/, "");
-  if (!token || !baseUrl) return;
-  await storageSet({ api_token: token, api_base_url: baseUrl });
+  if (!token) return;
+  await storageSet({ api_token: token });
   init();
 });
 
@@ -217,11 +341,16 @@ $("btn-confirm-group").addEventListener("click", async () => {
   const select = $("group-select");
   const groupId = select.value;
   if (!groupId) return;
-  await storageSet({ masar_group_id: groupId });
+  const opt = select.options[select.selectedIndex];
+  await storageSet({
+    masar_group_id: groupId,
+    masar_group_name: opt?.dataset.groupName || "",
+    masar_group_number: opt?.dataset.groupNumber || "",
+  });
   loadMainQueue();
 });
 
-// Settings button
+// Persistent settings button (always visible in topbar)
 $("btn-settings").addEventListener("click", async () => {
   const stored = await storageGet(["agency_email", "agency_phone", "agency_phone_country_code"]);
   $("settings-email").value = stored.agency_email || "";
@@ -230,7 +359,7 @@ $("btn-settings").addEventListener("click", async () => {
   showScreen("settings");
 });
 
-$("btn-back").addEventListener("click", () => loadMainQueue());
+$("btn-back").addEventListener("click", () => init());
 
 $("btn-save-settings").addEventListener("click", async () => {
   await storageSet({
@@ -238,18 +367,29 @@ $("btn-save-settings").addEventListener("click", async () => {
     agency_phone_country_code: $("settings-phone-cc").value.trim(),
     agency_phone: $("settings-phone").value.trim(),
   });
-  loadMainQueue();
+  init();
 });
 
 $("btn-change-group").addEventListener("click", async () => {
-  await storageRemove(["masar_group_id"]);
+  await storageRemove(["masar_group_id", "masar_group_name", "masar_group_number"]);
   loadGroupPicker();
 });
 
+// Context panel refresh — re-sync from the open Masar tab then re-init
+// so any context change (account switch, contract change) is picked up.
+$("btn-refresh-context").addEventListener("click", async () => {
+  $("ctx-synced").textContent = "Syncing…";
+  await sendMsg({ type: "SYNC_SESSION" });
+  init();
+});
+
 $("btn-reset-token").addEventListener("click", async () => {
-  await storageRemove(["api_token", "api_base_url", "masar_group_id"]);
+  await storageRemove(["api_token", "masar_group_id"]);
   showScreen("setup");
 });
 
 // ─── Boot ──────────────────────────────────────────────────────────────────────
-init();
+init().catch((err) => {
+  console.error("[masar-ext popup] init failed:", err);
+  showError(err.message || String(err));
+});

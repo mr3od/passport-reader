@@ -7,14 +7,30 @@
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
+  <!-- Persistent top bar — always visible -->
+  <div id="topbar">
+    <span id="topbar-title">Masar Submitter</span>
+    <button id="btn-settings" class="icon-btn" title="Settings">&#9881;</button>
+  </div>
+
   <div id="app">
+    <!-- Loading -->
+    <div id="screen-loading" class="screen hidden">
+      <div class="status-banner" style="background:#f0f4ff;border:1px solid #c0d0f0;color:#333;">Loading…</div>
+    </div>
+
+    <!-- Error fallback -->
+    <div id="screen-error" class="screen hidden">
+      <div class="status-banner error">
+        <strong>Error</strong><br /><span id="error-detail"></span>
+      </div>
+    </div>
+
     <!-- Token setup screen -->
     <div id="screen-setup" class="screen hidden">
       <h2>Setup</h2>
       <label for="api-token-input">Access token</label>
       <input id="api-token-input" type="password" placeholder="Paste token from /token command" />
-      <label for="api-base-url-input">API base URL</label>
-      <input id="api-base-url-input" type="text" placeholder="https://your-api.example.com" />
       <button id="btn-save-token">Save</button>
     </div>
 
@@ -37,15 +53,50 @@
     <!-- Group selection (first launch) -->
     <div id="screen-group-select" class="screen hidden">
       <h2>Select your group</h2>
+      <div id="group-select-hint" class="status-banner warning hidden">
+        Navigate to the <strong>group list</strong> on masar.nusuk.sa — the extension will auto-detect your groups.
+      </div>
       <select id="group-select"></select>
       <button id="btn-confirm-group">Confirm</button>
     </div>
 
     <!-- Main queue screen -->
     <div id="screen-main" class="screen hidden">
+      <!-- Context panel: who am I · which contract · which group -->
+      <div id="context-panel" class="context-panel">
+        <div class="context-row">
+          <span class="context-label">Account</span>
+          <span id="ctx-entity" class="context-value">—</span>
+        </div>
+        <div class="context-row">
+          <span class="context-label">Contract</span>
+          <span id="ctx-contract" class="context-value">—</span>
+        </div>
+        <div class="context-row">
+          <span class="context-label">Ends</span>
+          <span id="ctx-contract-end" class="context-value">—</span>
+        </div>
+        <div class="context-row">
+          <span class="context-label">Group</span>
+          <span id="ctx-group" class="context-value">—</span>
+        </div>
+        <div class="context-footer">
+          <span id="ctx-synced" class="context-synced-text">Not synced</span>
+          <button id="btn-refresh-context" class="icon-btn small" title="Re-sync from Masar tab">&#8635;</button>
+        </div>
+      </div>
+
+      <!-- Contract expired / expiring warning -->
+      <div id="banner-contract-expired" class="status-banner error hidden">
+        &#9888; Masar contract expired — submissions will be rejected.
+      </div>
+      <div id="banner-contract-expiring" class="status-banner warning hidden">
+        &#9888; Contract expires today — Masar may reject at any point.
+      </div>
+
       <div class="header">
         <span id="pending-count" class="pending-label"></span>
-        <button id="btn-settings" class="icon-btn" title="Settings">&#9881;</button>
+        <button id="btn-change-group" class="icon-btn" title="Change group">&#8597;</button>
       </div>
       <div id="queue-list"></div>
     </div>
@@ -53,7 +104,7 @@
     <!-- Settings panel -->
     <div id="screen-settings" class="screen hidden">
       <div class="header">
-        <button id="btn-back" class="icon-btn">&larr;</button>
+        <button id="btn-back" class="icon-btn" title="Back">&larr;</button>
         <h2>Settings</h2>
       </div>
       <label for="settings-email">Agency email</label>
@@ -62,7 +113,6 @@
       <input id="settings-phone-cc" type="text" placeholder="966" maxlength="5" />
       <label for="settings-phone">Phone number</label>
       <input id="settings-phone" type="tel" placeholder="5XXXXXXXX" />
-      <button id="btn-change-group">Change group</button>
       <button id="btn-save-settings">Save</button>
       <hr />
       <button id="btn-reset-token" class="danger">Reset token</button>

@@ -13,6 +13,22 @@ body {
   min-height: 80px;
 }
 
+#topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px 4px;
+  border-bottom: 1px solid #eee;
+}
+
+#topbar-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 #app {
   padding: 12px;
 }
@@ -163,3 +179,73 @@ button.secondary:hover { background: #f5f5f5; }
 }
 
 hr { border: none; border-top: 1px solid #eee; }
+
+/* ── Context panel ───────────────────────────────────────────────────────── */
+.context-panel {
+  background: #f7f8ff;
+  border: 1px solid #dde3f8;
+  border-radius: 8px;
+  padding: 8px 10px 6px;
+  margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.context-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-height: 16px;
+}
+
+.context-label {
+  color: #999;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  min-width: 46px;
+  flex-shrink: 0;
+}
+
+.context-value {
+  color: #222;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.context-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid #dde3f8;
+}
+
+.context-synced-text {
+  color: #bbb;
+  font-size: 10px;
+}
+
+.icon-btn.small {
+  font-size: 13px;
+  padding: 2px 5px;
+}
+
+/* Status dots for contract state */
+.status-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.status-dot.active       { background: #27ae60; }
+.status-dot.expires-today { background: #f59e0b; }
+.status-dot.expired      { background: #e53e3e; }
