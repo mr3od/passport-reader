@@ -7,6 +7,11 @@ from passport_api.routes import auth_router, records_router
 
 def create_app() -> FastAPI:
     app = FastAPI(title="passport-api", version="0.1.0", debug=True)
+
+    @app.get("/health", include_in_schema=False)
+    def health() -> dict[str, str]:
+        return {"status": "ok"}
+
     app.include_router(auth_router)
     app.include_router(records_router)
     return app
