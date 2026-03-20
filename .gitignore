@@ -45,7 +45,6 @@ QUICKSTART.md
 README_DEPLOYMENT.md
 SETUP_SUMMARY.md
 START_HERE.md
-deploy.sh
 validate-setup.sh
 .codex-tmp
 *.har
