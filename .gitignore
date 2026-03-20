@@ -48,3 +48,5 @@ START_HERE.md
 deploy.sh
 validate-setup.sh
 .codex-tmp
+*.har
+state.json
