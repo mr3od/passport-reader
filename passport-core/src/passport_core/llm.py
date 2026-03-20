@@ -6,6 +6,11 @@ from typing import Any, Protocol
 from passport_core.config import Settings
 from passport_core.models import PassportData
 
+from pydantic_ai import Agent, PromptedOutput
+from pydantic_ai.models.openai import OpenAIModel
+from pydantic_ai.providers.openai import OpenAIProvider
+from pydantic_ai import BinaryContent
+
 DATE_PATTERN = re.compile(r"^\d{2}/\d{2}/\d{4}$")
 
 EXTRACTION_PROMPT = """
@@ -15,24 +20,37 @@ The image may show:
 - A two-page spread (open passport booklet)
 - A passport on an A4 scanned sheet with background/margins
 
-- Extract surname, given names, profession, place of birth, and issuing authority
-  the arabic and english versions.
-- Extract date of birth, sex, date of issue and date of expiry from english fields only.
-- Extract the 2 MRZ lines.
+Extract the following:
+- Surname and given names (Arabic and English versions, full concatenated strings).
+- Individual name slots: first name, father name, grandfather name (Arabic and English).
+- Profession, place of birth, and issuing authority (Arabic and English).
+- Place of birth split into city and country separately (Arabic and English).
+- Date of birth, sex, date of issue, date of expiry — from English fields only.
+- The 2 MRZ lines.
+
 Rules:
 - Return only factual values visible in the image.
 - Do not invent or infer missing values.
 - Keep Arabic fields in Arabic script exactly as seen.
 - Keep English fields in uppercase as shown when possible.
+- Each Arabic name token must be written as a single unspaced word when it is a compound.
+  "عبدالله" is one token (not "عبد الله"), "عبدالرحمن" is one token, "عبدالحكيم" is one token, etc.
+  Separate name tokens are still separated by spaces: "عمر عبدالحكيم حزام" has 3 tokens, each unspaced internally.
+- GivenNamesAr / GivenNamesEn are the full given-names string (all tokens space-separated).
+- FirstName = first given name, FatherName = second given name (father), GrandfatherName = third given name.
+- PlaceOfBirthAr / PlaceOfBirthEn are the full place-of-birth string as printed on the passport.
+- BirthCityAr / BirthCityEn are the most specific location (city or mudiriyah/district) without the country.
+  e.g. "الشمايتين" not "تعز", "جده" not "السعودية - جده", "JEDDAH" not "JEDDAH - KSA".
+- BirthCountryAr / BirthCountryEn are the country part only (e.g. "السعودية", "KSA" / "اليمن", "YEM").
 - For dates, use strictly DD/MM/YYYY format. If uncertain, return null.
 - For Sex, return only "M" or "F" when confidently visible, otherwise null.
-- Return strict JSON object only. No markdown. No extra keys.
 - If a value is not visible, set it to null.
 
 Return a JSON object with exactly these keys:
 PassportNumber, CountryCode, MrzLine1, MrzLine2,
-SurnameAr, GivenNamesAr, SurnameEn, GivenNamesEn,
-DateOfBirth, PlaceOfBirthAr, PlaceOfBirthEn, Sex,
+SurnameAr, GivenNamesAr, FirstNameAr, FatherNameAr, GrandfatherNameAr,
+SurnameEn, GivenNamesEn, FirstNameEn, FatherNameEn, GrandfatherNameEn,
+DateOfBirth, PlaceOfBirthAr, PlaceOfBirthEn, BirthCityAr, BirthCityEn, BirthCountryAr, BirthCountryEn, Sex,
 DateOfIssue, DateOfExpiry, ProfessionAr, ProfessionEn,
 IssuingAuthorityAr, IssuingAuthorityEn
 """.strip()
@@ -74,29 +92,22 @@ def _normalize(data: PassportData) -> PassportData:
 
 
 class PydanticAIRequestyExtractor:
-    """PydanticAI client using Requesty OpenAI-compatible base URL.
+    """PydanticAI client using Requesty as an OpenAI-compatible router.
 
-    Structured schema output is enforced by ``output_type=PassportData``.
+    Uses PromptedOutput so the model emits JSON matching PassportData schema directly,
+    avoiding Gemini leaking chain-of-thought text before tool-call responses.
     """
 
     def __init__(self, api_key: str, model: str, base_url: str) -> None:
-        from pydantic_ai import Agent
-        from pydantic_ai.models.openai import OpenAIChatModel
-        from pydantic_ai.providers.openai import OpenAIProvider
 
         self._agent = Agent(
-            model=OpenAIChatModel(
-                model,
-                provider=OpenAIProvider(base_url=base_url, api_key=api_key),
-            ),
+            model=OpenAIModel(model, provider=OpenAIProvider(base_url=base_url, api_key=api_key)),
             instructions=EXTRACTION_PROMPT,
-            output_type=PassportData,
-            retries=1,
+            output_type=PromptedOutput(PassportData),
+            retries=2,
         )
 
     def extract(self, image_bytes: bytes, mime_type: str = "image/jpeg") -> PassportData:
-        from pydantic_ai import BinaryContent
-
         result = self._agent.run_sync(
             [
                 "Extract passport fields from this image.",

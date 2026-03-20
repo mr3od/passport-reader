@@ -41,10 +41,20 @@ MRZ_FIELDS = {"MrzLine1", "MrzLine2"}
 ENJAZ_TEXT_FIELDS = {
     "SurnameAr",
     "GivenNamesAr",
+    "FirstNameAr",
+    "FatherNameAr",
+    "GrandfatherNameAr",
     "SurnameEn",
     "GivenNamesEn",
+    "FirstNameEn",
+    "FatherNameEn",
+    "GrandfatherNameEn",
     "PlaceOfBirthAr",
     "PlaceOfBirthEn",
+    "BirthCityAr",
+    "BirthCityEn",
+    "BirthCountryAr",
+    "BirthCountryEn",
     "ProfessionAr",
     "ProfessionEn",
     "IssuingAuthorityAr",
@@ -215,15 +225,15 @@ def benchmark_model(
     api_key: str,
     samples: list[GroundTruthSample],
 ) -> list[SampleRun]:
-    from pydantic_ai import Agent, BinaryContent
-    from pydantic_ai.models.openai import OpenAIChatModel
+    from pydantic_ai import Agent, BinaryContent, PromptedOutput
+    from pydantic_ai.models.openai import OpenAIModel
     from pydantic_ai.providers.openai import OpenAIProvider
 
     agent = Agent(
-        model=OpenAIChatModel(model, provider=OpenAIProvider(base_url=base_url, api_key=api_key)),
+        model=OpenAIModel(model, provider=OpenAIProvider(base_url=base_url, api_key=api_key)),
         instructions=EXTRACTION_PROMPT,
-        output_type=PassportData,
-        retries=1,
+        output_type=PromptedOutput(PassportData),
+        retries=2,
     )
 
     runs: list[SampleRun] = []
