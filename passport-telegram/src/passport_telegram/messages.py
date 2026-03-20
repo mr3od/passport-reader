@@ -10,12 +10,10 @@ from passport_platform import (
     RecentUploadRecord,
     UserUsageReport,
 )
-from passport_platform.schemas.results import UserRecord
 from passport_platform.models.user import User
+from passport_platform.schemas.results import UserRecord
 
-SUPPORT_CONTACT_TEXT = (
-    "للاستفسارات أو طلب تغيير الخطة، تواصل مع @mr3od أو @naaokun."
-)
+SUPPORT_CONTACT_TEXT = "للاستفسارات أو طلب تغيير الخطة، تواصل مع @mr3od أو @naaokun."
 
 
 def welcome_text() -> str:
@@ -81,15 +79,13 @@ def format_failure_text(result: PassportWorkflowResult, *, position: int, total:
 
     if not result.validation.is_passport:
         return (
-            prefix
-            + "تعذر التحقق من أن الصورة تخص جوازًا صالحًا للمعالجة. "
+            prefix + "تعذر التحقق من أن الصورة تخص جوازًا صالحًا للمعالجة. "
             "تأكد من وضوح الصورة وإظهار كامل صفحة الجواز."
         )
 
     if not result.has_face_crop:
         return (
-            prefix
-            + "تم التحقق من الجواز، لكن تعذر استخراج صورة الوجه. "
+            prefix + "تم التحقق من الجواز، لكن تعذر استخراج صورة الوجه. "
             "يُفضّل إعادة الإرسال بصورة أوضح وأعلى دقة."
         )
 
@@ -124,10 +120,7 @@ def format_success_text(result: PassportWorkflowResult, *, position: int, total:
 
 
 def unsupported_file_text() -> str:
-    return (
-        "الملف المرسل ليس صورة جواز مدعومة. "
-        "أرسل صورة واضحة للجواز كصورة أو كملف صورة."
-    )
+    return "الملف المرسل ليس صورة جواز مدعومة. أرسل صورة واضحة للجواز كصورة أو كملف صورة."
 
 
 def unauthorized_text() -> str:
@@ -139,10 +132,7 @@ def admin_only_text() -> str:
 
 
 def processing_error_text() -> str:
-    return (
-        "حدث خطأ أثناء المعالجة. حاول مرة أخرى بصورة أوضح. "
-        f"{SUPPORT_CONTACT_TEXT}"
-    )
+    return f"حدث خطأ أثناء المعالجة. حاول مرة أخرى بصورة أوضح. {SUPPORT_CONTACT_TEXT}"
 
 
 def quota_exceeded_text(decision: QuotaDecision) -> str:
@@ -155,10 +145,7 @@ def quota_exceeded_text(decision: QuotaDecision) -> str:
 
 
 def user_blocked_text() -> str:
-    return (
-        "تم إيقاف هذا الحساب عن استخدام الخدمة مؤقتًا. "
-        f"{SUPPORT_CONTACT_TEXT}"
-    )
+    return f"تم إيقاف هذا الحساب عن استخدام الخدمة مؤقتًا. {SUPPORT_CONTACT_TEXT}"
 
 
 def admin_usage_help_text() -> str:
@@ -192,7 +179,7 @@ def format_masar_status_text(records: list[UserRecord]) -> str:
     if not records:
         return "جميع الجوازات تم رفعها إلى مسار."
     pending = [r for r in records if r.masar_status is None]
-    failed  = [r for r in records if r.masar_status == "failed"]
+    failed = [r for r in records if r.masar_status == "failed"]
     lines = []
     if pending:
         lines.append(f"بانتظار الرفع إلى مسار ({len(pending)}):")

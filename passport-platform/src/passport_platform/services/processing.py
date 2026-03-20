@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 from uuid import uuid4
 
 import numpy as np
@@ -100,7 +100,7 @@ class ProcessingService:
             ),
         )
         upload = self.uploads.mark_processing(upload.id)
-        artifact_errors: list[dict[str, object]] = []
+        artifact_errors: list[dict[str, Any]] = []
         passport_image_uri = self._store_original_upload(command, upload.id, artifact_errors)
 
         try:
@@ -216,7 +216,7 @@ class ProcessingService:
         self,
         command: ProcessUploadCommand,
         upload_id: int,
-        errors: list[dict[str, object]],
+        errors: list[dict[str, Any]],
     ) -> str | None:
         return self._store_artifact(
             data=command.payload,
@@ -231,7 +231,7 @@ class ProcessingService:
         self,
         workflow_result: PassportWorkflowResult,
         upload_id: int,
-        errors: list[dict[str, object]],
+        errors: list[dict[str, Any]],
     ) -> str | None:
         if workflow_result.face_crop_bytes is None:
             return None
@@ -252,7 +252,7 @@ class ProcessingService:
         filename: str,
         content_type: str,
         stage: str,
-        errors: list[dict[str, object]],
+        errors: list[dict[str, Any]],
     ) -> str | None:
         try:
             return self.artifacts.save(
@@ -314,7 +314,7 @@ def _serialize_workflow_result(
     trace_id: str,
     passport_image_uri: str | None,
     face_crop_uri: str | None,
-    error_details: list[dict[str, object]] | None = None,
+    error_details: list[dict[str, Any]] | None = None,
 ) -> str:
     payload = {
         "source": workflow_result.source,
@@ -337,7 +337,7 @@ def _serialize_workflow_result(
     return json.dumps(payload, ensure_ascii=True, separators=(",", ":"))
 
 
-def _workflow_error_details(workflow_result: PassportWorkflowResult) -> list[dict[str, object]]:
+def _workflow_error_details(workflow_result: PassportWorkflowResult) -> list[dict[str, Any]]:
     if workflow_result.is_complete:
         return []
     if not workflow_result.validation.is_passport:

@@ -49,9 +49,8 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _resolve_asset_paths(self) -> Settings:
-        if (
-            not self.template_path.is_absolute()
-            and not self._is_under_assets_dir(self.template_path)
+        if not self.template_path.is_absolute() and not self._is_under_assets_dir(
+            self.template_path
         ):
             self.template_path = self.assets_dir / self.template_path
         if not self.face_model_path.is_absolute() and not self._is_under_assets_dir(

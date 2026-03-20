@@ -75,7 +75,8 @@ class RecordsRepository:
                 INNER JOIN processing_results ON processing_results.upload_id = uploads.id
                 WHERE uploads.user_id = ?
                   AND processing_results.is_complete = 1
-                  AND (processing_results.masar_status IS NULL OR processing_results.masar_status = 'failed')
+                  AND (processing_results.masar_status IS NULL
+                       OR processing_results.masar_status = 'failed')
                 ORDER BY uploads.created_at ASC, uploads.id ASC
                 """,
                 (user_id,),
@@ -150,9 +151,7 @@ def _row_to_user_record(row) -> UserRecord:
         upload_status=UploadStatus(row["upload_status"]),
         created_at=datetime.fromisoformat(row["created_at"]),
         completed_at=(
-            datetime.fromisoformat(row["completed_at"])
-            if row["completed_at"] is not None
-            else None
+            datetime.fromisoformat(row["completed_at"]) if row["completed_at"] is not None else None
         ),
         is_passport=_nullable_bool(row["is_passport"]),
         has_face=_nullable_bool(row["has_face"]),

@@ -17,6 +17,7 @@ from passport_platform.errors import (
     UnsupportedExternalProviderError,
     UserBlockedError,
 )
+from passport_platform.factory import build_processing_service
 from passport_platform.schemas import (
     AuthenticatedSession,
     IssuedExtensionSession,
@@ -36,7 +37,6 @@ from passport_platform.services.records import RecordsService
 from passport_platform.services.reporting import ReportingService
 from passport_platform.services.uploads import UploadService
 from passport_platform.services.users import UserService
-from passport_platform.factory import build_processing_service
 from passport_platform.storage import LocalArtifactStore
 
 __all__ = [

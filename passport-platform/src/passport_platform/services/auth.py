@@ -108,7 +108,9 @@ class AuthService:
             raise UserBlockedError(user)
         return AuthenticatedSession(user=user, session=session)
 
-    def issue_dev_session(self, user_id: int, *, now: datetime | None = None) -> IssuedExtensionSession:
+    def issue_dev_session(
+        self, user_id: int, *, now: datetime | None = None
+    ) -> IssuedExtensionSession:
         current_time = _utc(now)
         session_token = secrets.token_urlsafe(32)
         session_token_hash = _hash_token(session_token)

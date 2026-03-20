@@ -226,11 +226,11 @@ def benchmark_model(
     samples: list[GroundTruthSample],
 ) -> list[SampleRun]:
     from pydantic_ai import Agent, BinaryContent, PromptedOutput
-    from pydantic_ai.models.openai import OpenAIModel
+    from pydantic_ai.models.openai import OpenAIChatModel
     from pydantic_ai.providers.openai import OpenAIProvider
 
     agent = Agent(
-        model=OpenAIModel(model, provider=OpenAIProvider(base_url=base_url, api_key=api_key)),
+        model=OpenAIChatModel(model, provider=OpenAIProvider(base_url=base_url, api_key=api_key)),
         instructions=EXTRACTION_PROMPT,
         output_type=PromptedOutput(PassportData),
         retries=2,
@@ -292,9 +292,7 @@ def summarize(
     strict_accuracy = (total_matched / total_fields) if total_fields else 0.0
     normalized_matched = sum(r.normalized_matched_fields for r in runs)
     enjaz_total_fields = sum(r.enjaz_total_fields for r in runs)
-    normalized_accuracy = (
-        normalized_matched / enjaz_total_fields if enjaz_total_fields else 0.0
-    )
+    normalized_accuracy = normalized_matched / enjaz_total_fields if enjaz_total_fields else 0.0
     mrz_matched = sum(r.mrz_matched_fields for r in runs)
     mrz_total_fields = sum(r.mrz_total_fields for r in runs)
     mrz_accuracy = mrz_matched / mrz_total_fields if mrz_total_fields else 0.0

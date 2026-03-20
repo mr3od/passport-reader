@@ -96,7 +96,8 @@ class UploadsRepository:
                     created_at.isoformat(),
                 ),
             )
-            upload_id = int(cursor.lastrowid)
+            assert cursor.lastrowid is not None
+            upload_id = cursor.lastrowid
         if conn is not None:
             return Upload(
                 id=upload_id,
@@ -169,7 +170,8 @@ class UploadsRepository:
                     completed_at.isoformat(),
                 ),
             )
-            row_id = int(cursor.lastrowid)
+            assert cursor.lastrowid is not None
+            row_id = cursor.lastrowid
         # Build the result from known values — avoids a read-after-write that
         # would fail when called inside a shared (uncommitted) transaction.
         return ProcessingResult(

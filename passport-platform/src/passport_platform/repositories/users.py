@@ -80,7 +80,8 @@ class UsersRepository:
                     created_at.isoformat(),
                 ),
             )
-            user_id = int(cursor.lastrowid)
+            assert cursor.lastrowid is not None
+            user_id = cursor.lastrowid
         user = self.get_by_id(user_id)
         if user is None:
             raise RuntimeError("created user could not be loaded")

@@ -141,8 +141,7 @@ class Database:
     @staticmethod
     def _upgrade_schema(conn: sqlite3.Connection) -> None:
         columns = {
-            row["name"]
-            for row in conn.execute("PRAGMA table_info(processing_results)").fetchall()
+            row["name"] for row in conn.execute("PRAGMA table_info(processing_results)").fetchall()
         }
         if "passport_image_uri" not in columns:
             conn.execute("ALTER TABLE processing_results ADD COLUMN passport_image_uri TEXT")

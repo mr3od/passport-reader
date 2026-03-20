@@ -32,5 +32,10 @@ passport-core = { path = "../passport-core", editable = true }
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[dependency-groups]
+dev = [
+    "ty>=0.0.24",
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/passport_platform"]

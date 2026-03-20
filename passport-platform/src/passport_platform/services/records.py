@@ -27,7 +27,9 @@ class RecordsService:
         masar_mutamer_id: str | None,
         masar_scan_result: dict | None,
     ) -> bool:
-        masar_scan_result_json = json.dumps(masar_scan_result) if masar_scan_result is not None else None
+        masar_scan_result_json = (
+            json.dumps(masar_scan_result) if masar_scan_result is not None else None
+        )
         return self.records.update_masar_status(
             upload_id=upload_id,
             user_id=user_id,

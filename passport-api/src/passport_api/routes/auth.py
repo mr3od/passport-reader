@@ -3,10 +3,11 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
-from passport_platform import InvalidTempTokenError, UserBlockedError
+from passport_platform import AuthenticatedSession, InvalidTempTokenError, UserBlockedError
 from passport_platform.enums import ExternalProvider, PlanName
 from passport_platform.schemas.commands import EnsureUserCommand
 
+from passport_api.config import ApiSettings
 from passport_api.deps import get_api_services, get_authenticated_session, get_settings
 from passport_api.schemas import ExchangeTokenRequest, ExchangeTokenResponse, MeResponse
 from passport_api.services import ApiServices
@@ -34,7 +35,7 @@ def exchange_token(
 @router.post("/auth/dev-token", response_model=ExchangeTokenResponse)
 def dev_token(
     services: Annotated[ApiServices, Depends(get_api_services)],
-    settings: Annotated[object, Depends(get_settings)],
+    settings: Annotated[ApiSettings, Depends(get_settings)],
     x_dev_secret: Annotated[str | None, Header()] = None,
 ) -> ExchangeTokenResponse:
     if not settings.dev_token_secret:
@@ -55,7 +56,7 @@ def dev_token(
 
 @router.get("/me", response_model=MeResponse)
 def me(
-    authenticated: Annotated[object, Depends(get_authenticated_session)],
+    authenticated: Annotated[AuthenticatedSession, Depends(get_authenticated_session)],
 ) -> MeResponse:
     user = authenticated.user
     return MeResponse(

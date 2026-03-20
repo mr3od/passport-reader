@@ -35,7 +35,8 @@ class AuthTokensRepository:
                     created_at.isoformat(),
                 ),
             )
-            token_id = int(cursor.lastrowid)
+            assert cursor.lastrowid is not None
+            token_id = cursor.lastrowid
         if conn is not None:
             return TempToken(
                 id=token_id,
@@ -147,7 +148,8 @@ class AuthTokensRepository:
                     created_at.isoformat(),
                 ),
             )
-            session_id = int(cursor.lastrowid)
+            assert cursor.lastrowid is not None
+            session_id = cursor.lastrowid
         if conn is not None:
             return ExtensionSession(
                 id=session_id,

@@ -132,8 +132,6 @@ def _row_to_recent_upload(row) -> RecentUploadRecord:
         error_code=row["error_code"],
         created_at=datetime.fromisoformat(row["created_at"]),
         completed_at=(
-            datetime.fromisoformat(row["completed_at"])
-            if row["completed_at"] is not None
-            else None
+            datetime.fromisoformat(row["completed_at"]) if row["completed_at"] is not None else None
         ),
     )

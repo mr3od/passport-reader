@@ -39,7 +39,8 @@ class UsageRepository:
                     created_at.isoformat(),
                 ),
             )
-            entry_id = int(cursor.lastrowid)
+            assert cursor.lastrowid is not None
+            entry_id = cursor.lastrowid
         if conn is not None:
             return UsageLedgerEntry(
                 id=entry_id,

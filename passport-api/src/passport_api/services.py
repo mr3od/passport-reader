@@ -8,17 +8,13 @@ from passport_platform import (
     Database,
     PlatformSettings,
     ProcessingService,
-    QuotaService,
     RecordsService,
-    UploadService,
     UserService,
     build_processing_service,
 )
 from passport_platform.repositories import (
     AuthTokensRepository,
     RecordsRepository,
-    UsageRepository,
-    UploadsRepository,
     UsersRepository,
 )
 

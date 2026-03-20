@@ -138,7 +138,10 @@ class PassportFeatureValidator:
             dtype=np.float32,
         ).reshape(-1, 1, 2)
         template_to_image = np.linalg.inv(homography)
-        projected = cv2.perspectiveTransform(corners, template_to_image).reshape(-1, 2)
+        projected: NDArray[np.float32] = np.asarray(
+            cv2.perspectiveTransform(corners, template_to_image).reshape(-1, 2),
+            dtype=np.float32,
+        )
         if not self._is_valid_projected_quad(projected, image_bgr.shape):
             return self._invalid_match(
                 good_matches=len(good_matches),
@@ -262,9 +265,7 @@ class RetinaFaceDetector:
 
         best = max(
             decoded,
-            key=lambda row: float(
-                max(0.0, row[2] - row[0]) * max(0.0, row[3] - row[1]) * row[4]
-            ),
+            key=lambda row: float(max(0.0, row[2] - row[0]) * max(0.0, row[3] - row[1]) * row[4]),
         )
         bbox = self._bbox_from_xyxy(
             best[:4],

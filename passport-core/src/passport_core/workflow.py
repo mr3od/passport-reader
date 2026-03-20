@@ -120,11 +120,7 @@ class PassportWorkflowResult:
 
     @property
     def is_complete(self) -> bool:
-        return (
-            self.validation.is_passport
-            and self.face_crop is not None
-            and self.data is not None
-        )
+        return self.validation.is_passport and self.face_crop is not None and self.data is not None
 
 
 class PassportWorkflow:
@@ -410,8 +406,7 @@ class PassportWorkflow:
         bbox = candidate.face.bbox_original if candidate.face is not None else None
         face_score = float(bbox.score or 0.0) if bbox is not None else 0.0
         return (
-            candidate.validation.debug.score
-            >= self.settings.candidate_early_stop_validation_score
+            candidate.validation.debug.score >= self.settings.candidate_early_stop_validation_score
             and face_score >= self.settings.candidate_early_stop_face_score
             and candidate.landmark_orientation_score
             >= self.settings.candidate_early_stop_landmark_score

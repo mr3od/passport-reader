@@ -3,13 +3,12 @@ from __future__ import annotations
 import re
 from typing import Any, Protocol
 
+from pydantic_ai import Agent, BinaryContent, PromptedOutput
+from pydantic_ai.models.openai import OpenAIChatModel
+from pydantic_ai.providers.openai import OpenAIProvider
+
 from passport_core.config import Settings
 from passport_core.models import PassportData
-
-from pydantic_ai import Agent, PromptedOutput
-from pydantic_ai.models.openai import OpenAIModel
-from pydantic_ai.providers.openai import OpenAIProvider
-from pydantic_ai import BinaryContent
 
 DATE_PATTERN = re.compile(r"^\d{2}/\d{2}/\d{4}$")
 
@@ -35,13 +34,17 @@ Rules:
 - Keep English fields in uppercase as shown when possible.
 - Each Arabic name token must be written as a single unspaced word when it is a compound.
   "عبدالله" is one token (not "عبد الله"), "عبدالرحمن" is one token, "عبدالحكيم" is one token, etc.
-  Separate name tokens are still separated by spaces: "عمر عبدالحكيم حزام" has 3 tokens, each unspaced internally.
+  Separate name tokens are still separated by spaces:
+  "عمر عبدالحكيم حزام" has 3 tokens, each unspaced internally.
 - GivenNamesAr / GivenNamesEn are the full given-names string (all tokens space-separated).
-- FirstName = first given name, FatherName = second given name (father), GrandfatherName = third given name.
+- FirstName = first given name, FatherName = second given name (father),
+  GrandfatherName = third given name.
 - PlaceOfBirthAr / PlaceOfBirthEn are the full place-of-birth string as printed on the passport.
-- BirthCityAr / BirthCityEn are the most specific location (city or mudiriyah/district) without the country.
-  e.g. "الشمايتين" not "تعز", "جده" not "السعودية - جده", "JEDDAH" not "JEDDAH - KSA".
-- BirthCountryAr / BirthCountryEn are the country part only (e.g. "السعودية", "KSA" / "اليمن", "YEM").
+- BirthCityAr / BirthCityEn are the most specific location (city or mudiriyah/district)
+  without the country. e.g. "الشمايتين" not "تعز", "جده" not "السعودية - جده",
+  "JEDDAH" not "JEDDAH - KSA".
+- BirthCountryAr / BirthCountryEn are the country part only
+  (e.g. "السعودية", "KSA" / "اليمن", "YEM").
 - For dates, use strictly DD/MM/YYYY format. If uncertain, return null.
 - For Sex, return only "M" or "F" when confidently visible, otherwise null.
 - If a value is not visible, set it to null.
@@ -50,7 +53,8 @@ Return a JSON object with exactly these keys:
 PassportNumber, CountryCode, MrzLine1, MrzLine2,
 SurnameAr, GivenNamesAr, FirstNameAr, FatherNameAr, GrandfatherNameAr,
 SurnameEn, GivenNamesEn, FirstNameEn, FatherNameEn, GrandfatherNameEn,
-DateOfBirth, PlaceOfBirthAr, PlaceOfBirthEn, BirthCityAr, BirthCityEn, BirthCountryAr, BirthCountryEn, Sex,
+DateOfBirth, PlaceOfBirthAr, PlaceOfBirthEn,
+BirthCityAr, BirthCityEn, BirthCountryAr, BirthCountryEn, Sex,
 DateOfIssue, DateOfExpiry, ProfessionAr, ProfessionEn,
 IssuingAuthorityAr, IssuingAuthorityEn
 """.strip()
@@ -101,7 +105,7 @@ class PydanticAIRequestyExtractor:
     def __init__(self, api_key: str, model: str, base_url: str) -> None:
 
         self._agent = Agent(
-            model=OpenAIModel(model, provider=OpenAIProvider(base_url=base_url, api_key=api_key)),
+            model=OpenAIChatModel(model, provider=OpenAIProvider(base_url=base_url, api_key=api_key)),
             instructions=EXTRACTION_PROMPT,
             output_type=PromptedOutput(PassportData),
             retries=2,
