@@ -1,14 +1,50 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
+from fastapi.responses import FileResponse
+from passport_platform import ProcessUploadCommand
+from passport_platform.enums import ChannelName, ExternalProvider, PlanName
 
 from passport_api.deps import get_api_services, get_authenticated_session
 from passport_api.schemas import MasarStatusUpdate, RecordResponse
 from passport_api.services import ApiServices
 
 router = APIRouter(tags=["records"])
+
+
+@router.post("/records/upload", response_model=RecordResponse, status_code=status.HTTP_201_CREATED)
+def upload_record(
+    file: UploadFile,
+    authenticated: Annotated[object, Depends(get_authenticated_session)],
+    services: Annotated[ApiServices, Depends(get_api_services)],
+) -> RecordResponse:
+    if services.processing is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="OCR pipeline not configured (missing passport-core .env)",
+        )
+    payload = file.file.read()
+    result = services.processing.process_bytes(
+        ProcessUploadCommand(
+            external_provider=ExternalProvider.API,
+            external_user_id=authenticated.user.external_user_id,
+            channel=ChannelName.API,
+            filename=file.filename or "upload.jpg",
+            mime_type=file.content_type or "image/jpeg",
+            source_ref="api-upload",
+            payload=payload,
+            display_name=authenticated.user.display_name,
+            default_plan=PlanName.PRO,
+        )
+    )
+    records = services.records.list_user_records(authenticated.user.id, limit=200)
+    record = next((r for r in records if r.upload_id == result.upload.id), None)
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="record not found after processing")
+    return _record_to_response(record)
 
 
 @router.get("/records", response_model=list[RecordResponse])
@@ -28,6 +64,24 @@ def list_masar_pending(
 ) -> list[RecordResponse]:
     records = services.records.get_masar_pending(authenticated.user.id)
     return [_record_to_response(record) for record in records]
+
+
+@router.get("/records/{upload_id}/image")
+def get_record_image(
+    upload_id: int,
+    authenticated: Annotated[object, Depends(get_authenticated_session)],
+    services: Annotated[ApiServices, Depends(get_api_services)],
+) -> FileResponse:
+    record = services.records.get_user_record(authenticated.user.id, upload_id)
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="record not found")
+    uri = record.passport_image_uri
+    if not uri:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="no image for this record")
+    path = Path(uri)
+    if not path.exists():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="image file not found on disk")
+    return FileResponse(path, media_type=record.mime_type or "image/jpeg")
 
 
 @router.patch("/records/{upload_id}/masar-status", response_model=RecordResponse)

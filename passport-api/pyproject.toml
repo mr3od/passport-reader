@@ -8,6 +8,7 @@ dependencies = [
   "fastapi>=0.118.0",
   "passport-platform",
   "pydantic-settings>=2.4.0",
+  "python-multipart>=0.0.22",
   "uvicorn>=0.36.0",
 ]
 
@@ -16,6 +17,7 @@ dev = [
   "pytest>=8.3.2",
   "ruff>=0.6.4",
 ]
+ocr = []
 
 [project.scripts]
 passport-api = "passport_api.cli:main"
