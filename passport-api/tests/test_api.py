@@ -70,6 +70,7 @@ class FakeRecordsService:
                     "face_crop_uri": "/tmp/face.jpg",
                     "core_result": {"data": {"PassportNumber": "12345678"}},
                     "error_code": None,
+                    "masar_status": None,
                 },
             )()
         ]
