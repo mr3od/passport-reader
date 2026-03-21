@@ -29,7 +29,7 @@ class SampleRun:
     normalized_matched_fields: int
     mrz_matched_fields: int
     total_fields: int
-    enjaz_total_fields: int
+    normalized_total_fields: int
     mrz_total_fields: int
     input_tokens: int | None
     output_tokens: int | None
@@ -38,7 +38,7 @@ class SampleRun:
 
 
 MRZ_FIELDS = {"MrzLine1", "MrzLine2"}
-ENJAZ_TEXT_FIELDS = {
+TEXT_FIELDS = {
     "SurnameAr",
     "GivenNamesAr",
     "FirstNameAr",
@@ -130,7 +130,7 @@ def normalized_value(field_name: str, value: Any) -> str | None:
         return None
     if field_name in MRZ_FIELDS:
         return raw
-    if field_name not in ENJAZ_TEXT_FIELDS:
+    if field_name not in TEXT_FIELDS:
         return raw.upper()
 
     text = re.sub(r"[^\w\s]", "", raw.upper(), flags=re.UNICODE)
@@ -138,7 +138,7 @@ def normalized_value(field_name: str, value: Any) -> str | None:
     return " ".join(sorted(tokens)) if tokens else None
 
 
-def score_enjaz_prediction(expected: PassportData, actual: PassportData) -> tuple[int, int]:
+def score_normalized_prediction(expected: PassportData, actual: PassportData) -> tuple[int, int]:
     matched = 0
     total = 0
     for field_name in PassportData.model_fields:
@@ -258,7 +258,7 @@ def benchmark_model(
 
         actual = _normalize(output)
         strict_matched, total = score_prediction(sample.expected, actual)
-        normalized_matched, enjaz_total = score_enjaz_prediction(sample.expected, actual)
+        normalized_matched, normalized_total = score_normalized_prediction(sample.expected, actual)
         mrz_matched, mrz_total = score_mrz_prediction(sample.expected, actual)
         input_tokens, output_tokens = _extract_usage_tokens(result)
 
@@ -270,7 +270,7 @@ def benchmark_model(
                 normalized_matched_fields=normalized_matched,
                 mrz_matched_fields=mrz_matched,
                 total_fields=total,
-                enjaz_total_fields=enjaz_total,
+                normalized_total_fields=normalized_total,
                 mrz_total_fields=mrz_total,
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
@@ -291,8 +291,8 @@ def summarize(
     total_fields = sum(r.total_fields for r in runs)
     strict_accuracy = (total_matched / total_fields) if total_fields else 0.0
     normalized_matched = sum(r.normalized_matched_fields for r in runs)
-    enjaz_total_fields = sum(r.enjaz_total_fields for r in runs)
-    normalized_accuracy = normalized_matched / enjaz_total_fields if enjaz_total_fields else 0.0
+    normalized_total_fields = sum(r.normalized_total_fields for r in runs)
+    normalized_accuracy = normalized_matched / normalized_total_fields if normalized_total_fields else 0.0
     mrz_matched = sum(r.mrz_matched_fields for r in runs)
     mrz_total_fields = sum(r.mrz_total_fields for r in runs)
     mrz_accuracy = mrz_matched / mrz_total_fields if mrz_total_fields else 0.0
@@ -330,7 +330,7 @@ def summarize(
                 "normalized_matched_fields": r.normalized_matched_fields,
                 "mrz_matched_fields": r.mrz_matched_fields,
                 "total_fields": r.total_fields,
-                "enjaz_total_fields": r.enjaz_total_fields,
+                "normalized_total_fields": r.normalized_total_fields,
                 "mrz_total_fields": r.mrz_total_fields,
                 "strict_accuracy": round(
                     (r.strict_matched_fields / r.total_fields) if r.total_fields else 0.0,
@@ -338,8 +338,8 @@ def summarize(
                 ),
                 "normalized_accuracy": round(
                     (
-                        r.normalized_matched_fields / r.enjaz_total_fields
-                        if r.enjaz_total_fields
+                        r.normalized_matched_fields / r.normalized_total_fields
+                        if r.normalized_total_fields
                         else 0.0
                     ),
                     4,

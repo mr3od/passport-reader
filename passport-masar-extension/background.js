@@ -1,4 +1,5 @@
 importScripts("config.js");
+importScripts("strings.js");
 
 // ─── Header capture ───────────────────────────────────────────────────────────
 // Passively observe every outgoing request to masar and persist entity headers.
@@ -294,7 +295,7 @@ async function apiFetch(path, options = {}) {
 async function fetchImageBytes(uploadId) {
   log("fetchImageBytes — upload_id:", uploadId);
   const res = await apiFetch(`/records/${uploadId}/image`);
-  if (!res.ok) throw new Error(`image fetch failed: ${res.status}`);
+  if (!res.ok) throw new Error(S.ERR_IMAGE_FETCH(res.status));
   return res.arrayBuffer();
 }
 
@@ -380,7 +381,7 @@ async function submitToMasar(record) {
   if (!step1Res.ok) {
     const errText = await step1Res.text();
     logError("submitToMasar [1/6] — error body:", errText);
-    throw new Error(`ScanPassport failed: ${step1Res.status}`);
+    throw new Error(S.ERR_SCAN_PASSPORT(step1Res.status));
   }
   const step1Json = await step1Res.json();
   // Masar returns a non-standard envelope when the scan contract is inactive:
@@ -389,7 +390,7 @@ async function submitToMasar(record) {
   if (!step1Json.response || !step1Json.response.data) {
     const traceError = step1Json.traceError || step1Json.TraceError || step1Json.responseDesc || "unknown";
     logError("submitToMasar [1/6] — ScanPassport returned no data. traceError:", traceError);
-    throw new Error(`ScanPassport returned no data: ${traceError}`);
+    throw new Error(S.ERR_SCAN_NO_DATA);
   }
   // Response envelope: { response: { data: { passportResponse: {...}, ... } } }
   const scanData = step1Json.response.data;
@@ -434,7 +435,7 @@ async function submitToMasar(record) {
     { method: "POST", body: JSON.stringify(step2Body) }
   );
   log("submitToMasar [2/6] — status:", step2Res.status);
-  if (!step2Res.ok) throw new Error(`SubmitPassport failed: ${step2Res.status}`);
+  if (!step2Res.ok) throw new Error(S.ERR_SUBMIT_PASSPORT(step2Res.status));
   const step2Json = await step2Res.json();
   // Response envelope: { response: { data: { id: "<mutamerId>" } } }
   const mutamerId = step2Json.response.data.id;
@@ -450,7 +451,7 @@ async function submitToMasar(record) {
     { method: "POST", body: "{}" }
   );
   log("submitToMasar [3/6] — status:", step3Res.status);
-  if (!step3Res.ok) throw new Error(`GetPersonalAndContactInfos failed: ${step3Res.status}`);
+  if (!step3Res.ok) throw new Error(S.ERR_FETCH_CONTACT(step3Res.status));
   const step3Json = await step3Res.json();
   const currentPersonalInfo = step3Json.response.data.personalInfo;
   log("submitToMasar [3/6] — personalPictureId:", currentPersonalInfo?.personalPictureId);
@@ -481,14 +482,14 @@ async function submitToMasar(record) {
   if (!step4Res.ok) {
     const errText = await step4Res.text();
     logError("submitToMasar [4/6] — error body:", errText);
-    throw new Error(`Attachment upload failed: ${step4Res.status}`);
+    throw new Error(S.ERR_UPLOAD_ATTACH(step4Res.status));
   }
   const step4Json = await step4Res.json();
   // Response envelope: { response: { data: { attachmentResponse: {...} } } }
   if (!step4Json.response || !step4Json.response.data) {
     const traceError = step4Json.traceError || step4Json.TraceError || "unknown";
     logError("submitToMasar [4/6] — Attachment/Upload returned no data. traceError:", traceError);
-    throw new Error(`Attachment/Upload returned no data: ${traceError}`);
+    throw new Error(S.ERR_UPLOAD_NO_DATA);
   }
   const vaccinationMeta = step4Json.response.data.attachmentResponse;
   log("submitToMasar [4/6] — vaccinationMeta id:", vaccinationMeta?.id);
@@ -536,7 +537,7 @@ async function submitToMasar(record) {
     { method: "POST", body: JSON.stringify(step5Body) }
   );
   log("submitToMasar [5/6] — status:", step5Res.status);
-  if (!step5Res.ok) throw new Error(`SubmitPersonal failed: ${step5Res.status}`);
+  if (!step5Res.ok) throw new Error(S.ERR_SUBMIT_PERSONAL(step5Res.status));
 
   // ── Step 6: SubmitDisclosureForm ──────────────────────────────────────────
   log("submitToMasar [6/6] — SubmitDisclosureForm");
@@ -568,7 +569,7 @@ async function submitToMasar(record) {
     { method: "POST", body: JSON.stringify(step6Body) }
   );
   log("submitToMasar [6/6] — status:", step6Res.status);
-  if (!step6Res.ok) throw new Error(`SubmitDisclosure failed: ${step6Res.status}`);
+  if (!step6Res.ok) throw new Error(S.ERR_SUBMIT_DISCLOSURE(step6Res.status));
 
   log("submitToMasar — all 6 steps complete! mutamerId:", mutamerId);
   return { mutamerId, scanResult: scanData };
@@ -654,7 +655,7 @@ async function handleMessage(msg) {
       return { ok: true, data };
     } catch (err) {
       logError("FETCH_GROUPS — error:", err.message);
-      return { ok: false, error: err.message };
+      return { ok: false, error: S.ERR_UNEXPECTED };
     }
   }
 
@@ -669,7 +670,7 @@ async function handleMessage(msg) {
       return { ok: true, data };
     } catch (err) {
       logError("FETCH_PENDING — error:", err.message);
-      return { ok: false, error: err.message };
+      return { ok: false, error: S.ERR_UNEXPECTED };
     }
   }
 
@@ -688,7 +689,7 @@ async function handleMessage(msg) {
         }),
       });
       log("SUBMIT_RECORD — patch status:", patchRes.status);
-      if (!patchRes.ok) throw new Error(`patch failed: ${patchRes.status}`);
+      if (!patchRes.ok) throw new Error(S.ERR_PATCH_FAILED(patchRes.status));
       // Refresh badge after successful submit — failure count may have dropped.
       apiFetch("/records/masar/pending").then(async (r) => {
         if (r.ok) updateBadge(await r.json());

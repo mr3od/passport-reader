@@ -32,13 +32,13 @@ function sendMsg(msg) {
   return new Promise((resolve) => {
     const timer = setTimeout(() => {
       console.error("[masar-ext popup] sendMsg timeout for", msg.type);
-      resolve({ ok: false, error: "timeout" });
+      resolve({ ok: false, error: S.ERR_TIMEOUT });
     }, 15000);
     chrome.runtime.sendMessage(msg, (resp) => {
       clearTimeout(timer);
       if (chrome.runtime.lastError) {
         console.error("[masar-ext popup] sendMsg error:", chrome.runtime.lastError.message);
-        resolve({ ok: false, error: chrome.runtime.lastError.message });
+        resolve({ ok: false, error: S.ERR_UNEXPECTED });
         return;
       }
       resolve(resp);
@@ -54,7 +54,7 @@ function buildDisplayName(record) {
     const parts = [d.GivenNamesEn, d.SurnameEn].filter(Boolean);
     if (parts.length) return parts.join(" — ");
   }
-  return record.passport_number || `Record #${record.upload_id}`;
+  return record.passport_number || S.RECORD_FALLBACK(record.upload_id);
 }
 
 function buildNationality(record) {
@@ -94,7 +94,7 @@ async function populateContextPanel() {
   const endEl = $("ctx-contract-end");
   if (data.masar_contract_end_date) {
     const dateStr = data.masar_contract_end_date.slice(0, 10);
-    const labels = { active: "Active", "expires-today": "Expires today", expired: "Expired", unknown: "" };
+    const labels = { active: S.CONTRACT_ACTIVE, "expires-today": S.CONTRACT_EXPIRES_TODAY, expired: S.CONTRACT_EXPIRED, unknown: "" };
     const label = labels[state] || "";
     endEl.innerHTML = `<span class="status-dot ${state}"></span>${dateStr}${label ? ` · ${label}` : ""}`;
   } else {
@@ -108,9 +108,9 @@ async function populateContextPanel() {
   // Last synced
   if (data.masar_last_synced) {
     const ago = Math.round((Date.now() - data.masar_last_synced) / 1000);
-    $("ctx-synced").textContent = ago < 60 ? "Synced just now" : `Synced ${Math.round(ago / 60)}m ago`;
+    $("ctx-synced").textContent = ago < 60 ? S.CTX_SYNCED_NOW : S.CTX_SYNCED_AGO(Math.round(ago / 60));
   } else {
-    $("ctx-synced").textContent = "Not synced";
+    $("ctx-synced").textContent = S.CTX_NOT_SYNCED;
   }
 
   // Show/hide banners based on contract state
@@ -128,10 +128,13 @@ function renderQueue() {
   list.innerHTML = "";
 
   const visible = pendingRecords.filter((r) => !skippedIds.has(r.upload_id));
-  $("pending-count").textContent = `Pending (${visible.length})`;
+  $("pending-count").textContent = S.PENDING_COUNT(visible.length);
 
   if (visible.length === 0) {
-    list.innerHTML = '<div class="empty-state">&#10003; No more pending</div>';
+    const emptyEl = document.createElement("div");
+    emptyEl.className = "empty-state";
+    emptyEl.textContent = S.QUEUE_EMPTY;
+    list.appendChild(emptyEl);
     return;
   }
 
@@ -148,8 +151,8 @@ function renderQueue() {
       <div class="record-name">${name}</div>
       <div class="record-meta">${nat}${nat && passNum ? " · " : ""}${passNum ? "#" + passNum : ""}</div>
       <div class="record-actions">
-        <button class="btn-submit">Submit</button>
-        <button class="btn-skip secondary">Skip</button>
+        <button class="btn-submit">${S.BTN_SUBMIT}</button>
+        <button class="btn-skip secondary">${S.BTN_SKIP}</button>
       </div>
       <div class="status-msg hidden"></div>
     `;
@@ -173,7 +176,7 @@ async function submitRecord(record, item) {
   btnSkip.disabled = true;
   statusEl.className = "status-msg loading";
   statusEl.classList.remove("hidden");
-  statusEl.textContent = "Submitting…";
+  statusEl.textContent = S.SUBMITTING;
 
   const res = await sendMsg({ type: "SUBMIT_RECORD", record });
 
@@ -187,23 +190,23 @@ async function submitRecord(record, item) {
 
   if (res && res.ok) {
     statusEl.className = "status-msg success";
-    statusEl.textContent = "Submitted successfully";
+    statusEl.textContent = S.SUBMIT_SUCCESS;
     setTimeout(() => renderQueue(), 1200);
   } else {
     // Check if this record is actually gone from the API (succeeded despite lost port)
     const stillPending = pendingRecords.some((r) => r.upload_id === record.upload_id);
     if (!stillPending) {
       statusEl.className = "status-msg success";
-      statusEl.textContent = "Submitted successfully";
+      statusEl.textContent = S.SUBMIT_SUCCESS;
       setTimeout(() => renderQueue(), 1200);
       return;
     }
     const err = res?.error || "Unknown error";
     statusEl.className = "status-msg error";
     if (err.includes("401") || err.includes("403") || err.includes("session") || err.includes("login")) {
-      statusEl.textContent = "Log into masar.nusuk.sa then retry";
+      statusEl.textContent = S.ERR_SESSION;
     } else {
-      statusEl.textContent = `Error: ${err}`;
+      statusEl.textContent = S.ERR_GENERIC(err);
     }
     btnSubmit.disabled = false;
     btnSkip.disabled = false;
@@ -272,7 +275,7 @@ async function loadGroupPicker() {
   console.log("[masar-ext popup] FETCH_GROUPS response:", JSON.stringify(res).slice(0, 500));
 
   if (!res || !res.ok) {
-    select.innerHTML = `<option value="">Failed to load groups</option>`;
+    select.innerHTML = `<option value="">${S.GROUP_LOAD_FAILED}</option>`;
     $("group-select-hint").classList.remove("hidden");
     return;
   }
@@ -284,7 +287,7 @@ async function loadGroupPicker() {
   console.log("[masar-ext popup] groups count:", groups.length, "first:", JSON.stringify(groups[0]).slice(0, 200));
 
   if (groups.length === 0) {
-    select.innerHTML = '<option value="">No groups found</option>';
+    select.innerHTML = `<option value="">${S.GROUP_NONE_FOUND}</option>`;
     $("group-select-hint").classList.remove("hidden");
     return;
   }
@@ -308,7 +311,7 @@ async function loadMainQueue() {
   const res = await sendMsg({ type: "FETCH_PENDING" });
 
   if (!res || !res.ok) {
-    $("queue-list").innerHTML = `<div class="status-msg error">Failed to load queue (${res?.status || res?.error || "network error"})</div>`;
+    $("queue-list").innerHTML = `<div class="status-msg error">${S.QUEUE_LOAD_FAILED(res?.status || res?.error || "?")}</div>`;
     return;
   }
 
@@ -378,7 +381,7 @@ $("btn-change-group").addEventListener("click", async () => {
 // Context panel refresh — re-sync from the open Masar tab then re-init
 // so any context change (account switch, contract change) is picked up.
 $("btn-refresh-context").addEventListener("click", async () => {
-  $("ctx-synced").textContent = "Syncing…";
+  $("ctx-synced").textContent = S.CTX_SYNCING;
   await sendMsg({ type: "SYNC_SESSION" });
   init();
 });

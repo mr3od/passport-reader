@@ -9,6 +9,7 @@ from passport_platform.models.user import User
 from passport_platform.policies.plans import get_plan_policy
 from passport_platform.repositories.usage import UsageRepository
 from passport_platform.schemas.results import QuotaDecision
+from passport_platform.strings import QUOTA_SUCCESSES_EXCEEDED, QUOTA_UPLOADS_EXCEEDED
 
 
 class QuotaService:
@@ -51,9 +52,9 @@ class QuotaService:
         allowed = remaining_uploads > 0 and remaining_successes > 0
         if not allowed:
             if remaining_uploads == 0:
-                reason = "monthly upload quota reached"
+                reason = QUOTA_UPLOADS_EXCEEDED
             else:
-                reason = "monthly success quota reached"
+                reason = QUOTA_SUCCESSES_EXCEEDED
 
         return QuotaDecision(
             allowed=allowed,

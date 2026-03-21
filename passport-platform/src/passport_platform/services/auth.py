@@ -11,6 +11,14 @@ from passport_platform.errors import (
     UserBlockedError,
 )
 from passport_platform.repositories.auth_tokens import AuthTokensRepository
+from passport_platform.strings import (
+    AUTH_SESSION_EXPIRED,
+    AUTH_SESSION_INVALID,
+    AUTH_SESSION_REVOKED,
+    AUTH_TOKEN_EXPIRED,
+    AUTH_TOKEN_INVALID,
+    AUTH_TOKEN_USED,
+)
 from passport_platform.schemas.auth import (
     AuthenticatedSession,
     IssuedExtensionSession,
@@ -61,11 +69,11 @@ class AuthService:
         with self.auth_tokens.db.transaction(immediate=True) as conn:
             token = self.auth_tokens.get_temp_token_by_hash(token_hash, conn=conn)
             if token is None:
-                raise InvalidTempTokenError("invalid temp token")
+                raise InvalidTempTokenError(AUTH_TOKEN_INVALID)
             if token.used_at is not None:
-                raise InvalidTempTokenError("temp token already used")
+                raise InvalidTempTokenError(AUTH_TOKEN_USED)
             if token.expires_at <= current_time:
-                raise InvalidTempTokenError("temp token expired")
+                raise InvalidTempTokenError(AUTH_TOKEN_EXPIRED)
 
             self.auth_tokens.mark_temp_token_used(token.id, used_at=current_time, conn=conn)
             session = self.auth_tokens.create_extension_session(
@@ -96,11 +104,11 @@ class AuthService:
         current_time = _utc(now)
         session = self.auth_tokens.get_extension_session_by_hash(_hash_token(raw_session_token))
         if session is None:
-            raise InvalidExtensionSessionError("invalid extension session")
+            raise InvalidExtensionSessionError(AUTH_SESSION_INVALID)
         if session.revoked_at is not None:
-            raise InvalidExtensionSessionError("extension session revoked")
+            raise InvalidExtensionSessionError(AUTH_SESSION_REVOKED)
         if session.expires_at <= current_time:
-            raise InvalidExtensionSessionError("extension session expired")
+            raise InvalidExtensionSessionError(AUTH_SESSION_EXPIRED)
         user = self.users.get_by_id(session.user_id)
         if user is None:
             raise RuntimeError(f"user {session.user_id} not found for extension session")
@@ -137,7 +145,7 @@ class AuthService:
         current_time = _utc(now)
         session = self.auth_tokens.get_extension_session_by_hash(_hash_token(raw_session_token))
         if session is None:
-            raise InvalidExtensionSessionError("invalid extension session")
+            raise InvalidExtensionSessionError(AUTH_SESSION_INVALID)
         updated = self.auth_tokens.revoke_extension_session(session.id, revoked_at=current_time)
         user = self.users.get_by_id(updated.user_id)
         if user is None:

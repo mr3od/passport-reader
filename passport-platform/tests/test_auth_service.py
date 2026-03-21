@@ -51,19 +51,21 @@ def test_exchange_rejects_used_temp_token(tmp_path) -> None:
     issued = service.issue_temp_token(user.id)
     service.exchange_temp_token(issued.token)
 
-    with pytest.raises(InvalidTempTokenError, match="already used"):
+    with pytest.raises(InvalidTempTokenError) as exc_info:
         service.exchange_temp_token(issued.token)
+    assert "استخدام" in str(exc_info.value)
 
 
 def test_exchange_rejects_expired_temp_token(tmp_path) -> None:
     service, user = build_auth_service(tmp_path)
     issued = service.issue_temp_token(user.id, now=datetime(2026, 3, 13, 10, 0, tzinfo=UTC))
 
-    with pytest.raises(InvalidTempTokenError, match="expired"):
+    with pytest.raises(InvalidTempTokenError) as exc_info:
         service.exchange_temp_token(
             issued.token,
             now=datetime(2026, 3, 13, 10, 11, tzinfo=UTC),
         )
+    assert "صلاحية" in str(exc_info.value)
 
 
 def test_authenticate_session_accepts_active_session(tmp_path) -> None:
@@ -83,8 +85,9 @@ def test_authenticate_session_rejects_revoked_session(tmp_path) -> None:
     session = service.exchange_temp_token(issued.token)
     service.revoke_session(session.session_token)
 
-    with pytest.raises(InvalidExtensionSessionError, match="revoked"):
+    with pytest.raises(InvalidExtensionSessionError) as exc_info:
         service.authenticate_session(session.session_token)
+    assert "إيقاف" in str(exc_info.value)
 
 
 def test_authenticate_session_rejects_expired_session(tmp_path) -> None:
@@ -95,11 +98,12 @@ def test_authenticate_session_rejects_expired_session(tmp_path) -> None:
         now=datetime(2026, 3, 13, 10, 1, tzinfo=UTC),
     )
 
-    with pytest.raises(InvalidExtensionSessionError, match="expired"):
+    with pytest.raises(InvalidExtensionSessionError) as exc_info:
         service.authenticate_session(
             session.session_token,
             now=datetime(2026, 3, 13, 22, 2, tzinfo=UTC),
         )
+    assert "انتهت الجلسة" in str(exc_info.value)
 
 
 def test_authenticate_session_rejects_blocked_user(tmp_path) -> None:

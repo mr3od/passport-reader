@@ -8,6 +8,8 @@ from fastapi.responses import FileResponse
 from passport_platform import AuthenticatedSession, ProcessUploadCommand
 from passport_platform.enums import ChannelName, ExternalProvider, PlanName
 
+from passport_platform.strings import RECORD_IMAGE_NOT_ON_DISK, RECORD_NO_IMAGE, RECORD_NOT_FOUND
+
 from passport_api.deps import get_api_services, get_authenticated_session
 from passport_api.schemas import MasarStatusUpdate, RecordResponse
 from passport_api.services import ApiServices
@@ -77,16 +79,16 @@ def get_record_image(
 ) -> FileResponse:
     record = services.records.get_user_record(authenticated.user.id, upload_id)
     if record is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="record not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=RECORD_NOT_FOUND)
     uri = record.passport_image_uri
     if not uri:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="no image for this record"
+            status_code=status.HTTP_404_NOT_FOUND, detail=RECORD_NO_IMAGE
         )
     path = Path(uri)
     if not path.exists():
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="image file not found on disk"
+            status_code=status.HTTP_404_NOT_FOUND, detail=RECORD_IMAGE_NOT_ON_DISK
         )
     return FileResponse(path, media_type=record.mime_type or "image/jpeg")
 
@@ -111,12 +113,12 @@ def update_masar_status(
         masar_scan_result=body.masar_scan_result,
     )
     if not updated:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="record not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=RECORD_NOT_FOUND)
     records = services.records.list_user_records(authenticated.user.id, limit=200)
     for record in records:
         if record.upload_id == upload_id:
             return _record_to_response(record)
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="record not found")
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=RECORD_NOT_FOUND)
 
 
 def _record_to_response(record) -> RecordResponse:

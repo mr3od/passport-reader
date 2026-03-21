@@ -9,6 +9,7 @@ from passport_platform import (
     InvalidExtensionSessionError,
     UserBlockedError,
 )
+from passport_platform.strings import AUTH_HEADER_INVALID, AUTH_HEADER_MISSING
 
 from passport_api.config import ApiSettings
 from passport_api.services import ApiServices, build_services
@@ -34,13 +35,13 @@ def get_bearer_token(
     if authorization is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="missing authorization header",
+            detail=AUTH_HEADER_MISSING,
         )
     scheme, _, value = authorization.partition(" ")
     if scheme.lower() != "bearer" or not value:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="invalid authorization header",
+            detail=AUTH_HEADER_INVALID,
         )
     return value
 

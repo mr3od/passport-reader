@@ -103,7 +103,7 @@ def format_success_text(result: PassportWorkflowResult, *, position: int, total:
 
     lines = [
         prefix + "تمت معالجة الجواز بنجاح.",
-        "نسخ سريع لنموذج إنجاز:",
+        "نسخ سريع:",
         f"الاسم الكامل بالعربية: {_code(full_name_ar)}",
         f"الاسم الكامل بالإنجليزية: {_code(full_name_en)}",
         f"رقم الجواز: {_code(data.PassportNumber)}",

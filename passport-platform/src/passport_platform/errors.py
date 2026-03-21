@@ -4,6 +4,12 @@ from typing import TYPE_CHECKING
 
 from passport_platform.models.user import User
 from passport_platform.schemas.results import QuotaDecision
+from passport_platform.strings import (
+    AUTH_SESSION_INVALID,
+    AUTH_TOKEN_INVALID,
+    QUOTA_UPLOADS_EXCEEDED,
+    USER_BLOCKED,
+)
 
 if TYPE_CHECKING:
     from passport_platform.schemas.results import TrackedProcessingResult
@@ -16,13 +22,13 @@ class PlatformError(Exception):
 class QuotaExceededError(PlatformError):
     def __init__(self, decision: QuotaDecision) -> None:
         self.decision = decision
-        super().__init__(decision.reason or "quota exceeded")
+        super().__init__(decision.reason or QUOTA_UPLOADS_EXCEEDED)
 
 
 class UserBlockedError(PlatformError):
     def __init__(self, user: User) -> None:
         self.user = user
-        super().__init__(f"user {user.id} is blocked")
+        super().__init__(USER_BLOCKED)
 
 
 class UnsupportedExternalProviderError(PlatformError):
@@ -45,12 +51,12 @@ class ProcessingFailedError(PlatformError):
 
 
 class InvalidTempTokenError(PlatformError):
-    def __init__(self, reason: str = "invalid temp token") -> None:
+    def __init__(self, reason: str = AUTH_TOKEN_INVALID) -> None:
         self.reason = reason
         super().__init__(reason)
 
 
 class InvalidExtensionSessionError(PlatformError):
-    def __init__(self, reason: str = "invalid extension session") -> None:
+    def __init__(self, reason: str = AUTH_SESSION_INVALID) -> None:
         self.reason = reason
         super().__init__(reason)

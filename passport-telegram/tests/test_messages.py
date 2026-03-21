@@ -98,7 +98,7 @@ def test_format_success_includes_key_fields():
     assert "الاسم الكامل بالإنجليزية: `AHMAD ALI ALHASHMI`" in text
     assert "رقم الجواز: `A123`" in text
     assert "مكان الميلاد: `صنعاء`" in text
-    assert "نسخ سريع لنموذج إنجاز" in text
+    assert "نسخ سريع" in text
 
 
 def test_quota_exceeded_text_includes_remaining_limits():
@@ -113,7 +113,7 @@ def test_quota_exceeded_text_includes_remaining_limits():
             remaining_uploads=0,
             remaining_successes=2,
             max_batch_size=2,
-            reason="monthly upload quota reached",
+            reason="لا يمكن رفع المزيد من الجوازات هذا الشهر",
         )
     )
 

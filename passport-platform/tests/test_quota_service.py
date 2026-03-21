@@ -54,7 +54,7 @@ def test_free_plan_blocks_when_monthly_upload_limit_is_reached(tmp_path) -> None
 
     assert decision.allowed is False
     assert decision.remaining_uploads == 0
-    assert decision.reason == "monthly upload quota reached"
+    assert decision.reason == "لا يمكن رفع المزيد من الجوازات هذا الشهر"
 
 
 def test_free_plan_blocks_when_monthly_success_limit_is_reached(tmp_path) -> None:
@@ -83,4 +83,4 @@ def test_free_plan_blocks_when_monthly_success_limit_is_reached(tmp_path) -> Non
 
     assert decision.allowed is False
     assert decision.remaining_successes == 0
-    assert decision.reason == "monthly success quota reached"
+    assert decision.reason == "لا يمكن معالجة المزيد من الجوازات هذا الشهر"

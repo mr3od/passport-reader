@@ -70,7 +70,7 @@ Notes:
 - supports media groups by collecting images briefly, then processing them as one batch
 - replies in Arabic
 - returns each successful result as one two-image media group with an Arabic-first caption
-- formats extracted values in the caption for easier copying into Enjaz KSA visa forms
+- formats extracted values in the caption for easier copying into منصة نسك forms
 - returns partial failure messages when the image is not a passport or when face crop fails
 - directs agencies to `@mr3od` or `@naaokun` for clarifications or plan changes
 - supports admin commands for usage, recent activity, plan changes, and block/unblock flows

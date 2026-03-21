@@ -1,63 +1,63 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Passport Masar Submitter</title>
+  <title>تسجيل المعتمرين</title>
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
   <!-- Persistent top bar — always visible -->
   <div id="topbar">
-    <span id="topbar-title">Masar Submitter</span>
-    <button id="btn-settings" class="icon-btn" title="Settings">&#9881;</button>
+    <span id="topbar-title">تسجيل المعتمرين</span>
+    <button id="btn-settings" class="icon-btn" title="الإعدادات">&#9881;</button>
   </div>
 
   <div id="app">
     <!-- Loading -->
     <div id="screen-loading" class="screen hidden">
-      <div class="status-banner" style="background:#f0f4ff;border:1px solid #c0d0f0;color:#333;">Loading…</div>
+      <div class="status-banner" style="background:#f0f4ff;border:1px solid #c0d0f0;color:#333;">جارٍ التحميل…</div>
     </div>
 
     <!-- Error fallback -->
     <div id="screen-error" class="screen hidden">
       <div class="status-banner error">
-        <strong>Error</strong><br /><span id="error-detail"></span>
+        <strong>خطأ</strong><br /><span id="error-detail"></span>
       </div>
     </div>
 
     <!-- Token setup screen -->
     <div id="screen-setup" class="screen hidden">
-      <h2>Setup</h2>
-      <label for="api-token-input">Access token</label>
-      <input id="api-token-input" type="password" placeholder="Paste token from /token command" />
-      <button id="btn-save-token">Save</button>
+      <h2>ربط الحساب</h2>
+      <label for="api-token-input">رمز الدخول</label>
+      <input id="api-token-input" type="password" placeholder="الصق الرمز من أمر /token" />
+      <button id="btn-save-token">حفظ</button>
     </div>
 
     <!-- Entity IDs not yet captured -->
     <div id="screen-activate" class="screen hidden">
       <div class="status-banner warning">
-        Open <strong>masar.nusuk.sa</strong> in this browser to activate.
+        افتح <strong>masar.nusuk.sa</strong> في هذا المتصفح للتفعيل.
       </div>
-      <button id="btn-open-masar-activate">Open Masar</button>
+      <button id="btn-open-masar-activate">افتح منصة نسك</button>
     </div>
 
     <!-- Session expired -->
     <div id="screen-session-expired" class="screen hidden">
       <div class="status-banner error">
-        Your masar session has expired.
+        انتهت الجلسة — سجّل الدخول من جديد
       </div>
-      <button id="btn-open-masar-expired">Log into Masar</button>
+      <button id="btn-open-masar-expired">تسجيل الدخول</button>
     </div>
 
     <!-- Group selection (first launch) -->
     <div id="screen-group-select" class="screen hidden">
-      <h2>Select your group</h2>
+      <h2>اختر المجموعة</h2>
       <div id="group-select-hint" class="status-banner warning hidden">
-        Navigate to the <strong>group list</strong> on masar.nusuk.sa — the extension will auto-detect your groups.
+        افتح قائمة المجموعات على منصة نسك — ستظهر هنا تلقائيًا.
       </div>
       <select id="group-select"></select>
-      <button id="btn-confirm-group">Confirm</button>
+      <button id="btn-confirm-group">تأكيد</button>
     </div>
 
     <!-- Main queue screen -->
@@ -65,38 +65,38 @@
       <!-- Context panel: who am I · which contract · which group -->
       <div id="context-panel" class="context-panel">
         <div class="context-row">
-          <span class="context-label">Account</span>
+          <span class="context-label">الحساب</span>
           <span id="ctx-entity" class="context-value">—</span>
         </div>
         <div class="context-row">
-          <span class="context-label">Contract</span>
+          <span class="context-label">العقد</span>
           <span id="ctx-contract" class="context-value">—</span>
         </div>
         <div class="context-row">
-          <span class="context-label">Ends</span>
+          <span class="context-label">ينتهي</span>
           <span id="ctx-contract-end" class="context-value">—</span>
         </div>
         <div class="context-row">
-          <span class="context-label">Group</span>
+          <span class="context-label">المجموعة</span>
           <span id="ctx-group" class="context-value">—</span>
         </div>
         <div class="context-footer">
-          <span id="ctx-synced" class="context-synced-text">Not synced</span>
-          <button id="btn-refresh-context" class="icon-btn small" title="Re-sync from Masar tab">&#8635;</button>
+          <span id="ctx-synced" class="context-synced-text">لم يتم التحديث</span>
+          <button id="btn-refresh-context" class="icon-btn small" title="تحديث البيانات">&#8635;</button>
         </div>
       </div>
 
       <!-- Contract expired / expiring warning -->
       <div id="banner-contract-expired" class="status-banner error hidden">
-        &#9888; Masar contract expired — submissions will be rejected.
+        &#9888; انتهى العقد — لن تقبل منصة نسك أي تسجيلات.
       </div>
       <div id="banner-contract-expiring" class="status-banner warning hidden">
-        &#9888; Contract expires today — Masar may reject at any point.
+        &#9888; العقد ينتهي اليوم — قد لا تُقبل بعض التسجيلات.
       </div>
 
       <div class="header">
         <span id="pending-count" class="pending-label"></span>
-        <button id="btn-change-group" class="icon-btn" title="Change group">&#8597;</button>
+        <button id="btn-change-group" class="icon-btn" title="تغيير المجموعة">&#8597;</button>
       </div>
       <div id="queue-list"></div>
     </div>
@@ -104,20 +104,21 @@
     <!-- Settings panel -->
     <div id="screen-settings" class="screen hidden">
       <div class="header">
-        <button id="btn-back" class="icon-btn" title="Back">&larr;</button>
-        <h2>Settings</h2>
+        <button id="btn-back" class="icon-btn" title="رجوع">&rarr;</button>
+        <h2>الإعدادات</h2>
       </div>
-      <label for="settings-email">Agency email</label>
+      <label for="settings-email">البريد الإلكتروني</label>
       <input id="settings-email" type="email" placeholder="agency@example.com" />
-      <label for="settings-phone-cc">Phone country code</label>
+      <label for="settings-phone-cc">رمز الدولة</label>
       <input id="settings-phone-cc" type="text" placeholder="966" maxlength="5" />
-      <label for="settings-phone">Phone number</label>
+      <label for="settings-phone">رقم الجوال</label>
       <input id="settings-phone" type="tel" placeholder="5XXXXXXXX" />
-      <button id="btn-save-settings">Save</button>
+      <button id="btn-save-settings">حفظ</button>
       <hr />
-      <button id="btn-reset-token" class="danger">Reset token</button>
+      <button id="btn-reset-token" class="danger">إعادة ربط الحساب</button>
     </div>
   </div>
+  <script src="strings.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

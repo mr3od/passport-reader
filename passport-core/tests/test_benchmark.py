@@ -9,7 +9,7 @@ from passport_core.benchmark import (
     field_comparison,
     load_ground_truth,
     normalized_value,
-    score_enjaz_prediction,
+    score_normalized_prediction,
     score_mrz_prediction,
     score_prediction,
     summarize,
@@ -54,7 +54,7 @@ def test_normalized_accuracy_ignores_text_punctuation_and_order():
         MrzLine1="P<YEMABX",
     )
 
-    normalized_matched, normalized_total = score_enjaz_prediction(expected, actual)
+    normalized_matched, normalized_total = score_normalized_prediction(expected, actual)
     mrz_matched, mrz_total = score_mrz_prediction(expected, actual)
     fields = field_comparison(expected, actual)
 
