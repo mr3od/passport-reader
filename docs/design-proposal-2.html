@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Proposal 2 — Dense Panel</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap');
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PROPOSAL 2 — "Dense Panel"
+
+   CONCEPT: Everything on one screen. No screen transitions.
+   Onboarding is a checklist that collapses as items are completed.
+   The queue is a table — not cards. Maximum density, zero wasted space.
+
+   STRUCTURAL DISTINCTION:
+   - Onboarding is NOT separate screens — it's a checklist at the top
+     of the single main view. Each item shows ✓ or → depending on state.
+     Completed items collapse to a single line.
+   - Queue uses table rows, not cards — name + passport + status + action
+     all in one line. No avatars (saves horizontal space).
+   - Status is communicated through small colored dots, not badges.
+   - "Submit all" is a fixed bottom bar that's always visible.
+   - Context info is a collapsible accordion at the top.
+   - Dark mode to feel professional and reduce eye strain during long sessions.
+
+   COLOR: Deep slate + teal
+   TYPOGRAPHY: IBM Plex Sans Arabic
+   ═══════════════════════════════════════════════════════════════════════ */
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'IBM Plex Sans Arabic', sans-serif;
+  background: #0F1119;
+  color: #E8EAF0;
+  padding: 40px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 60px;
+}
+
+.section-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: #5A6080;
+  text-align: center;
+  margin-bottom: 12px;
+  direction: ltr;
+}
+
+.popup {
+  width: 340px;
+  background: #1A1E2E;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.04),
+    0 8px 32px rgba(0,0,0,0.5);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Thin top bar — minimal ── */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.topbar-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6A7090;
+}
+.topbar-actions {
+  display: flex;
+  gap: 2px;
+}
+.topbar-btn {
+  background: none;
+  border: none;
+  color: #4A5070;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 3px 5px;
+  border-radius: 4px;
+  transition: all 0.15s;
+  font-family: 'IBM Plex Sans Arabic', sans-serif;
+}
+.topbar-btn:hover { background: rgba(255,255,255,0.06); color: #8A90B0; }
+
+/* ── Content area ── */
+.content {
+  padding: 10px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   CHECKLIST — the core structural idea
+   Each setup step is ONE LINE. Active step expands to show its action.
+   Completed steps show a checkmark and collapse.
+   ══════════════════════════════════════════════════════════════════════ */
+.checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.check-item {
+  padding: 8px 12px;
+  background: #1E2236;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.check-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.check-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.check-icon.done {
+  background: #0EA5A0;
+  color: white;
+}
+.check-icon.active {
+  background: transparent;
+  border: 2px solid #0EA5A0;
+  color: #0EA5A0;
+}
+.check-icon.pending {
+  background: transparent;
+  border: 2px solid #3E4460;
+  color: #3E4460;
+}
+.check-label {
+  font-size: 12px;
+  font-weight: 500;
+  flex: 1;
+}
+.check-label.done { color: #5A6080; text-decoration: line-through; text-decoration-color: #3E4460; }
+.check-label.active { color: #E8EAF0; }
+.check-label.pending { color: #4A5070; }
+
+.check-body {
+  padding-right: 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ── Form ── */
+.form-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: 'IBM Plex Sans Arabic', sans-serif;
+  background: rgba(255,255,255,0.04);
+  color: #E8EAF0;
+  outline: none;
+  transition: all 0.15s;
+}
+.form-input:focus {
+  border-color: #0EA5A0;
+  box-shadow: 0 0 0 2px rgba(14,165,160,0.15);
+}
+.form-input::placeholder { color: #3E4460; }
+.form-select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: 'IBM Plex Sans Arabic', sans-serif;
+  background: rgba(255,255,255,0.04);
+  color: #E8EAF0;
+  outline: none;
+  appearance: none;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath fill='%235A6080' d='M0 0l5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 10px center;
+}
+.form-label {
+  font-size: 10px;
+  font-weight: 500;
+  color: #5A6080;
+}
+
+/* ── Buttons ── */
+.btn {
+  padding: 8px 14px;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'IBM Plex Sans Arabic', sans-serif;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.btn-teal {
+  background: #0EA5A0;
+  color: white;
+}
+.btn-teal:hover { background: #0D9490; }
+.btn-ghost {
+  background: rgba(255,255,255,0.06);
+  color: #8A90B0;
+  border: none;
+}
+.btn-ghost:hover { background: rgba(255,255,255,0.1); color: #E8EAF0; }
+.btn-text {
+  background: none;
+  border: none;
+  color: #5A6080;
+  font-size: 11px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-family: 'IBM Plex Sans Arabic', sans-serif;
+}
+.btn-text:hover { color: #0EA5A0; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Context accordion ── */
+.ctx-accordion {
+  background: rgba(255,255,255,0.03);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.ctx-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.ctx-header:hover { background: rgba(255,255,255,0.03); }
+.ctx-summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #8A90B0;
+}
+.ctx-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.ctx-dot.active { background: #34D399; }
+.ctx-dot.expired { background: #F87171; }
+.ctx-chevron {
+  font-size: 10px;
+  color: #4A5070;
+  transition: transform 0.2s;
+}
+.ctx-details {
+  padding: 0 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.ctx-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 10px;
+}
+.ctx-row .label { color: #4A5070; min-width: 40px; }
+.ctx-row .value { color: #8A90B0; }
+.ctx-sync {
+  font-size: 9px;
+  color: #3E4460;
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.ctx-sync button {
+  background: none;
+  border: none;
+  color: #4A5070;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   TABLE — the core queue layout idea
+   No cards. Rows. Dense. One line per person.
+   ══════════════════════════════════════════════════════════════════════ */
+.queue-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+.queue-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: #8A90B0;
+}
+.queue-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.table {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: rgba(255,255,255,0.02);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.table-row {
+  display: grid;
+  grid-template-columns: 6px 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  background: #1E2236;
+  transition: background 0.1s;
+}
+.table-row:hover { background: #232840; }
+
+/* Status indicator — thin colored bar on the right edge */
+.row-indicator {
+  width: 4px;
+  height: 24px;
+  border-radius: 2px;
+}
+.row-indicator.ready { background: #34D399; }
+.row-indicator.processing { background: #0EA5A0; }
+.row-indicator.failed { background: #F87171; }
+.row-indicator.submitting { background: #FBBF24; }
+
+.row-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.row-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: #E8EAF0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.row-passport {
+  font-size: 10px;
+  color: #4A5070;
+  direction: ltr;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.row-status {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.row-status.ready { color: #34D399; background: rgba(52,211,153,0.08); }
+.row-status.processing { color: #0EA5A0; background: rgba(14,165,160,0.08); }
+.row-status.failed { color: #F87171; background: rgba(248,113,113,0.08); }
+.row-status.submitting { color: #FBBF24; background: rgba(251,191,36,0.08); }
+
+.row-action {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.1);
+  color: #8A90B0;
+  font-size: 10px;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'IBM Plex Sans Arabic', sans-serif;
+  transition: all 0.1s;
+  white-space: nowrap;
+}
+.row-action:hover { border-color: #0EA5A0; color: #0EA5A0; }
+.row-action.primary {
+  border-color: #0EA5A0;
+  color: #0EA5A0;
+}
+
+/* ── Fixed bottom bar ── */
+.bottom-bar {
+  padding: 8px 14px 10px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+  background: #161A28;
+}
+.bottom-bar .btn { width: 100%; }
+
+/* ── Empty ── */
+.empty-state {
+  text-align: center;
+  padding: 20px 8px;
+  color: #4A5070;
+  font-size: 12px;
+}
+
+/* ── Banner ── */
+.banner {
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 1.5;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.banner-icon { font-size: 14px; flex-shrink: 0; }
+.banner.warning {
+  background: rgba(251,191,36,0.06);
+  border: 1px solid rgba(251,191,36,0.15);
+  color: #FBBF24;
+}
+.banner.error {
+  background: rgba(248,113,113,0.06);
+  border: 1px solid rgba(248,113,113,0.15);
+  color: #F87171;
+}
+
+.spinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+}
+.spinner-ring {
+  width: 22px;
+  height: 22px;
+  border: 2px solid rgba(255,255,255,0.06);
+  border-top-color: #0EA5A0;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.phone-row { display: flex; gap: 6px; }
+.phone-row .cc { width: 60px; flex-shrink: 0; }
+.phone-row .num { flex: 1; }
+
+.settings-divider {
+  border: none;
+  border-top: 1px solid rgba(255,255,255,0.04);
+  margin: 4px 0;
+}
+
+/* Context change overlay */
+.ctx-change {
+  padding: 18px 14px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.ctx-change-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #FBBF24;
+}
+.ctx-change-desc {
+  font-size: 12px;
+  color: #6A7090;
+  line-height: 1.5;
+}
+.ctx-change-actions {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+.ctx-change-actions .btn { flex: 1; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ LOADING ═══════════════ -->
+<div>
+  <div class="section-label">Loading</div>
+  <div class="popup">
+    <div class="topbar">
+      <span class="topbar-title">تسجيل المعتمرين</span>
+      <div class="topbar-actions">
+        <button class="topbar-btn">⚙</button>
+      </div>
+    </div>
+    <div class="spinner">
+      <div class="spinner-ring"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ SETUP — ALL THREE STEPS AS CHECKLIST ═══════════════ -->
+<div>
+  <div class="section-label">Setup — Step 1 active (checklist, not screens)</div>
+  <div class="popup">
+    <div class="topbar">
+      <span class="topbar-title">تسجيل المعتمرين</span>
+      <div class="topbar-actions">
+        <button class="topbar-btn">⚙</button>
+      </div>
+    </div>
+    <div class="content">
+      <div class="checklist">
+        <!-- Step 1: Active -->
+        <div class="check-item">
+          <div class="check-item-header">
+            <div class="check-icon active">١</div>
+            <span class="check-label active">ربط الحساب</span>
+          </div>
+          <div class="check-body">
+            <div style="font-size:10px; color:#5A6080; line-height:1.4;">أرسل <span style="direction:ltr;display:inline;font-weight:600; color:#8A90B0;">/token</span> في تيليجرام ثم الصق الرمز</div>
+            <input class="form-input" type="password" placeholder="الصق الرمز هنا…" style="direction:ltr;text-align:right;">
+            <button class="btn btn-teal">حفظ</button>
+          </div>
+        </div>
+        <!-- Step 2: Pending -->
+        <div class="check-item">
+          <div class="check-item-header">
+            <div class="check-icon pending">٢</div>
+            <span class="check-label pending">تفعيل الاتصال</span>
+          </div>
+        </div>
+        <!-- Step 3: Pending -->
+        <div class="check-item">
+          <div class="check-item-header">
+            <div class="check-icon pending">٣</div>
+            <span class="check-label pending">اختيار المجموعة</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ SETUP — STEP 2 ACTIVE ═══════════════ -->
+<div>
+  <div class="section-label">Setup — Step 2 active (step 1 collapsed)</div>
+  <div class="popup">
+    <div class="topbar">
+      <span class="topbar-title">تسجيل المعتمرين</span>
+      <div class="topbar-actions">
+        <button class="topbar-btn">⚙</button>
+      </div>
+    </div>
+    <div class="content">
+      <div class="checklist">
+        <!-- Step 1: Done — collapsed -->
+        <div class="check-item" style="padding:6px 12px;">
+          <div class="check-item-header">
+            <div class="check-icon done">✓</div>
+            <span class="check-label done">ربط الحساب</span>
+          </div>
+        </div>
+        <!-- Step 2: Active -->
+        <div class="check-item">
+          <div class="check-item-header">
+            <div class="check-icon active">٢</div>
+            <span class="check-label active">تفعيل الاتصال</span>
+          </div>
+          <div class="check-body">
+            <div style="font-size:10px; color:#5A6080; line-height:1.4;">افتح منصة نسك وسجّل الدخول</div>
+            <button class="btn btn-teal">افتح منصة نسك ←</button>
+          </div>
+        </div>
+        <!-- Step 3: Pending -->
+        <div class="check-item">
+          <div class="check-item-header">
+            <div class="check-icon pending">٣</div>
+            <span class="check-label pending">اختيار المجموعة</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ SETUP — STEP 3 ACTIVE ═══════════════ -->
+<div>
+  <div class="section-label">Setup — Step 3 active (steps 1-2 collapsed)</div>
+  <div class="popup">
+    <div class="topbar">
+      <span class="topbar-title">تسجيل المعتمرين</span>
+      <div class="topbar-actions">
+        <button class="topbar-btn">⚙</button>
+      </div>
+    </div>
+    <div class="content">
+      <div class="checklist">
+        <div class="check-item" style="padding:6px 12px;">
+          <div class="check-item-header">
+            <div class="check-icon done">✓</div>
+            <span class="check-label done">ربط الحساب</span>
+          </div>
+        </div>
+        <div class="check-item" style="padding:6px 12px;">
+          <div class="check-item-header">
+            <div class="check-icon done">✓</div>
+            <span class="check-label done">تفعيل الاتصال</span>
+          </div>
+        </div>
+        <div class="check-item">
+          <div class="check-item-header">
+            <div class="check-icon active">٣</div>
+            <span class="check-label active">اختيار المجموعة</span>
+          </div>
+          <div class="check-body">
+            <select class="form-select">
+              <option>مجموعة 1 — شعبان 1446</option>
+              <option>مجموعة 2 — رمضان 1446</option>
+            </select>
+            <button class="btn btn-teal">تأكيد</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ SETUP — GROUP WAITING ═══════════════ -->
+<div>
+  <div class="section-label">Setup — Step 3, waiting for groups</div>
+  <div class="popup">
+    <div class="topbar">
+      <span class="topbar-title">تسجيل المعتمرين</span>
+      <div class="topbar-actions">
+        <button class="topbar-btn">⚙</button>
+      </div>
+    </div>
+    <div class="content">
+      <div class="checklist">
+        <div class="check-item" style="padding:6px 12px;">
+          <div class="check-item-header">
+            <div class="check-icon done">✓</div>
+            <span class="check-label done">ربط الحساب</span>
+          </div>
+        </div>
+        <div class="check-item" style="padding:6px 12px;">
+          <div class="check-item-header">
+            <div class="check-icon done">✓</div>
+            <span class="check-label done">تفعيل الاتصال</span>
+          </div>
+        </div>
+        <div class="check-item">
+          <div class="check-item-header">
+            <div class="check-icon active">٣</div>
+            <span class="check-label active">اختيار المجموعة</span>
+          </div>
+          <div class="check-body">
+            <div class="banner warning">
+              <span class="banner-icon">💡</span>
+              <div>افتح قائمة المجموعات على منصة نسك — ستظهر هنا تلقائيًا.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ SESSION EXPIRED ═══════════════ -->
+<div>
+  <div class="section-label">Session Expired</div>
+  <div class="popup">
+    <div class="topbar">
+      <span class="topbar-title">تسجيل المعتمرين</span>
+      <div class="topbar-actions">
+        <button class="topbar-btn">⚙</button>
+      </div>
+    </div>
+    <div class="content">
+      <div class="banner error">
+        <span class="banner-icon">⏱</span>
+        <div>
+          <div style="font-weight:700; margin-bottom:2px;">انتهت الجلسة</div>
+          <div>سجّل الدخول من جديد في منصة نسك.</div>
+        </div>
+      </div>
+      <button class="btn btn-teal">تسجيل الدخول</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ MAIN QUEUE — TABLE LAYOUT ═══════════════ -->
+<div>
+  <div class="section-label">Main Queue — table rows, no cards</div>
+  <div class="popup">
+    <div class="topbar">
+      <span class="topbar-title">تسجيل المعتمرين</span>
+      <div class="topbar-actions">
+        <button class="topbar-btn">↻</button>
+        <button class="topbar-btn">⚙</button>
+      </div>
+    </div>
+    <div class="content" style="padding-bottom:0;">
+      <!-- Context accordion -->
+      <div class="ctx-accordion">
+        <div class="ctx-header">
+          <div class="ctx-summary">
+            <span class="ctx-dot active"></span>
+            <span>مؤسسة الإيمان · مجموعة 1 — شعبان</span>
+          </div>
+          <span class="ctx-chevron">▼</span>
+        </div>
+        <div class="ctx-details">
+          <div class="ctx-row">
+            <span class="label">العقد</span>
+            <span class="value" style="direction:ltr;text-align:right;">UMR-2446-0891</span>
+          </div>
+          <div class="ctx-row">
+            <span class="label">ينتهي</span>
+            <span class="value">1446/09/15</span>
+          </div>
+          <div class="ctx-sync">
+            <span>آخر تحديث منذ 3 د</span>
+            <button>↻</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Queue header -->
+      <div class="queue-header-row">
+        <span class="queue-count">معلقة (3)</span>
+        <div class="queue-meta">
+          <button class="btn-text">المخفية (1)</button>
+          <button class="btn-text">تغيير ⇕</button>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="table">
+        <div class="table-row">
+          <div class="row-indicator ready"></div>
+          <div class="row-info">
+            <div class="row-name">عبدالرحمن محمد الحارثي</div>
+            <div class="row-passport">A12345678</div>
+          </div>
+          <span class="row-status ready">جاهز</span>
+          <button class="row-action primary">رفع</button>
+        </div>
+        <div class="table-row">
+          <div class="row-indicator processing"></div>
+          <div class="row-info">
+            <div class="row-name">فاطمة أحمد الزبيدي</div>
+            <div class="row-passport">B98765432</div>
+          </div>
+          <span class="row-status processing">معالجة</span>
+          <span style="width:40px;"></span>
+        </div>
+        <div class="table-row">
+          <div class="row-indicator failed"></div>
+          <div class="row-info">
+            <div class="row-name">خالد سعيد المقطري</div>
+            <div class="row-passport">C55443322 · <span style="color:#F87171;">403</span></div>
+          </div>
+          <span class="row-status failed">فشل</span>
+          <button class="row-action primary">إعادة</button>
+        </div>
+      </div>
+    </div>
+    <div class="bottom-bar">
+      <button class="btn btn-teal">رفع الكل (2)</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ ACTIVE SUBMISSION ═══════════════ -->
+<div>
+  <div class="section-label">Active Submission — inline progress</div>
+  <div class="popup">
+    <div class="topbar">
+      <span class="topbar-title">تسجيل المعتمرين</span>
+      <div class="topbar-actions">
+        <button class="topbar-btn" disabled style="opacity:0.3;">⚙</button>
+      </div>
+    </div>
+    <div class="content" style="padding-bottom:0;">
+      <div class="ctx-accordion">
+        <div class="ctx-header">
+          <div class="ctx-summary">
+            <span class="ctx-dot active"></span>
+            <span>مؤسسة الإيمان · مجموعة 1 — شعبان</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="queue-header-row">
+        <span class="queue-count" style="color:#FBBF24;">جارٍ الرفع…</span>
+      </div>
+
+      <div class="table">
+        <div class="table-row" style="background:#1E2438;">
+          <div class="row-indicator submitting"></div>
+          <div class="row-info">
+            <div class="row-name">عبدالرحمن محمد الحارثي</div>
+            <div class="row-passport">A12345678</div>
+          </div>
+          <span class="row-status submitting" style="display:flex;align-items:center;gap:3px;">
+            <span class="spinner-ring" style="width:8px;height:8px;border-width:1.5px;"></span>
+            3/6
+          </span>
+          <span style="width:40px;"></span>
+        </div>
+        <div class="table-row" style="opacity:0.4;">
+          <div class="row-indicator ready"></div>
+          <div class="row-info">
+            <div class="row-name">خالد سعيد المقطري</div>
+            <div class="row-passport">C55443322</div>
+          </div>
+          <span class="row-status ready">انتظار</span>
+          <span style="width:40px;"></span>
+        </div>
+      </div>
+
+      <!-- Progress -->
+      <div style="height:2px; background:rgba(255,255,255,0.06); border-radius:1px; overflow:hidden;">
+        <div style="width:30%; height:100%; background:#0EA5A0; border-radius:1px;"></div>
+      </div>
+    </div>
+    <div class="bottom-bar">
+      <button class="btn btn-ghost" disabled>جارٍ الرفع…</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ EMPTY STATE ═══════════════ -->
+<div>
+  <div class="section-label">Main Queue — Empty</div>
+  <div class="popup">
+    <div class="topbar">
+      <span class="topbar-title">تسجيل المعتمرين</span>
+      <div class="topbar-actions">
+        <button class="topbar-btn">↻</button>
+        <button class="topbar-btn">⚙</button>
+      </div>
+    </div>
+    <div class="content">
+      <div class="ctx-accordion">
+        <div class="ctx-header">
+          <div class="ctx-summary">
+            <span class="ctx-dot active"></span>
+            <span>مؤسسة الإيمان · مجموعة 1</span>
+          </div>
+        </div>
+      </div>
+      <div class="empty-state">
+        <div style="font-size:22px; opacity:0.3; margin-bottom:6px;">📄</div>
+        <div>لا توجد جوازات معلقة</div>
+        <div style="font-size:10px; color:#3E4460; margin-top:2px;">أرسل صور الجوازات عبر تيليجرام</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ CONTRACT EXPIRED ═══════════════ -->
+<div>
+  <div class="section-label">Contract Expired — hard disable</div>
+  <div class="popup">
+    <div class="topbar">
+      <span class="topbar-title">تسجيل المعتمرين</span>
+      <div class="topbar-actions">
+        <button class="topbar-btn">⚙</button>
+      </div>
+    </div>
+    <div class="content">
+      <div class="ctx-accordion">
+        <div class="ctx-header">
+          <div class="ctx-summary">
+            <span class="ctx-dot expired"></span>
+            <span style="color:#F87171;">مؤسسة الإيمان · <b>العقد منتهٍ</b></span>
+          </div>
+        </div>
+      </div>
+      <div class="banner error">
+        <span class="banner-icon">⚠</span>
+        <div>
+          <div style="font-weight:700; margin-bottom:2px;">انتهى العقد</div>
+          <div>لن تُقبل أي تسجيلات. تواصل مع الجهة المعنية.</div>
+        </div>
+      </div>
+      <div class="table" style="opacity:0.3; pointer-events:none;">
+        <div class="table-row">
+          <div class="row-indicator ready"></div>
+          <div class="row-info">
+            <div class="row-name">عبدالرحمن محمد الحارثي</div>
+            <div class="row-passport">A12345678</div>
+          </div>
+          <span class="row-status ready">جاهز</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ CONTEXT CHANGE ═══════════════ -->
+<div>
+  <div class="section-label">Context Change — blocking inline prompt</div>
+  <div class="popup">
+    <div class="topbar">
+      <span class="topbar-title">تسجيل المعتمرين</span>
+    </div>
+    <div class="content">
+      <div class="ctx-change">
+        <div style="font-size:28px;">🔄</div>
+        <div class="ctx-change-title">تم تغيير الحساب أو العقد</div>
+        <div class="ctx-change-desc">تم اكتشاف حساب أو عقد مختلف. هل تريد التبديل إليه؟</div>
+        <div class="ctx-change-actions">
+          <button class="btn btn-teal">نعم، بدّل</button>
+          <button class="btn btn-ghost">لاحقًا</button>
+        </div>
+        <div style="font-size:10px; color:#4A5070;">لن يتم رفع أي جوازات حتى يتم الاختيار.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ SETTINGS ═══════════════ -->
+<div>
+  <div class="section-label">Settings</div>
+  <div class="popup">
+    <div class="topbar">
+      <div style="display:flex; align-items:center; gap:6px;">
+        <button class="topbar-btn" style="font-size:14px;">→</button>
+        <span class="topbar-title" style="color:#8A90B0;">الإعدادات</span>
+      </div>
+    </div>
+    <div class="content">
+      <div class="form-group" style="gap:4px;">
+        <label class="form-label">البريد الإلكتروني</label>
+        <input class="form-input" type="email" placeholder="agency@example.com" style="direction:ltr;text-align:right;">
+      </div>
+      <div class="form-group" style="gap:4px;">
+        <label class="form-label">رقم الجوال</label>
+        <div class="phone-row">
+          <input class="form-input cc" type="text" placeholder="966" style="direction:ltr;text-align:center;" value="966">
+          <input class="form-input num" type="tel" placeholder="5XXXXXXXX" style="direction:ltr;text-align:right;">
+        </div>
+      </div>
+      <button class="btn btn-teal" style="margin-top:2px;">حفظ</button>
+      <hr class="settings-divider">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <button class="btn-text" style="color:#F87171;">إعادة ربط الحساب</button>
+        <button class="btn-text">مساعدة</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ ERROR ═══════════════ -->
+<div>
+  <div class="section-label">Error Fallback</div>
+  <div class="popup">
+    <div class="topbar">
+      <span class="topbar-title">تسجيل المعتمرين</span>
+      <div class="topbar-actions">
+        <button class="topbar-btn">⚙</button>
+      </div>
+    </div>
+    <div class="content">
+      <div class="banner error">
+        <span class="banner-icon">⚠</span>
+        <div>
+          <div style="font-weight:700; margin-bottom:2px;">خطأ</div>
+          <div>تعذر تحميل القائمة. تأكد من اتصالك بالإنترنت.</div>
+        </div>
+      </div>
+      <button class="btn btn-ghost">إعادة المحاولة</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Proposal 1 — Single Card Wizard</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap');
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PROPOSAL 1 — "Single Card Wizard"
+
+   CONCEPT: One card, one action. The entire popup is one large card
+   that morphs between states. There are no "screens" — just the card
+   transforming. The user always sees exactly ONE thing to do.
+
+   STRUCTURAL DISTINCTION:
+   - Onboarding: full-bleed illustration area + single action
+   - Main queue: the card becomes a status dashboard with embedded
+     mini-cards. Submit all is the only primary CTA.
+   - Per-record actions are revealed on tap/hover (slide-out actions)
+   - No visible settings gear during onboarding — settings only
+     appear after setup is complete
+   - Progress is communicated through the header gradient shifting
+
+   COLOR: Warm amber/honey — earthy, Yemeni
+   TYPOGRAPHY: Tajawal
+   ═══════════════════════════════════════════════════════════════════════ */
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Tajawal', sans-serif;
+  background: #F0EBE3;
+  color: #3A3226;
+  padding: 40px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 60px;
+}
+
+.section-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: #9A8D7F;
+  text-align: center;
+  margin-bottom: 12px;
+  direction: ltr;
+}
+
+.popup {
+  width: 340px;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow:
+    0 1px 3px rgba(90,70,40,0.06),
+    0 8px 24px rgba(90,70,40,0.10),
+    0 24px 48px rgba(90,70,40,0.06);
+}
+
+/* ── The "hero header" — fills the top, gradient shifts per state ── */
+.hero {
+  padding: 28px 24px 22px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.hero.amber {
+  background: linear-gradient(160deg, #D4A946, #B8860B, #8B6914);
+  color: white;
+}
+.hero.green {
+  background: linear-gradient(160deg, #5D8B5A, #3D7A3A, #2D6B2A);
+  color: white;
+}
+.hero.red {
+  background: linear-gradient(160deg, #C1553D, #A84030, #8B3020);
+  color: white;
+}
+.hero.warm-orange {
+  background: linear-gradient(160deg, #E8A020, #D48A10, #B07008);
+  color: white;
+}
+
+/* Geometric pattern overlay */
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M20 0L40 20L20 40L0 20Z' fill='none' stroke='rgba(255,255,255,0.06)' stroke-width='1'/%3E%3C/svg%3E");
+  pointer-events: none;
+}
+.hero > * { position: relative; z-index: 1; }
+
+.hero-icon {
+  font-size: 40px;
+  margin-bottom: 12px;
+  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.15));
+}
+.hero-title {
+  font-size: 18px;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+.hero-subtitle {
+  font-size: 12px;
+  opacity: 0.85;
+  line-height: 1.6;
+}
+.hero-step {
+  display: inline-block;
+  background: rgba(255,255,255,0.2);
+  padding: 2px 10px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  backdrop-filter: blur(4px);
+}
+
+/* ── Body area ── */
+.body {
+  background: #FBF7F0;
+  padding: 16px 18px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+}
+
+/* Subtle texture */
+.body::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23C4B59A' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/svg%3E");
+  pointer-events: none;
+}
+.body > * { position: relative; z-index: 1; }
+
+/* ── Form ── */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.form-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #7A6D5E;
+}
+.form-input {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1.5px solid #DDD5C8;
+  border-radius: 10px;
+  font-size: 13px;
+  font-family: 'Tajawal', sans-serif;
+  background: white;
+  color: #3A3226;
+  outline: none;
+  transition: all 0.2s;
+}
+.form-input:focus {
+  border-color: #D4A946;
+  box-shadow: 0 0 0 3px rgba(212,169,70,0.12);
+}
+.form-input::placeholder { color: #BEB3A2; }
+.form-select {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1.5px solid #DDD5C8;
+  border-radius: 10px;
+  font-size: 13px;
+  font-family: 'Tajawal', sans-serif;
+  background: white;
+  color: #3A3226;
+  outline: none;
+  appearance: none;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath fill='%239A8D7F' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 14px center;
+}
+
+/* ── Buttons ── */
+.btn {
+  padding: 12px 20px;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: 'Tajawal', sans-serif;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.btn-primary {
+  background: linear-gradient(135deg, #D4A946, #B8860B);
+  color: white;
+  box-shadow: 0 2px 8px rgba(184,134,11,0.25);
+}
+.btn-primary:hover {
+  box-shadow: 0 4px 14px rgba(184,134,11,0.35);
+  transform: translateY(-1px);
+}
+.btn-white {
+  background: white;
+  color: #3A3226;
+  border: 1.5px solid #DDD5C8;
+}
+.btn-white:hover { background: #F5EFE5; }
+.btn-ghost {
+  background: none;
+  border: none;
+  color: #9A8D7F;
+  font-size: 12px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-family: 'Tajawal', sans-serif;
+}
+.btn-ghost:hover { color: #5A4D3A; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
+
+/* ── Compact status strip (main screen top) ── */
+.status-strip {
+  background: linear-gradient(160deg, #3D7A3A, #2D6B2A);
+  color: white;
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.status-strip-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.strip-entity {
+  font-size: 12px;
+  font-weight: 600;
+}
+.strip-group {
+  font-size: 10px;
+  opacity: 0.75;
+}
+.strip-actions {
+  display: flex;
+  gap: 4px;
+}
+.strip-btn {
+  background: rgba(255,255,255,0.15);
+  border: none;
+  color: rgba(255,255,255,0.9);
+  font-size: 14px;
+  padding: 5px 7px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: 'Tajawal', sans-serif;
+  transition: all 0.15s;
+}
+.strip-btn:hover { background: rgba(255,255,255,0.25); }
+
+/* ── Contract badge inline ── */
+.contract-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+.contract-badge.active {
+  background: rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.9);
+}
+.contract-badge.expired {
+  background: rgba(255,100,100,0.2);
+  color: #FFB0B0;
+}
+
+/* ── Queue mini-cards (compact — one line per record) ── */
+.mini-card {
+  background: white;
+  border: 1px solid #E8E0D4;
+  border-radius: 10px;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: all 0.15s;
+  position: relative;
+}
+.mini-card:hover {
+  border-color: #D4C8B4;
+  box-shadow: 0 2px 6px rgba(90,70,40,0.06);
+}
+.mini-card .avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #E8DFD0, #D8CEBC);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.mini-card .info {
+  flex: 1;
+  min-width: 0;
+}
+.mini-card .name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #3A3226;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mini-card .passport {
+  font-size: 10px;
+  color: #9A8D7F;
+  direction: ltr;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Status as left border color */
+.mini-card.ready { border-right: 3px solid #5D7A3A; }
+.mini-card.processing { border-right: 3px solid #D4A946; }
+.mini-card.failed { border-right: 3px solid #C1553D; }
+.mini-card.submitting { border-right: 3px solid #D4A946; background: #FFFCF5; }
+
+.mini-status {
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.mini-status.ready { color: #5D7A3A; }
+.mini-status.processing { color: #D4A946; }
+.mini-status.failed { color: #C1553D; }
+.mini-status.submitting { color: #B8860B; }
+
+.mini-action {
+  background: none;
+  border: 1.5px solid #DDD5C8;
+  color: #5A4D3A;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: 'Tajawal', sans-serif;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.mini-action:hover { background: #F5EFE5; }
+.mini-action.primary {
+  background: linear-gradient(135deg, #D4A946, #B8860B);
+  color: white;
+  border: none;
+}
+
+.mini-dismiss {
+  background: none;
+  border: none;
+  color: #C4B8A6;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 2px;
+  transition: color 0.15s;
+  font-family: 'Tajawal', sans-serif;
+}
+.mini-dismiss:hover { color: #C1553D; }
+
+/* ── Queue count + actions row ── */
+.queue-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.queue-count {
+  font-size: 13px;
+  font-weight: 700;
+  color: #3A3226;
+}
+.queue-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dismissed-link {
+  font-size: 10px;
+  color: #A89A88;
+  cursor: pointer;
+  font-family: 'Tajawal', sans-serif;
+  text-decoration: underline;
+  text-decoration-color: rgba(168,154,136,0.3);
+  background: none;
+  border: none;
+}
+
+/* ── Banner ── */
+.banner {
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.banner-icon { font-size: 16px; flex-shrink: 0; }
+.banner.warning {
+  background: #FFF8E7;
+  border: 1px solid #F0D87A;
+  color: #7A6520;
+}
+.banner.error {
+  background: #FDF0EC;
+  border: 1px solid #E8B4A4;
+  color: #8B3A26;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 24px 8px;
+  color: #A89A88;
+}
+.empty-icon { font-size: 28px; opacity: 0.4; margin-bottom: 6px; }
+.empty-text { font-size: 13px; }
+.empty-hint { font-size: 11px; color: #BEB3A2; margin-top: 4px; }
+
+/* ── Spinner ── */
+.spinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+}
+.spinner-ring {
+  width: 28px;
+  height: 28px;
+  border: 3px solid #E8E0D4;
+  border-top-color: #D4A946;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.face-placeholder rect { fill: #E8DFD0; }
+.face-placeholder circle { fill: #C4B8A6; }
+.face-placeholder ellipse { fill: #C4B8A6; }
+
+.phone-row { display: flex; gap: 8px; }
+.phone-row .cc { width: 70px; flex-shrink: 0; }
+.phone-row .num { flex: 1; }
+
+.settings-divider {
+  border: none;
+  border-top: 1px solid rgba(180,160,130,0.15);
+  margin: 4px 0;
+}
+
+.progress-dots {
+  height: 4px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 2px;
+  margin-top: 14px;
+  overflow: hidden;
+}
+.progress-dots-fill {
+  height: 100%;
+  background: rgba(255,255,255,0.6);
+  border-radius: 2px;
+  transition: width 0.4s;
+}
+
+/* Context detail drawer (expandable, compact) */
+.ctx-drawer {
+  background: rgba(255,255,255,0.08);
+  border-radius: 6px;
+  padding: 6px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+}
+.ctx-row-inline {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 10px;
+}
+.ctx-row-inline .label { opacity: 0.6; min-width: 36px; }
+.ctx-row-inline .value { opacity: 0.9; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ LOADING ═══════════════ -->
+<div>
+  <div class="section-label">Loading</div>
+  <div class="popup">
+    <div class="hero amber" style="padding:16px 24px 12px;">
+      <div class="hero-title" style="font-size:14px;">تسجيل المعتمرين</div>
+    </div>
+    <div class="body">
+      <div class="spinner">
+        <div class="spinner-ring"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ ONBOARDING STEP 1: TOKEN ═══════════════ -->
+<div>
+  <div class="section-label">Step 1 — Link Account (hero card morphs)</div>
+  <div class="popup">
+    <div class="hero amber">
+      <div class="hero-step">الخطوة ١ من ٣</div>
+      <div class="hero-icon">🔗</div>
+      <div class="hero-title">ربط الحساب</div>
+      <div class="hero-subtitle">أرسل <span style="font-weight:700;">/token</span> في تيليجرام ثم الصق الرمز هنا</div>
+      <div class="progress-dots"><div class="progress-dots-fill" style="width:33%;"></div></div>
+    </div>
+    <div class="body">
+      <div class="form-group">
+        <label class="form-label">رمز الدخول</label>
+        <input class="form-input" type="password" placeholder="الصق الرمز هنا…" style="direction:ltr;text-align:right;">
+      </div>
+      <button class="btn btn-primary">حفظ الرمز</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ ONBOARDING STEP 2: ACTIVATE ═══════════════ -->
+<div>
+  <div class="section-label">Step 2 — Activate (hero gradient shifts to green)</div>
+  <div class="popup">
+    <div class="hero green">
+      <div class="hero-step">الخطوة ٢ من ٣</div>
+      <div class="hero-icon">🌐</div>
+      <div class="hero-title">تفعيل الاتصال</div>
+      <div class="hero-subtitle">افتح منصة نسك وسجّل الدخول — ستتعرف الإضافة عليه تلقائيًا</div>
+      <div class="progress-dots"><div class="progress-dots-fill" style="width:66%;"></div></div>
+    </div>
+    <div class="body">
+      <button class="btn btn-primary">
+        <span>افتح منصة نسك</span>
+        <span style="font-size:16px;">←</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ ONBOARDING STEP 3: GROUP ═══════════════ -->
+<div>
+  <div class="section-label">Step 3 — Group Selection (progress almost full)</div>
+  <div class="popup">
+    <div class="hero green">
+      <div class="hero-step">الخطوة ٣ من ٣</div>
+      <div class="hero-icon">📋</div>
+      <div class="hero-title">اختر المجموعة</div>
+      <div class="hero-subtitle">حدّد المجموعة التي تريد رفع الجوازات إليها</div>
+      <div class="progress-dots"><div class="progress-dots-fill" style="width:100%;"></div></div>
+    </div>
+    <div class="body">
+      <select class="form-select">
+        <option>مجموعة 1 — شعبان 1446</option>
+        <option>مجموعة 2 — رمضان 1446</option>
+      </select>
+      <button class="btn btn-primary">تأكيد</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ GROUP — WAITING HINT ═══════════════ -->
+<div>
+  <div class="section-label">Group Selection — Waiting for Groups</div>
+  <div class="popup">
+    <div class="hero green">
+      <div class="hero-step">الخطوة ٣ من ٣</div>
+      <div class="hero-icon">📋</div>
+      <div class="hero-title">اختر المجموعة</div>
+      <div class="progress-dots"><div class="progress-dots-fill" style="width:100%;"></div></div>
+    </div>
+    <div class="body">
+      <div class="banner warning">
+        <span class="banner-icon">💡</span>
+        <div>افتح قائمة المجموعات على منصة نسك — ستظهر هنا تلقائيًا.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ SESSION EXPIRED ═══════════════ -->
+<div>
+  <div class="section-label">Session Expired (hero turns red)</div>
+  <div class="popup">
+    <div class="hero red">
+      <div class="hero-icon">⏱</div>
+      <div class="hero-title">انتهت الجلسة</div>
+      <div class="hero-subtitle">سجّل الدخول من جديد في منصة نسك للمتابعة</div>
+    </div>
+    <div class="body">
+      <button class="btn btn-primary" style="background:linear-gradient(135deg,#C1553D,#A84030);">تسجيل الدخول</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ MAIN QUEUE — ACTIVE RECORDS ═══════════════ -->
+<div>
+  <div class="section-label">Main Queue — compact status strip + mini-cards</div>
+  <div class="popup">
+    <!-- Compact status strip replaces the full hero -->
+    <div class="status-strip">
+      <div class="status-strip-info">
+        <div class="strip-entity">مؤسسة الإيمان للعمرة <span class="contract-badge active">نشط</span></div>
+        <div class="strip-group">مجموعة 1 — شعبان 1446 · ينتهي 1446/09/15</div>
+      </div>
+      <div class="strip-actions">
+        <button class="strip-btn" title="تحديث">↻</button>
+        <button class="strip-btn" title="إعدادات">⚙</button>
+      </div>
+    </div>
+    <div class="body">
+      <div class="queue-top">
+        <span class="queue-count">جوازات معلقة (3)</span>
+        <div class="queue-meta">
+          <button class="dismissed-link">المخفية (1)</button>
+          <button class="mini-action" style="font-size:10px; padding:3px 8px;">تغيير ⇕</button>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <!-- Ready — per-card submit -->
+        <div class="mini-card ready">
+          <div class="avatar">
+            <svg viewBox="0 0 36 36" class="face-placeholder" style="width:100%;height:100%;"><rect width="36" height="36"/><circle cx="18" cy="14" r="6"/><ellipse cx="18" cy="32" rx="12" ry="10"/></svg>
+          </div>
+          <div class="info">
+            <div class="name">عبدالرحمن محمد الحارثي</div>
+            <div class="passport">A12345678</div>
+          </div>
+          <span class="mini-status ready">جاهز</span>
+          <button class="mini-action primary">رفع</button>
+          <button class="mini-dismiss">×</button>
+        </div>
+
+        <!-- Processing — no action -->
+        <div class="mini-card processing">
+          <div class="avatar">
+            <svg viewBox="0 0 36 36" class="face-placeholder" style="width:100%;height:100%;"><rect width="36" height="36"/><circle cx="18" cy="14" r="6"/><ellipse cx="18" cy="32" rx="12" ry="10"/></svg>
+          </div>
+          <div class="info">
+            <div class="name">فاطمة أحمد الزبيدي</div>
+            <div class="passport">B98765432</div>
+          </div>
+          <span class="mini-status processing">معالجة</span>
+          <button class="mini-dismiss">×</button>
+        </div>
+
+        <!-- Failed — retry action -->
+        <div class="mini-card failed">
+          <div class="avatar">
+            <svg viewBox="0 0 36 36" class="face-placeholder" style="width:100%;height:100%;"><rect width="36" height="36"/><circle cx="18" cy="14" r="6"/><ellipse cx="18" cy="32" rx="12" ry="10"/></svg>
+          </div>
+          <div class="info">
+            <div class="name">خالد سعيد المقطري</div>
+            <div class="passport">C55443322 · <span style="color:#C1553D;">خطأ 403</span></div>
+          </div>
+          <span class="mini-status failed">فشل</span>
+          <button class="mini-action primary">إعادة</button>
+          <button class="mini-dismiss">×</button>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" style="width:100%;">رفع الكل (2)</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ MAIN QUEUE — ACTIVE SUBMISSION ═══════════════ -->
+<div>
+  <div class="section-label">Active Submission — progress inline</div>
+  <div class="popup">
+    <div class="status-strip">
+      <div class="status-strip-info">
+        <div class="strip-entity">مؤسسة الإيمان للعمرة <span class="contract-badge active">نشط</span></div>
+        <div class="strip-group">مجموعة 1 — شعبان 1446</div>
+      </div>
+      <div class="strip-actions">
+        <button class="strip-btn" disabled style="opacity:0.5;">⚙</button>
+      </div>
+    </div>
+    <div class="body">
+      <div class="queue-top">
+        <span class="queue-count">جارٍ الرفع…</span>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <!-- Submitting -->
+        <div class="mini-card submitting">
+          <div class="avatar">
+            <svg viewBox="0 0 36 36" class="face-placeholder" style="width:100%;height:100%;"><rect width="36" height="36"/><circle cx="18" cy="14" r="6"/><ellipse cx="18" cy="32" rx="12" ry="10"/></svg>
+          </div>
+          <div class="info">
+            <div class="name">عبدالرحمن محمد الحارثي</div>
+            <div class="passport">A12345678</div>
+          </div>
+          <span class="mini-status submitting" style="display:flex; align-items:center; gap:4px;">
+            <span class="spinner-ring" style="width:10px; height:10px; border-width:1.5px;"></span>
+            3/6
+          </span>
+        </div>
+
+        <!-- Queued -->
+        <div class="mini-card ready" style="opacity:0.5;">
+          <div class="avatar">
+            <svg viewBox="0 0 36 36" class="face-placeholder" style="width:100%;height:100%;"><rect width="36" height="36"/><circle cx="18" cy="14" r="6"/><ellipse cx="18" cy="32" rx="12" ry="10"/></svg>
+          </div>
+          <div class="info">
+            <div class="name">خالد سعيد المقطري</div>
+            <div class="passport">C55443322</div>
+          </div>
+          <span class="mini-status ready">انتظار</span>
+        </div>
+      </div>
+
+      <!-- Progress bar for overall batch -->
+      <div style="height:4px; background:#E8E0D4; border-radius:2px; overflow:hidden;">
+        <div style="width:30%; height:100%; background:linear-gradient(90deg,#D4A946,#B8860B); border-radius:2px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ EMPTY STATE ═══════════════ -->
+<div>
+  <div class="section-label">Main Queue — Empty</div>
+  <div class="popup">
+    <div class="status-strip">
+      <div class="status-strip-info">
+        <div class="strip-entity">مؤسسة الإيمان للعمرة <span class="contract-badge active">نشط</span></div>
+        <div class="strip-group">مجموعة 1 — شعبان 1446</div>
+      </div>
+      <div class="strip-actions">
+        <button class="strip-btn">↻</button>
+        <button class="strip-btn">⚙</button>
+      </div>
+    </div>
+    <div class="body">
+      <div class="empty-state">
+        <div class="empty-icon">📄</div>
+        <div class="empty-text">لا توجد جوازات معلقة</div>
+        <div class="empty-hint">أرسل صور الجوازات عبر تيليجرام وستظهر هنا</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ CONTRACT EXPIRED ═══════════════ -->
+<div>
+  <div class="section-label">Contract Expired — hard disable</div>
+  <div class="popup">
+    <div class="status-strip" style="background:linear-gradient(160deg,#A84030,#8B3020);">
+      <div class="status-strip-info">
+        <div class="strip-entity">مؤسسة الإيمان للعمرة <span class="contract-badge expired">منتهٍ</span></div>
+        <div class="strip-group">العقد منتهٍ</div>
+      </div>
+      <div class="strip-actions">
+        <button class="strip-btn">⚙</button>
+      </div>
+    </div>
+    <div class="body">
+      <div class="banner error">
+        <span class="banner-icon">⚠</span>
+        <div>
+          <div style="font-weight:700; margin-bottom:2px;">انتهى العقد</div>
+          <div>لن تُقبل أي تسجيلات. تواصل مع الجهة المعنية لتجديد العقد.</div>
+        </div>
+      </div>
+      <!-- Grayed out queue -->
+      <div class="mini-card ready" style="opacity:0.3; pointer-events:none;">
+        <div class="avatar">
+          <svg viewBox="0 0 36 36" class="face-placeholder" style="width:100%;height:100%;"><rect width="36" height="36"/><circle cx="18" cy="14" r="6"/><ellipse cx="18" cy="32" rx="12" ry="10"/></svg>
+        </div>
+        <div class="info">
+          <div class="name">عبدالرحمن محمد الحارثي</div>
+          <div class="passport">A12345678</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ CONTEXT CHANGE ═══════════════ -->
+<div>
+  <div class="section-label">Context Change — blocking prompt (hero turns orange)</div>
+  <div class="popup">
+    <div class="hero warm-orange">
+      <div class="hero-icon">🔄</div>
+      <div class="hero-title">تم تغيير الحساب أو العقد</div>
+      <div class="hero-subtitle">تم اكتشاف حساب أو عقد مختلف في منصة نسك. هل تريد التبديل إليه؟</div>
+    </div>
+    <div class="body" style="gap:10px;">
+      <button class="btn btn-primary" style="background:linear-gradient(135deg,#E8A020,#D48A10);">نعم، بدّل</button>
+      <button class="btn btn-white">لاحقًا</button>
+      <div style="font-size:11px; color:#A89A88; text-align:center; line-height:1.4;">لن يتم رفع أي جوازات حتى يتم الاختيار.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ SETTINGS ═══════════════ -->
+<div>
+  <div class="section-label">Settings</div>
+  <div class="popup">
+    <div class="status-strip" style="padding:10px 18px;">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <button class="strip-btn" style="font-size:16px;">→</button>
+        <span style="font-size:14px; font-weight:700;">الإعدادات</span>
+      </div>
+    </div>
+    <div class="body">
+      <div class="form-group">
+        <label class="form-label">البريد الإلكتروني</label>
+        <input class="form-input" type="email" placeholder="agency@example.com" style="direction:ltr;text-align:right;">
+      </div>
+      <div class="form-group">
+        <label class="form-label">رقم الجوال</label>
+        <div class="phone-row">
+          <input class="form-input cc" type="text" placeholder="966" style="direction:ltr;text-align:center;" value="966">
+          <input class="form-input num" type="tel" placeholder="5XXXXXXXX" style="direction:ltr;text-align:right;">
+        </div>
+      </div>
+      <button class="btn btn-primary" style="margin-top:4px;">حفظ</button>
+      <hr class="settings-divider">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <button class="btn-ghost" style="color:#C1553D;">إعادة ربط الحساب</button>
+        <button class="btn-ghost">مساعدة</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ ERROR FALLBACK ═══════════════ -->
+<div>
+  <div class="section-label">Error Fallback</div>
+  <div class="popup">
+    <div class="hero red" style="padding:20px 24px 18px;">
+      <div class="hero-icon" style="font-size:28px;">⚠</div>
+      <div class="hero-title" style="font-size:16px;">خطأ</div>
+      <div class="hero-subtitle">تعذر تحميل القائمة. تأكد من اتصالك بالإنترنت وحاول مجددًا.</div>
+    </div>
+    <div class="body">
+      <button class="btn btn-white">إعادة المحاولة</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
