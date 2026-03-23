@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "photographed",
+    "layout": "single_page",
+    "image_quality": "good",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.38.57.jpeg",
+    "reasoning": "Clear single data page photo. All fields visible. Bandage on subject's face does not obstruct any text. FirstName and GrandfatherName are both MOHAMMED — the model must not deduplicate or skip."
+  },
+  "PassportNumber": "14323939",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMALHAMED<<MOHAMMED<SALEM<MOHAMMED<<<<<<<",
+  "MrzLine2": "14323939<2YEM6201016M3102097<<<<<<<<<<<<<<00",
+  "SurnameAr": "الحامد",
+  "GivenNameTokensAr": [
+    "محمد",
+    "سالم",
+    "محمد"
+  ],
+  "SurnameEn": "AL-HAMED",
+  "GivenNameTokensEn": [
+    "MOHAMMED",
+    "SALEM",
+    "MOHAMMED"
+  ],
+  "DateOfBirth": "01/01/1962",
+  "PlaceOfBirthAr": "اليمن - أرخبيل سقطرى",
+  "PlaceOfBirthEn": "SOCOTRA - YEM",
+  "BirthCityAr": "أرخبيل سقطرى",
+  "BirthCityEn": "SOCOTRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "M",
+  "DateOfIssue": "09/02/2025",
+  "DateOfExpiry": "09/02/2031",
+  "ProfessionAr": "موظف",
+  "ProfessionEn": "EMPLOYEE",
+  "IssuingAuthorityAr": "سقطرى",
+  "IssuingAuthorityEn": "Socotra"
+}

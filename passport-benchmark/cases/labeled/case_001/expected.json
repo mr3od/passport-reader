@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "photographed",
+    "layout": "single_page",
+    "image_quality": "good",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.39.00 (1).jpeg",
+    "reasoning": "Clean single data page photo. All fields clearly visible. MRZ fully readable. Minor hologram reflection over photo area but does not obscure any text fields."
+  },
+  "PassportNumber": "14323310",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMHASAN<<AMAL<SAEED<SAAD<<<<<<<<<<<<<<<<<",
+  "MrzLine2": "14323310<5YEM7501012F3012095<<<<<<<<<<<<<<02",
+  "SurnameAr": "حسن",
+  "GivenNameTokensAr": [
+    "أمال",
+    "سعيد",
+    "سعد"
+  ],
+  "SurnameEn": "HASAN",
+  "GivenNameTokensEn": [
+    "AMAL",
+    "SAEED",
+    "SAAD"
+  ],
+  "DateOfBirth": "01/01/1975",
+  "PlaceOfBirthAr": "اليمن - أرخبيل سقطره",
+  "PlaceOfBirthEn": "SUQATRA - YEM",
+  "BirthCityAr": "أرخبيل سقطره",
+  "BirthCityEn": "SUQATRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "F",
+  "DateOfIssue": "09/12/2024",
+  "DateOfExpiry": "09/12/2030",
+  "ProfessionAr": "موظفة",
+  "ProfessionEn": "EMPLOYEE",
+  "IssuingAuthorityAr": "سقطرى",
+  "IssuingAuthorityEn": "Socotra"
+}

@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "photographed",
+    "layout": "single_page",
+    "image_quality": "fair",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.38.56.jpeg",
+    "reasoning": "Small/compressed photo. Text is readable but some characters are ambiguous at this resolution. Surname DKNZHR is a Socotri name — not Arabic in origin, no standard transliteration. Arabic surname appears as دكنزهر. Date fields readable."
+  },
+  "PassportNumber": "14323851",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMDKNZHR<<SAEED<SALEM<AHMED<<<<<<<<<<<<<<",
+  "MrzLine2": "14323851<1YEM6001010M3102031<<<<<<<<<<<<<<08",
+  "SurnameAr": "دكنزهر",
+  "GivenNameTokensAr": [
+    "سعيد",
+    "سالم",
+    "أحمد"
+  ],
+  "SurnameEn": "DKNZHR",
+  "GivenNameTokensEn": [
+    "SAEED",
+    "SALEM",
+    "AHMED"
+  ],
+  "DateOfBirth": "01/01/1960",
+  "PlaceOfBirthAr": "اليمن - أرخبيل سقطرى",
+  "PlaceOfBirthEn": "SOCOTRA - YEM",
+  "BirthCityAr": "أرخبيل سقطرى",
+  "BirthCityEn": "SOCOTRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "M",
+  "DateOfIssue": "03/02/2025",
+  "DateOfExpiry": "03/02/2031",
+  "ProfessionAr": "عامل",
+  "ProfessionEn": "LABORER",
+  "IssuingAuthorityAr": "سقطرى",
+  "IssuingAuthorityEn": "Socotra"
+}

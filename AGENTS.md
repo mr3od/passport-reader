@@ -2,6 +2,8 @@
 
 All user-facing strings are in Arabic. Developer/ops strings (RuntimeError, logs, error codes, JSON blobs) stay English.
 
+This applies to product/runtime text shown to agency users inside the system. It does not apply to developer collaboration in this workspace: agent replies, code review comments, commit messages, shell guidance, and implementation discussion with repository developers stay English unless the developer explicitly asks for Arabic.
+
 ## Tone
 
 Short, direct, non-technical. Agencies are not developers.

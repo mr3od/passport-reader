@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "photographed",
+    "layout": "single_page",
+    "image_quality": "fair",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.38.58.jpeg",
+    "reasoning": "Single data page photo. Some yellowing/aging on the passport page. Holographic overlay visible. All text readable. Note: the second English given-name token AMER is the same as the surname AMER — this is valid and must not be 'corrected'."
+  },
+  "PassportNumber": "11117433",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMAMER<<OMAR<AMER<SALEM<<<<<<<<<<<<<<<<<<",
+  "MrzLine2": "11117433<3YEM8201021M2804110<<<<<<<<<<<<<<02",
+  "SurnameAr": "عامر",
+  "GivenNameTokensAr": [
+    "عمر",
+    "عامر",
+    "سالم"
+  ],
+  "SurnameEn": "AMER",
+  "GivenNameTokensEn": [
+    "OMAR",
+    "AMER",
+    "SALEM"
+  ],
+  "DateOfBirth": "02/01/1982",
+  "PlaceOfBirthAr": "اليمن - أرخبيل سقطره",
+  "PlaceOfBirthEn": "SUQATRA - YEM",
+  "BirthCityAr": "أرخبيل سقطره",
+  "BirthCityEn": "SUQATRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "M",
+  "DateOfIssue": "11/04/2022",
+  "DateOfExpiry": "11/04/2028",
+  "ProfessionAr": "عمل خاص",
+  "ProfessionEn": "PRIVATE JOB",
+  "IssuingAuthorityAr": "المكلا",
+  "IssuingAuthorityEn": "MUKALLA"
+}

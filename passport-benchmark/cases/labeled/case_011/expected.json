@@ -1,0 +1,43 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "photographed",
+    "layout": "single_page",
+    "image_quality": "fair",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.38.59.jpeg",
+    "reasoning": "Single data page photo. Four given-name tokens — AHLAM MOHAMMED ABDULLAH HUSSEIN. The fourth token HUSSEIN must be preserved in the token arrays. MRZ line 1 truncates HUSSEIN to HUSSEI due to 44-char limit."
+  },
+  "PassportNumber": "09893429",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMALHAMED<<AHLAM<MOHAMMED<ABDULLAH<HUSSEI",
+  "MrzLine2": "09893429<2YEM7910029F2706100<<<<<<<<<<<<<<08",
+  "SurnameAr": "الحامد",
+  "GivenNameTokensAr": [
+    "أحلام",
+    "محمد",
+    "عبدالله",
+    "حسين"
+  ],
+  "SurnameEn": "AL-HAMED",
+  "GivenNameTokensEn": [
+    "AHLAM",
+    "MOHAMMED",
+    "ABDULLAH",
+    "HUSSEIN"
+  ],
+  "DateOfBirth": "02/10/1979",
+  "PlaceOfBirthAr": "اليمن - أرخبيل سقطره",
+  "PlaceOfBirthEn": "SUQATRA - YEM",
+  "BirthCityAr": "أرخبيل سقطره",
+  "BirthCityEn": "SUQATRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "F",
+  "DateOfIssue": "10/06/2021",
+  "DateOfExpiry": "10/06/2027",
+  "ProfessionAr": "ربة بيت",
+  "ProfessionEn": "HOUSE WIFE",
+  "IssuingAuthorityAr": "المكلا",
+  "IssuingAuthorityEn": "MUKALLA"
+}

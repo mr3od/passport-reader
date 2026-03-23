@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "scanned",
+    "layout": "two_page_spread",
+    "image_quality": "good",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.38.47.jpeg",
+    "reasoning": "Clean A4 flatbed scan of two-page spread. Data page is bottom half. High contrast, all fields sharp. MRZ perfectly legible. Note: ProfessionEn is abbreviated 'COMMERCIAL MANG.' — extract exactly as printed."
+  },
+  "PassportNumber": "09309931",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMBINSALEM<<AHMED<SALEM<OMER<<<<<<<<<<<<<",
+  "MrzLine2": "09309931<0YEM7405121M2611239<<<<<<<<<<<<<<08",
+  "SurnameAr": "بن سالم",
+  "GivenNameTokensAr": [
+    "أحمد",
+    "سالم",
+    "عمر"
+  ],
+  "SurnameEn": "BIN SALEM",
+  "GivenNameTokensEn": [
+    "AHMED",
+    "SALEM",
+    "OMER"
+  ],
+  "DateOfBirth": "12/05/1974",
+  "PlaceOfBirthAr": "السعودية - جده",
+  "PlaceOfBirthEn": "JEDDAH - KSA",
+  "BirthCityAr": "جده",
+  "BirthCityEn": "JEDDAH",
+  "BirthCountryAr": "السعودية",
+  "BirthCountryEn": "KSA",
+  "Sex": "M",
+  "DateOfIssue": "23/11/2020",
+  "DateOfExpiry": "23/11/2026",
+  "ProfessionAr": "مدير تجاري",
+  "ProfessionEn": "COMMERCIAL MANG.",
+  "IssuingAuthorityAr": "كوالالمبور",
+  "IssuingAuthorityEn": "KUALA LUMPUR"
+}

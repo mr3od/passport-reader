@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "photographed",
+    "layout": "single_page",
+    "image_quality": "fair",
+    "original_filename": "fatima_passport.jpeg",
+    "reasoning": "Handheld photo of data page. Finger visible at bottom-left corner. Slight holographic glare across middle. All text fields are readable despite the angle. MRZ is clear."
+  },
+  "PassportNumber": "12417816",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMBINSUWEDAN<<FATIMA<ALI<OMAR<<<<<<<<<<<<",
+  "MrzLine2": "12417816<8YEM7601015F2905246<<<<<<<<<<<<<<08",
+  "SurnameAr": "بن سويدان",
+  "GivenNameTokensAr": [
+    "فاطمه",
+    "علي",
+    "عمر"
+  ],
+  "SurnameEn": "BIN SUWEDAN",
+  "GivenNameTokensEn": [
+    "FATIMA",
+    "ALI",
+    "OMAR"
+  ],
+  "DateOfBirth": "01/01/1976",
+  "PlaceOfBirthAr": "اليمن - حضرموت",
+  "PlaceOfBirthEn": "HADRAMOUT - YEM",
+  "BirthCityAr": "حضرموت",
+  "BirthCityEn": "HADRAMOUT",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "F",
+  "DateOfIssue": "24/05/2023",
+  "DateOfExpiry": "24/05/2029",
+  "ProfessionAr": "ربة بيت",
+  "ProfessionEn": "HOUSE WIFE",
+  "IssuingAuthorityAr": "المكلا",
+  "IssuingAuthorityEn": "MUKALLA"
+}

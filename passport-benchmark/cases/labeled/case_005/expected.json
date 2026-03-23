@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "photographed",
+    "layout": "two_page_spread",
+    "image_quality": "fair",
+    "original_filename": "salem_passport.jpeg",
+    "reasoning": "Two-page spread photo. Data page is bottom half. Yellow tape/sticker partially covering photo. MRZ readable. CRITICAL: Arabic surname is العكبري (al-Akbari) — NOT الاكبري. The ع (ain) is clearly visible. Models often misread this as أ (alif) because of the English transliteration AL-AKBARI."
+  },
+  "PassportNumber": "09463730",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMALAKBARI<<SALEM<ABDULLAH<OMAR<<<<<<<<<<",
+  "MrzLine2": "09463730<0YEM8411095M2609278<<<<<<<<<<<<<<02",
+  "SurnameAr": "العكبري",
+  "GivenNameTokensAr": [
+    "سالم",
+    "عبدالله",
+    "عمر"
+  ],
+  "SurnameEn": "AL-AKBARI",
+  "GivenNameTokensEn": [
+    "SALEM",
+    "ABDULLAH",
+    "OMAR"
+  ],
+  "DateOfBirth": "09/11/1984",
+  "PlaceOfBirthAr": "السعودية - جده",
+  "PlaceOfBirthEn": "JEDDAH - KSA",
+  "BirthCityAr": "جده",
+  "BirthCityEn": "JEDDAH",
+  "BirthCountryAr": "السعودية",
+  "BirthCountryEn": "KSA",
+  "Sex": "M",
+  "DateOfIssue": "27/09/2020",
+  "DateOfExpiry": "27/09/2026",
+  "ProfessionAr": "طالب",
+  "ProfessionEn": "STUDENT",
+  "IssuingAuthorityAr": "سيئون",
+  "IssuingAuthorityEn": "SEYION"
+}

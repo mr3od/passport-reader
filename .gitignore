@@ -49,3 +49,4 @@ validate-setup.sh
 .codex-tmp
 *.har
 state.json
+passport-benchmark/runs

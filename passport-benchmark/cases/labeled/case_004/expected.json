@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "photographed",
+    "layout": "single_page",
+    "image_quality": "fair",
+    "original_filename": "lana_passport.jpeg",
+    "reasoning": "Handheld photo, slight perspective distortion. Holographic overlay partially visible. All text readable. Note: surname transliteration differs from case_003 (same family) — SUWAIDAN here vs SUWEDAN there. Both are valid transliterations of سويدان. Child passport (DOB 2012)."
+  },
+  "PassportNumber": "15173185",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMBINSUWAIDAN<<LANA<ABDULLAH<SAEED<<<<<<<",
+  "MrzLine2": "15173185<3YEM1202029F3012039<<<<<<<<<<<<<<02",
+  "SurnameAr": "بن سويدان",
+  "GivenNameTokensAr": [
+    "لناء",
+    "عبدالله",
+    "سعيد"
+  ],
+  "SurnameEn": "BIN SUWAIDAN",
+  "GivenNameTokensEn": [
+    "LANA",
+    "ABDULLAH",
+    "SAEED"
+  ],
+  "DateOfBirth": "02/02/2012",
+  "PlaceOfBirthAr": "حضرموت",
+  "PlaceOfBirthEn": "HADRAMOUT - YEM",
+  "BirthCityAr": "حضرموت",
+  "BirthCityEn": "HADRAMOUT",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "F",
+  "DateOfIssue": "03/12/2024",
+  "DateOfExpiry": "03/12/2030",
+  "ProfessionAr": "طالبة",
+  "ProfessionEn": "STUDENT",
+  "IssuingAuthorityAr": "المكلا",
+  "IssuingAuthorityEn": "MUKALLA"
+}
