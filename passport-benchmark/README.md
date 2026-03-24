@@ -61,6 +61,19 @@ mv cases/unlabeled/case_013 cases/labeled/case_013
 
 Update `manifest.csv`: set `partition=labeled` and `ground_truth_status=done`.
 
+To prefill extractor drafts for review without changing `expected.json`:
+
+```bash
+benchmark-draft-unlabeled cases/ --limit 5
+```
+
+This writes:
+- `draft.json`
+- `draft.usage.json`
+- `draft.messages.json`
+
+inside each selected unlabeled case directory.
+
 ### 3. Run the benchmark
 
 ```bash

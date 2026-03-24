@@ -18,6 +18,7 @@ dev = [
 ]
 
 [project.scripts]
+benchmark-draft-unlabeled = "passport_benchmark.draft_unlabeled:main"
 benchmark-organize = "passport_benchmark.organize:main"
 benchmark-run = "passport_benchmark.runner:main"
 
