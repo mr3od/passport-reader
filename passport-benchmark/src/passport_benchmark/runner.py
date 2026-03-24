@@ -265,11 +265,11 @@ def run_benchmark(
 
     extractor = None
     if extract:
-        from passport_benchmark.extractor_v2 import PassportExtractorV2
+        from passport_core.extraction import PassportExtractor
 
         if settings is None or settings.requesty_api_key is None:
             raise RuntimeError("Extractor settings were not loaded correctly.")
-        extractor = PassportExtractorV2(
+        extractor = PassportExtractor(
             api_key=settings.requesty_api_key.get_secret_value(),
             model=model_name,
             base_url=settings.requesty_base_url,

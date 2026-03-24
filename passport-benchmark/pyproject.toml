@@ -1,6 +1,6 @@
 [project]
 name = "passport-benchmark"
-version = "0.1.0"
+version = "0.2.0"
 description = "Benchmark and evaluation suite for passport-core extraction"
 readme = "README.md"
 requires-python = ">=3.12"

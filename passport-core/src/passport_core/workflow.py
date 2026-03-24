@@ -1,5 +1,13 @@
+"""Legacy v1 workflow with SIFT validation and multi-transform candidate ranking.
+
+.. deprecated:: 0.2.0
+    Use :class:`passport_core.extraction.PassportExtractor` for field extraction.
+    This module will be removed once upstream adapters migrate to the v2 pipeline.
+"""
+
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -17,6 +25,12 @@ from passport_core.models import (
     ValidationResult,
 )
 from passport_core.vision import PassportFaceCropper, PassportFaceDetector, PassportFeatureValidator
+
+warnings.warn(
+    "passport_core.workflow is deprecated, use passport_core.extraction instead",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 type ImageInput = LoadedImage | ImageArray
 

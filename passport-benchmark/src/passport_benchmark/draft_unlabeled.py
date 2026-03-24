@@ -4,8 +4,8 @@ Usage::
 
     benchmark-draft-unlabeled cases/ --limit 5
 
-This runs ``extractor_v2`` on unlabeled cases and writes draft artifacts next to
-each case without modifying the blank human-maintained ``expected.json``.
+Runs the passport-core extractor on unlabeled cases and writes draft artifacts
+next to each case without modifying the blank human-maintained ``expected.json``.
 """
 
 from __future__ import annotations
@@ -15,7 +15,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-from passport_benchmark.extractor_v2 import PassportExtractorV2
+from passport_core.extraction import PassportExtractor
+
 from passport_benchmark.runner import _load_core_settings
 
 
@@ -32,9 +33,7 @@ def _draft_payload(extraction, original_filename: str) -> dict[str, Any]:
     meta["original_filename"] = original_filename
     payload["_meta"] = meta
     payload["_reasoning"] = extraction.reasoning.model_dump() if extraction.reasoning else None
-    payload["_confidence"] = (
-        extraction.confidence.model_dump() if extraction.confidence else None
-    )
+    payload["_confidence"] = extraction.confidence.model_dump() if extraction.confidence else None
     payload["warnings"] = extraction.warnings
     payload["_usage"] = extraction.usage
     return payload
@@ -56,7 +55,7 @@ def draft_unlabeled_cases(
 
     settings = _load_core_settings()
     model_name = model_override or settings.llm_model
-    extractor = PassportExtractorV2(
+    extractor = PassportExtractor(
         api_key=settings.requesty_api_key.get_secret_value(),
         model=model_name,
         base_url=settings.requesty_base_url,
@@ -82,9 +81,7 @@ def draft_unlabeled_cases(
             json.dumps(extraction.usage, indent=2, ensure_ascii=False) + "\n"
         )
         if extraction.message_history_json is not None:
-            (case_dir / "draft.messages.json").write_text(
-                extraction.message_history_json + "\n"
-            )
+            (case_dir / "draft.messages.json").write_text(extraction.message_history_json + "\n")
 
         drafted += 1
         print(f"  DRAFTED {case_dir.name}")

@@ -125,24 +125,32 @@ def organize(input_dir: Path, cases_dir: Path) -> None:
             json.dumps(skeleton, indent=2, ensure_ascii=False) + "\n"
         )
 
-        new_rows.append({
-            "case_id": case_id,
-            "original_filename": img_path.name,
-            "partition": "unlabeled",
-            "layout": "",
-            "image_type": "",
-            "image_quality": "",
-            "ground_truth_status": "pending",
-            "notes": "",
-        })
+        new_rows.append(
+            {
+                "case_id": case_id,
+                "original_filename": img_path.name,
+                "partition": "unlabeled",
+                "layout": "",
+                "image_type": "",
+                "image_quality": "",
+                "ground_truth_status": "pending",
+                "notes": "",
+            }
+        )
         added += 1
         print(f"  {case_id} ← {img_path.name}")
 
     # Write manifest (append new rows)
     all_rows = existing_rows + new_rows
     fieldnames = [
-        "case_id", "original_filename", "partition", "layout",
-        "image_type", "image_quality", "ground_truth_status", "notes",
+        "case_id",
+        "original_filename",
+        "partition",
+        "layout",
+        "image_type",
+        "image_quality",
+        "ground_truth_status",
+        "notes",
     ]
     with manifest_path.open("w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)

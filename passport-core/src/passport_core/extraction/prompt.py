@@ -1,11 +1,8 @@
-"""Multi-step passport extraction prompt — v2 (experimental).
-
-Once validated via benchmarks, move this to ``passport_core.extraction_prompt``.
-"""
+"""Multi-step passport extraction prompt for VLM-based extraction."""
 
 from __future__ import annotations
 
-EXTRACTION_PROMPT_V2 = """
+EXTRACTION_PROMPT = """
 You extract fields from a single passport image using a strict multi-step process.
 You MUST output your reasoning for each step before producing the final JSON.
 

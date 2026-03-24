@@ -27,10 +27,7 @@ def _bias_summary(total_hall: int, total_omit: int, total_misread: int) -> str:
             "Most errors are wrong reads, not hallucinations or omissions."
         )
     if total_hall > total_omit * 1.5:
-        return (
-            "**Bias: hallucination-heavy.** "
-            "Tighten 'return null if uncertain' instructions."
-        )
+        return "**Bias: hallucination-heavy.** Tighten 'return null if uncertain' instructions."
     if total_omit > total_hall * 1.5:
         return (
             "**Bias: omission-heavy.** "
@@ -192,34 +189,34 @@ def generate_report(
 
     lines.extend(
         [
-        f"**Cases evaluated:** {total}",
-        f"**Average field accuracy:** {avg_acc:.1%}",
-        f"**MRZ check digits:** {mrz_pass}/{len(mrz_tested)} cases pass all checks",
-        (
-            f"**Semantic MRZ accuracy:** "
-            f"{semantic_mrz_match_count}/{semantic_mrz_total} lines match"
-            if semantic_mrz_total
-            else "**Semantic MRZ accuracy:** n/a"
-        ),
-        (
-            f"**Token usage:** input={usage_totals.get('input_tokens', 0)}, "
-            f"output={usage_totals.get('output_tokens', 0)}, "
-            f"total={usage_totals.get('total_tokens', 0)}, "
-            f"requests={usage_totals.get('requests', 0)}"
-            if usage_totals
-            else "**Token usage:** n/a"
-        ),
-        "",
-        "---",
-        "",
-        "## 1. Error Direction (Bias Analysis)",
-        "",
-        "| Category | Count | Meaning |",
-        "|---|---|---|",
-        f"| Hallucination | {total_hall} | Model invented a value for a null/missing field |",
-        f"| Omission | {total_omit} | Model returned null for a visible field |",
-        f"| Misread | {total_misread} | Both have values but they differ |",
-        "",
+            f"**Cases evaluated:** {total}",
+            f"**Average field accuracy:** {avg_acc:.1%}",
+            f"**MRZ check digits:** {mrz_pass}/{len(mrz_tested)} cases pass all checks",
+            (
+                f"**Semantic MRZ accuracy:** "
+                f"{semantic_mrz_match_count}/{semantic_mrz_total} lines match"
+                if semantic_mrz_total
+                else "**Semantic MRZ accuracy:** n/a"
+            ),
+            (
+                f"**Token usage:** input={usage_totals.get('input_tokens', 0)}, "
+                f"output={usage_totals.get('output_tokens', 0)}, "
+                f"total={usage_totals.get('total_tokens', 0)}, "
+                f"requests={usage_totals.get('requests', 0)}"
+                if usage_totals
+                else "**Token usage:** n/a"
+            ),
+            "",
+            "---",
+            "",
+            "## 1. Error Direction (Bias Analysis)",
+            "",
+            "| Category | Count | Meaning |",
+            "|---|---|---|",
+            f"| Hallucination | {total_hall} | Model invented a value for a null/missing field |",
+            f"| Omission | {total_omit} | Model returned null for a visible field |",
+            f"| Misread | {total_misread} | Both have values but they differ |",
+            "",
         ]
     )
 
@@ -299,9 +296,7 @@ def generate_report(
         "|---|---|---|",
     ]
     for group in FIELD_GROUPS:
-        avg = (
-            sum(group_accs[group]) / len(group_accs[group]) if group_accs[group] else None
-        )
+        avg = sum(group_accs[group]) / len(group_accs[group]) if group_accs[group] else None
         avg_text = f"{avg:.0%}" if avg is not None else "n/a"
         lines.append(f"| {group} | {avg_text} | {', '.join(FIELD_GROUPS[group])} |")
 
@@ -363,8 +358,7 @@ def generate_report(
         quality = r.meta.get("image_quality", "?")
         worst = ", ".join(f.field_name for f in r.fields if f.status == "misread")[:60]
         lines.append(
-            f"| {r.case_id} | {layout} | {quality} | {r.accuracy:.0%} | "
-            f"{err} | {mrz} | {worst} |"
+            f"| {r.case_id} | {layout} | {quality} | {r.accuracy:.0%} | {err} | {mrz} | {worst} |"
         )
 
     (output_dir / "benchmark_report.md").write_text("\n".join(lines) + "\n")
@@ -373,30 +367,46 @@ def generate_report(
     csv_path = output_dir / "benchmark_results.csv"
     with csv_path.open("w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow([
-            "run_id", "model", "case_id", "layout", "quality", "accuracy",
-            "hallucinations", "omissions", "misreads", "mrz_valid",
-            "input_tokens", "output_tokens", "total_tokens", "requests", "tool_calls",
-            "warnings",
-        ])
+        writer.writerow(
+            [
+                "run_id",
+                "model",
+                "case_id",
+                "layout",
+                "quality",
+                "accuracy",
+                "hallucinations",
+                "omissions",
+                "misreads",
+                "mrz_valid",
+                "input_tokens",
+                "output_tokens",
+                "total_tokens",
+                "requests",
+                "tool_calls",
+                "warnings",
+            ]
+        )
         for r in results:
             ec = r.error_counts()
             usage = r.meta.get("usage", {})
-            writer.writerow([
-                r.meta.get("run_id", ""),
-                r.meta.get("model", ""),
-                r.case_id,
-                r.meta.get("layout", ""),
-                r.meta.get("image_quality", ""),
-                f"{r.accuracy:.3f}",
-                ec["hallucination"],
-                ec["omission"],
-                ec["misread"],
-                r.mrz_valid,
-                usage.get("input_tokens", ""),
-                usage.get("output_tokens", ""),
-                usage.get("total_tokens", ""),
-                usage.get("requests", ""),
-                usage.get("tool_calls", ""),
-                "; ".join(r.warnings),
-            ])
+            writer.writerow(
+                [
+                    r.meta.get("run_id", ""),
+                    r.meta.get("model", ""),
+                    r.case_id,
+                    r.meta.get("layout", ""),
+                    r.meta.get("image_quality", ""),
+                    f"{r.accuracy:.3f}",
+                    ec["hallucination"],
+                    ec["omission"],
+                    ec["misread"],
+                    r.mrz_valid,
+                    usage.get("input_tokens", ""),
+                    usage.get("output_tokens", ""),
+                    usage.get("total_tokens", ""),
+                    usage.get("requests", ""),
+                    usage.get("tool_calls", ""),
+                    "; ".join(r.warnings),
+                ]
+            )

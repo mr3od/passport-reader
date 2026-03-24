@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, cast
 
-from passport_benchmark.mrz import (
+from passport_core.mrz import (
     build_mrz_line1,
     build_mrz_line2,
     normalize_authority_mrz_name_part,
@@ -48,6 +48,7 @@ for _group, _fields in FIELD_GROUPS.items():
 
 
 # ── Normalization ────────────────────────────────────────────────
+
 
 def normalize_arabic(s: str) -> str:
     """Normalize Arabic text for *comparison only* (not for display)."""
@@ -106,8 +107,7 @@ def _token_lists_match(
     if len(expected) != len(actual):
         return False
     return all(
-        normalizer(exp) == normalizer(act)
-        for exp, act in zip(expected, actual, strict=True)
+        normalizer(exp) == normalizer(act) for exp, act in zip(expected, actual, strict=True)
     )
 
 
@@ -161,6 +161,7 @@ def fields_match(field_name: str, expected: str | list[str], actual: str | list[
 
 # ── Results ──────────────────────────────────────────────────────
 
+
 @dataclass
 class FieldResult:
     """Comparison result for a single field."""
@@ -205,14 +206,13 @@ class CaseResult:
         for group, names in FIELD_GROUPS.items():
             scored = [f for f in self.fields if f.field_name in names and f.status != "both_null"]
             result[group] = (
-                (sum(1 for f in scored if f.status == "match") / len(scored))
-                if scored
-                else None
+                (sum(1 for f in scored if f.status == "match") / len(scored)) if scored else None
             )
         return result
 
 
 # ── Evaluation ───────────────────────────────────────────────────
+
 
 def _normalize_field_value(value: object | None) -> object | None:
     if isinstance(value, str):
@@ -234,11 +234,7 @@ def _compare_field(field_name: str, expected: object | None, actual: object | No
         status = "hallucination"
     elif exp is not None and act is None:
         status = "omission"
-    elif (
-        isinstance(exp, str)
-        and isinstance(act, str)
-        and fields_match(field_name, exp, act)
-    ) or (
+    elif (isinstance(exp, str) and isinstance(act, str) and fields_match(field_name, exp, act)) or (
         isinstance(exp, list)
         and all(isinstance(item, str) for item in exp)
         and isinstance(act, list)
@@ -317,10 +313,14 @@ def cross_validate(actual: dict) -> list[str]:
 
     mrz_given_tokens = [token for token in (mrz.given_names or "").split() if token]
     viz_given_tokens = actual.get("GivenNameTokensEn")
-    if mrz_given_tokens and isinstance(viz_given_tokens, list) and not _authority_mrz_tokens_match(
-        cast(list[str], mrz_given_tokens),
-        cast(list[str], viz_given_tokens),
-        allow_final_truncation=True,
+    if (
+        mrz_given_tokens
+        and isinstance(viz_given_tokens, list)
+        and not _authority_mrz_tokens_match(
+            cast(list[str], mrz_given_tokens),
+            cast(list[str], viz_given_tokens),
+            allow_final_truncation=True,
+        )
     ):
         warnings.append(f"GivenNameTokensEn: MRZ={mrz_given_tokens} vs VIZ={viz_given_tokens}")
 

@@ -21,6 +21,7 @@ def check_digit(s: str) -> int:
 
 
 def _ddmmyyyy_to_yymmdd(value: str | None) -> str | None:
+    """Convert ``DD/MM/YYYY`` date string to MRZ ``YYMMDD`` format."""
     if value is None:
         return None
     parts = value.split("/")
@@ -33,6 +34,7 @@ def _ddmmyyyy_to_yymmdd(value: str | None) -> str | None:
 
 
 def _normalize_name_for_mrz(value: str) -> str:
+    """Strip non-MRZ characters and uppercase a VIZ name for MRZ comparison."""
     normalized = value.upper().strip()
     normalized = normalized.replace("<", "")
     return _MRZ_NAME_CLEANUP.sub("", normalized)
@@ -58,6 +60,7 @@ def build_mrz_line1(
     surname_en: str | None,
     given_name_tokens_en: list[str] | None,
 ) -> str | None:
+    """Rebuild MRZ line 1 from VIZ fields for cross-validation."""
     if not country_code or not surname_en or not given_name_tokens_en:
         return None
 
@@ -74,6 +77,7 @@ def build_mrz_line2(
     sex: str | None,
     date_of_expiry: str | None,
 ) -> str | None:
+    """Rebuild MRZ line 2 from VIZ fields with computed check digits."""
     if (
         not passport_number
         or not country_code
@@ -162,25 +166,13 @@ class MrzParsed:
 
 
 def parse_mrz(line1: str | None, line2: str | None) -> MrzParsed:
-    """Parse TD3 MRZ lines and validate check digits.
-
-    Parameters
-    ----------
-    line1, line2:
-        The two 44-character MRZ lines.  Spaces are stripped automatically.
-
-    Returns
-    -------
-    MrzParsed
-        Structured fields, check-digit results, and warnings.
-    """
+    """Parse TD3 MRZ lines and validate check digits."""
     result = MrzParsed()
 
     if not line1 and not line2:
         result.warnings.append("MRZ lines missing or incomplete")
         return result
 
-    # ── Line 1: names ────────────────────────────────────────────
     if line1:
         line1 = line1.replace(" ", "").upper()
         if len(line1) != 44:
@@ -202,11 +194,9 @@ def parse_mrz(line1: str | None, line2: str | None) -> MrzParsed:
     if len(line2) != 44:
         result.warnings.append(f"MRZ line 2 length is {len(line2)}, expected 44")
 
-    # ── Line 2: numbers and dates ────────────────────────────────
     if len(line2) < 44:
         return result
 
-    # Passport number (positions 1-9, check digit at 10)
     raw_pn = line2[0:9]
     result.passport_number = raw_pn.replace("<", "").strip()
 
@@ -215,34 +205,27 @@ def parse_mrz(line1: str | None, line2: str | None) -> MrzParsed:
             CheckDigitResult("passport_number", int(line2[9]), check_digit(raw_pn))
         )
 
-    # DOB (positions 14-19, check digit at 20)
     raw_dob = line2[13:19]
     result.dob = _yymmdd_to_ddmmyyyy(raw_dob, pivot=30)
     if line2[19].isdigit():
         result.checks.append(CheckDigitResult("dob", int(line2[19]), check_digit(raw_dob)))
 
-    # Sex (position 21)
     result.sex = line2[20] if line2[20] in ("M", "F") else None
 
-    # Expiry (positions 22-27, check digit at 28)
     raw_exp = line2[21:27]
     result.expiry = _yymmdd_to_ddmmyyyy(raw_exp, pivot=70)
     if line2[27].isdigit():
         result.checks.append(CheckDigitResult("expiry", int(line2[27]), check_digit(raw_exp)))
 
-    # Optional data (positions 29-42, check digit at 43)
     raw_optional = line2[28:42]
     if line2[42].isdigit():
         result.checks.append(
             CheckDigitResult("optional_data", int(line2[42]), check_digit(raw_optional))
         )
 
-    # Overall check digit (position 44)
     composite = line2[0:10] + line2[13:20] + line2[21:43]
     if line2[43].isdigit():
-        result.checks.append(
-            CheckDigitResult("overall", int(line2[43]), check_digit(composite))
-        )
+        result.checks.append(CheckDigitResult("overall", int(line2[43]), check_digit(composite)))
 
     result.valid = all(c.ok for c in result.checks)
     if not result.valid:
@@ -256,7 +239,6 @@ def validate_mrz(line2: str | None) -> tuple[bool, list[str]]:
     """Quick validation of MRZ line 2 check digits.
 
     Returns ``(all_pass, [warning_strings])``.
-    Unlike :func:`parse_mrz`, this does not require line 1.
     """
     if not line2:
         return False, ["MRZ line 2 missing"]
@@ -268,25 +250,15 @@ def validate_mrz(line2: str | None) -> tuple[bool, list[str]]:
     warnings: list[str] = []
     checks: list[CheckDigitResult] = []
 
-    # Passport number (pos 1-9, check digit at pos 10)
     if line2[9].isdigit():
         checks.append(CheckDigitResult("passport_number", int(line2[9]), check_digit(line2[0:9])))
-
-    # DOB (pos 14-19, check digit at pos 20)
     if line2[19].isdigit():
         checks.append(CheckDigitResult("dob", int(line2[19]), check_digit(line2[13:19])))
-
-    # Expiry (pos 22-27, check digit at pos 28)
     if line2[27].isdigit():
         checks.append(CheckDigitResult("expiry", int(line2[27]), check_digit(line2[21:27])))
-
-    # Optional data (pos 29-42, check digit at pos 43)
     if line2[42].isdigit():
-        checks.append(
-            CheckDigitResult("optional_data", int(line2[42]), check_digit(line2[28:42]))
-        )
+        checks.append(CheckDigitResult("optional_data", int(line2[42]), check_digit(line2[28:42])))
 
-    # Overall check digit (pos 44)
     composite = line2[0:10] + line2[13:20] + line2[21:43]
     if line2[43].isdigit():
         checks.append(CheckDigitResult("overall", int(line2[43]), check_digit(composite)))

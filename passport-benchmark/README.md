@@ -1,121 +1,55 @@
-# passport-benchmark
+# Passport Benchmark
 
-Benchmark and evaluation suite for `passport-core` extraction.
-
-## Setup
-
-```bash
-cd passport-benchmark
-uv sync --all-extras
-```
+Evaluation suite for `passport-core` extraction. Scores extractor output against labeled ground truth.
 
 ## Structure
 
 ```
-passport-benchmark/
-├── pyproject.toml
-├── manifest.csv                         # Index of all cases
-├── agency-input/                        # Raw images from travel agencies (unprocessed)
-├── cases/
-│   ├── labeled/                         # Cases WITH ground truth (ready to score)
-│   │   ├── case_001/
-│   │   │   ├── input.jpeg
-│   │   │   └── expected.json            # Human-verified ground truth
-│   │   └── ...
-│   └── unlabeled/                       # Cases WITHOUT ground truth yet
-│       ├── case_013/
-│       │   ├── input.jpeg
-│       │   └── expected.json            # Blank skeleton — fill this in
-│       └── ...
-├── src/passport_benchmark/
-│   ├── mrz.py                           # MRZ parsing and check digit validation
-│   ├── compare.py                       # Field comparison with Arabic normalization
-│   ├── report.py                        # Report generation (Markdown + CSV)
-│   ├── organize.py                      # CLI: raw images → case directories
-│   ├── runner.py                        # CLI: run benchmark and score
-│   ├── prompt_v2.py                     # Experimental 7-step extraction prompt
-│   └── extractor_v2.py                  # Experimental v2 extractor
-└── tests/
-    ├── test_mrz.py
-    └── test_compare.py
+cases/
+├── labeled/          # Ground truth cases (expected.json + input.jpeg)
+│   └── case_NNN/
+└── unlabeled/        # Images pending labeling
+runs/                 # Extraction outputs and reports per run
 ```
 
-## Workflow
-
-### 1. Organize new images
+## CLI
 
 ```bash
-benchmark-organize agency-input/ cases/
+# Score an existing run
+benchmark-run cases/ --run-id <run-id>
+
+# Run extraction then score
+benchmark-run cases/ --extract --run-id <run-id>
+benchmark-run cases/ --extract --model google/gemini-3.1-flash-lite-preview
+
+# Organize raw images into case directories
+benchmark-organize <images-dir> cases/
+
+# Draft expected.json for unlabeled cases
+benchmark-draft-unlabeled cases/
 ```
 
-New images go into `cases/unlabeled/case_NNN/` with a blank `expected.json` skeleton.
+## Scoring
 
-### 2. Label ground truth
+Each field is classified as: `match`, `misread`, `omission`, `hallucination`, or `both_null`.
 
-Open each `cases/unlabeled/case_NNN/input.jpeg`, read the passport, fill in
-`expected.json`. Then move the case to `cases/labeled/`:
+Arabic fields are compared with normalization (alef variants, tashkeel, taa marbuta). MRZ lines are compared with trailing-filler tolerance. English fields are case-insensitive.
+
+Reports (markdown + CSV) are written to the run directory.
+
+## Adding cases
+
+1. Place `input.jpeg` in `cases/unlabeled/case_NNN/`
+2. Run `benchmark-draft-unlabeled cases/` to generate a starter `expected.json`
+3. Verify and correct the draft manually
+4. Move the case to `cases/labeled/`
+5. Update `manifest.csv`
+
+## Installation
 
 ```bash
-mv cases/unlabeled/case_013 cases/labeled/case_013
+cd passport-benchmark
+uv sync --extra dev
 ```
 
-Update `manifest.csv`: set `partition=labeled` and `ground_truth_status=done`.
-
-To prefill extractor drafts for review without changing `expected.json`:
-
-```bash
-benchmark-draft-unlabeled cases/ --limit 5
-```
-
-This writes:
-- `draft.json`
-- `draft.usage.json`
-- `draft.messages.json`
-
-inside each selected unlabeled case directory.
-
-### 3. Run the benchmark
-
-```bash
-# Score existing actual.json files against ground truth
-benchmark-run cases/
-
-# Or run the extractor first, then score
-benchmark-run cases/ --extract
-```
-
-Outputs: `benchmark_report.md` and `benchmark_results.csv`.
-
-### 4. Run tests
-
-```bash
-uv run pytest
-uv run ruff check .
-```
-
-## Key test cases
-
-| Case | What it tests |
-|---|---|
-| case_004 | Arabic name لناء for "Lana" — models may "correct" to لانا |
-| case_005 | Arabic surname العكبري vs English AL-AKBARI — models assume الاكبري |
-| case_007 | 4 given names — only 3 fit individual slots |
-| case_008 | Socotri surname DKNZHR — non-Arabic, no standard transliteration |
-| case_009 | FirstName = GrandfatherName = MOHAMMED — must not deduplicate |
-| case_010 | FatherName = Surname = AMER — must not "correct" |
-| case_012 | FatherName = Surname = KHAMIS — same pattern |
-
-## V2 prompt design
-
-The extraction prompt uses 7 explicit steps to eliminate black-box reasoning:
-
-1. **Image assessment** — layout, quality, obstructions
-2. **Structured data** — passport number, dates, country code
-3. **Arabic fields from VIZ** — with "do NOT back-translate" rules
-4. **MRZ extraction + parsing** — teaches the model MRZ structure
-5. **English fields from VIZ**
-6. **MRZ vs VIZ cross-validation** — signal priority hierarchy
-7. **Arabic ↔ English consistency check**
-
-The `extractor_v2.py` and `prompt_v2.py` modules are experimental.
-Once validated, they move to `passport-core`.
+Requires `passport-core` `.env` with `PASSPORT_REQUESTY_API_KEY` for `--extract` mode.
