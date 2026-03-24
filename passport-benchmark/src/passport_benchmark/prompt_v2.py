@@ -183,34 +183,6 @@ _reasoning: {
   step7_ar_en_consistency: "<any issues found, or 'consistent'>"
 }
 
-_confidence: {
-  overall: <float from 0.0 to 1.0>,
-  fields: {
-    PassportNumber: <float 0.0-1.0>,
-    CountryCode: <float 0.0-1.0>,
-    MrzLine1: <float 0.0-1.0>,
-    MrzLine2: <float 0.0-1.0>,
-    SurnameAr: <float 0.0-1.0>,
-    GivenNameTokensAr: <float 0.0-1.0>,
-    SurnameEn: <float 0.0-1.0>,
-    GivenNameTokensEn: <float 0.0-1.0>,
-    DateOfBirth: <float 0.0-1.0>,
-    PlaceOfBirthAr: <float 0.0-1.0>,
-    PlaceOfBirthEn: <float 0.0-1.0>,
-    BirthCityAr: <float 0.0-1.0>,
-    BirthCityEn: <float 0.0-1.0>,
-    BirthCountryAr: <float 0.0-1.0>,
-    BirthCountryEn: <float 0.0-1.0>,
-    Sex: <float 0.0-1.0>,
-    DateOfIssue: <float 0.0-1.0>,
-    DateOfExpiry: <float 0.0-1.0>,
-    ProfessionAr: <float 0.0-1.0>,
-    ProfessionEn: <float 0.0-1.0>,
-    IssuingAuthorityAr: <float 0.0-1.0>,
-    IssuingAuthorityEn: <float 0.0-1.0>
-  }
-}
-
 Plus all extraction fields:
 PassportNumber, CountryCode, MrzLine1, MrzLine2,
 SurnameAr, GivenNameTokensAr,
@@ -227,11 +199,6 @@ Rules for final values:
 - Keep English in the case shown (usually UPPERCASE).
 - GivenNameTokensAr/GivenNameTokensEn must contain the ordered given-name tokens only.
 - If there are more than three given names, keep all of them in the token arrays.
-- Confidence must reflect your uncertainty:
-  - 0.95-1.0 = clearly visible / machine-readable
-  - 0.70-0.94 = readable but not perfectly clean
-  - 0.40-0.69 = uncertain / partially obstructed
-  - below 0.40 = very weak evidence, usually should be null
 - Dates must be DD/MM/YYYY format. If uncertain, return null.
 - Sex must be "M" or "F". If uncertain, return null.
 - MRZ lines: return the full 44-character string including filler <'s.

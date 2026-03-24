@@ -17,6 +17,7 @@ import json
 import re
 import subprocess
 import sys
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
@@ -25,6 +26,8 @@ from passport_benchmark.compare import cross_validate, evaluate_case
 from passport_benchmark.report import generate_report
 
 _RUN_ID_SANITIZE = re.compile(r"[^A-Za-z0-9._-]+")
+_RATE_LIMIT_MAX_RETRIES = 5
+_RATE_LIMIT_BASE_DELAY = 30  # seconds
 
 
 def _find_labeled_cases(cases_dir: Path) -> list[Path]:
@@ -191,6 +194,24 @@ def _load_actual_payload(case_dir: Path, run_dir: Path | None) -> dict[str, Any]
     return actual
 
 
+def _extract_with_retry(extractor, image_path: Path, case_id: str):
+    """Extract with exponential backoff on rate limit errors."""
+    for attempt in range(_RATE_LIMIT_MAX_RETRIES):
+        try:
+            extraction = extractor.extract(image_path.read_bytes())
+            print(f"  EXTRACTED {case_id}")
+            return extraction
+        except Exception as exc:
+            is_rate_limit = "429" in str(exc) or "rate" in str(exc).lower()
+            if not is_rate_limit or attempt == _RATE_LIMIT_MAX_RETRIES - 1:
+                print(f"  ERROR {case_id}: {exc}")
+                return None
+            delay = _RATE_LIMIT_BASE_DELAY * (2**attempt)
+            print(f"  RATE LIMITED {case_id} — retrying in {delay}s (attempt {attempt + 1})")
+            time.sleep(delay)
+    return None
+
+
 def run_benchmark(
     cases_dir: Path,
     *,
@@ -242,6 +263,18 @@ def run_benchmark(
 
     print(f"Evaluating {len(case_dirs)} labeled cases...\n")
 
+    extractor = None
+    if extract:
+        from passport_benchmark.extractor_v2 import PassportExtractorV2
+
+        if settings is None or settings.requesty_api_key is None:
+            raise RuntimeError("Extractor settings were not loaded correctly.")
+        extractor = PassportExtractorV2(
+            api_key=settings.requesty_api_key.get_secret_value(),
+            model=model_name,
+            base_url=settings.requesty_base_url,
+        )
+
     results = []
 
     for case_dir in case_dirs:
@@ -249,42 +282,40 @@ def run_benchmark(
         expected = json.loads((case_dir / "expected.json").read_text())
         image_path = case_dir / "input.jpeg"
 
-        if extract and image_path.exists():
-            from passport_benchmark.extractor_v2 import PassportExtractorV2
-
-            if settings is None or settings.requesty_api_key is None:
-                raise RuntimeError("Extractor settings were not loaded correctly.")
-            extractor = PassportExtractorV2(
-                api_key=settings.requesty_api_key.get_secret_value(),
-                model=model_name,
-                base_url=settings.requesty_base_url,
-            )
-            extraction = extractor.extract(image_path.read_bytes())
-            actual = extraction.data.model_dump()
-            actual["_meta"] = extraction.meta.model_dump() if extraction.meta else None
-            actual["_reasoning"] = (
-                extraction.reasoning.model_dump() if extraction.reasoning else None
-            )  # noqa: E501
-            actual["_confidence"] = (
-                extraction.confidence.model_dump() if extraction.confidence else None
-            )
-            actual["warnings"] = extraction.warnings
-            actual["_usage"] = extraction.usage
-            if run_dir is None:
-                raise RuntimeError("Missing run directory while writing extracted results.")
-            run_case_dir = _case_run_dir(run_dir, case_id)
-            run_case_dir.mkdir(parents=True, exist_ok=True)
-            (run_case_dir / "actual.json").write_text(
-                json.dumps(actual, indent=2, ensure_ascii=False) + "\n"
-            )
-            (run_case_dir / "usage.json").write_text(
-                json.dumps(extraction.usage, indent=2, ensure_ascii=False) + "\n"
-            )
-            if extraction.message_history_json is not None:
-                (run_case_dir / "messages.json").write_text(
-                    extraction.message_history_json + "\n"
+        if extract and extractor is not None and image_path.exists():
+            # Skip already-extracted cases (allows resuming interrupted runs)
+            existing_actual = _load_actual_payload(case_dir, run_dir)
+            if existing_actual is not None:
+                actual = existing_actual
+                print(f"  CACHED {case_id}")
+            else:
+                extraction = _extract_with_retry(extractor, image_path, case_id)
+                if extraction is None:
+                    continue
+                actual = extraction.data.model_dump()
+                actual["_meta"] = extraction.meta.model_dump() if extraction.meta else None
+                actual["_reasoning"] = (
+                    extraction.reasoning.model_dump() if extraction.reasoning else None
                 )
-            print(f"  EXTRACTED {case_id}")
+                actual["_confidence"] = (
+                    extraction.confidence.model_dump() if extraction.confidence else None
+                )
+                actual["warnings"] = extraction.warnings
+                actual["_usage"] = extraction.usage
+                if run_dir is None:
+                    raise RuntimeError("Missing run directory while writing extracted results.")
+                run_case_dir = _case_run_dir(run_dir, case_id)
+                run_case_dir.mkdir(parents=True, exist_ok=True)
+                (run_case_dir / "actual.json").write_text(
+                    json.dumps(actual, indent=2, ensure_ascii=False) + "\n"
+                )
+                (run_case_dir / "usage.json").write_text(
+                    json.dumps(extraction.usage, indent=2, ensure_ascii=False) + "\n"
+                )
+                if extraction.message_history_json is not None:
+                    (run_case_dir / "messages.json").write_text(
+                        extraction.message_history_json + "\n"
+                    )
         else:
             actual = _load_actual_payload(case_dir, run_dir)
             if actual is None:
