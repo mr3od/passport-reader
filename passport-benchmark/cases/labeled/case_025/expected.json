@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "photographed",
+    "layout": "single_page",
+    "image_quality": "good",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.39.30.jpeg",
+    "reasoning": "Passport data page image, clear and readable."
+  },
+  "PassportNumber": "11183175",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMMAQDAM<<KHADEGA<AMER<ALI<<<<<<<<<<<<<<<",
+  "MrzLine2": "11183175<1YEM7501012F2811143<<<<<<<<<<<<<<04",
+  "SurnameAr": "مقدم",
+  "GivenNameTokensAr": [
+    "خديجه",
+    "عامر",
+    "علي"
+  ],
+  "SurnameEn": "MAQDAM",
+  "GivenNameTokensEn": [
+    "KHADEGA",
+    "AMER",
+    "ALI"
+  ],
+  "DateOfBirth": "01/01/1975",
+  "PlaceOfBirthAr": "اليمن - أرخبيل سقطره",
+  "PlaceOfBirthEn": "SUQATRA - YEM",
+  "BirthCityAr": "أرخبيل سقطره",
+  "BirthCityEn": "SUQATRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "F",
+  "DateOfIssue": "14/11/2022",
+  "DateOfExpiry": "14/11/2028",
+  "ProfessionAr": "ربة بيت",
+  "ProfessionEn": "HOUSE WIFE",
+  "IssuingAuthorityAr": "أبوظبي",
+  "IssuingAuthorityEn": "ABU DHABI"
+}

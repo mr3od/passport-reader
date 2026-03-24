@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "photographed",
+    "layout": "single_page",
+    "image_quality": "good",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.39.55.jpeg",
+    "reasoning": "Standard single-page yemeni passport scan."
+  },
+  "PassportNumber": "11124795",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMABDULLAH<<SALMA<ABDULLAH<AMER<<<<<<<<<<",
+  "MrzLine2": "11124795<2YEM4804022F2806181<<<<<<<<<<<<<<04",
+  "SurnameAr": "عبدالله",
+  "GivenNameTokensAr": [
+    "سلمى",
+    "عبدالله",
+    "عامر"
+  ],
+  "SurnameEn": "ABDULLAH",
+  "GivenNameTokensEn": [
+    "SALMA",
+    "ABDULLAH",
+    "AMER"
+  ],
+  "DateOfBirth": "02/04/1948",
+  "PlaceOfBirthAr": "اليمن - أرخبيل سقطره",
+  "PlaceOfBirthEn": "SUQATRA - YEM",
+  "BirthCityAr": "أرخبيل سقطره",
+  "BirthCityEn": "SUQATRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "F",
+  "DateOfIssue": "18/06/2022",
+  "DateOfExpiry": "18/06/2028",
+  "ProfessionAr": "ربة بيت",
+  "ProfessionEn": "HOUSE WIFE",
+  "IssuingAuthorityAr": "المكلا",
+  "IssuingAuthorityEn": "MUKALLA"
+}

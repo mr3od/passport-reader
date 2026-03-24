@@ -1,0 +1,43 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "scanned",
+    "layout": "single_page",
+    "image_quality": "good",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.40.16.jpeg",
+    "reasoning": "Standard passport data page scan, high clarity."
+  },
+  "PassportNumber": "13685933",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMABDULLAH<<ZAINAH<MUBARAK<MOHAMMED<SAEED",
+  "MrzLine2": "13685933<2YEM7001017F3004010<<<<<<<<<<<<<<08",
+  "SurnameAr": "عبدالله",
+  "GivenNameTokensAr": [
+    "زينه",
+    "مبارك",
+    "محمد",
+    "سعيد"
+  ],
+  "SurnameEn": "ABDULLAH",
+  "GivenNameTokensEn": [
+    "ZAINAH",
+    "MUBARAK",
+    "MOHAMMED",
+    "SAEED"
+  ],
+  "DateOfBirth": "01/01/1970",
+  "PlaceOfBirthAr": "اليمن - أرخبيل سقطرى",
+  "PlaceOfBirthEn": "SOCOTRA - YEM",
+  "BirthCityAr": "أرخبيل سقطرى",
+  "BirthCityEn": "SOCOTRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "F",
+  "DateOfIssue": "01/04/2024",
+  "DateOfExpiry": "01/04/2030",
+  "ProfessionAr": "ربة بيت",
+  "ProfessionEn": "HOUSE WIFE",
+  "IssuingAuthorityAr": "سقطرى",
+  "IssuingAuthorityEn": "Socotra"
+}

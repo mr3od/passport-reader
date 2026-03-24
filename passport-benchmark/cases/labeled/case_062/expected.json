@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "photographed",
+    "layout": "single_page",
+    "image_quality": "good",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.40.32.jpeg",
+    "reasoning": "Standard single-page passport image, clear and readable."
+  },
+  "PassportNumber": "13685881",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMAHMED<<ABDULBASET<ALI<ABDELLAH<<<<<<<<<",
+  "MrzLine2": "13685881<0YEM8605261M3003253<<<<<<<<<<<<<<00",
+  "SurnameAr": "أحمد",
+  "GivenNameTokensAr": [
+    "عبدالباسط",
+    "علي",
+    "عبدالله"
+  ],
+  "SurnameEn": "AHMED",
+  "GivenNameTokensEn": [
+    "ABDULBASET",
+    "ALI",
+    "ABDELLAH"
+  ],
+  "DateOfBirth": "26/05/1986",
+  "PlaceOfBirthAr": "اليمن - أرخبيل سقطرى",
+  "PlaceOfBirthEn": "SOCOTRA - YEM",
+  "BirthCityAr": "أرخبيل سقطرى",
+  "BirthCityEn": "SOCOTRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "M",
+  "DateOfIssue": "25/03/2024",
+  "DateOfExpiry": "25/03/2030",
+  "ProfessionAr": "طالب",
+  "ProfessionEn": "STUDENT",
+  "IssuingAuthorityAr": "سقطرى",
+  "IssuingAuthorityEn": "Socotra"
+}

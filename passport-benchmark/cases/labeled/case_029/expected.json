@@ -1,0 +1,43 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "scanned",
+    "layout": "single_page",
+    "image_quality": "good",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.39.38.jpeg",
+    "reasoning": "This is a clear, single-page scan of a yemeni passport data page."
+  },
+  "PassportNumber": "15680035",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMHUSSEIN<<TURKI<AHMED<KHAMIS<GUMAAN<<<<<",
+  "MrzLine2": "15680035<0YEM1904046M3111208<<<<<<<<<<<<<<06",
+  "SurnameAr": "حسين",
+  "GivenNameTokensAr": [
+    "تركي",
+    "احمد",
+    "خميس",
+    "جمعان"
+  ],
+  "SurnameEn": "HUSSEIN",
+  "GivenNameTokensEn": [
+    "TURKI",
+    "AHMED",
+    "KHAMIS",
+    "GUMAAN"
+  ],
+  "DateOfBirth": "04/04/2019",
+  "PlaceOfBirthAr": "اليمن - أرخبيل سقطرى",
+  "PlaceOfBirthEn": "SOCOTRA - YEM",
+  "BirthCityAr": "أرخبيل سقطرى",
+  "BirthCityEn": "SOCOTRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "M",
+  "DateOfIssue": "20/11/2025",
+  "DateOfExpiry": "20/11/2031",
+  "ProfessionAr": "طفل",
+  "ProfessionEn": "CHILD",
+  "IssuingAuthorityAr": "سقطرى",
+  "IssuingAuthorityEn": "Socotra"
+}

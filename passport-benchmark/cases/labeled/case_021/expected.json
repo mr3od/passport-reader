@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "scanned",
+    "layout": "single_page",
+    "image_quality": "good",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.39.26.jpeg",
+    "reasoning": "Clean single data page scan. All identity fields and MRZ are readable. Issuing authority is MUKALLA / المكلا, distinct from the birthplace fields. Birthplace uses the longer Suqatra locality form."
+  },
+  "PassportNumber": "11132947",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMABDULLAH<<RASHED<ABBAS<SULAIMAN<<<<<<<<",
+  "MrzLine2": "11132947<6YEM6301019M2808222<<<<<<<<<<<<<<04",
+  "SurnameAr": "عبدالله",
+  "GivenNameTokensAr": [
+    "راشد",
+    "عباس",
+    "سليمان"
+  ],
+  "SurnameEn": "ABDULLAH",
+  "GivenNameTokensEn": [
+    "RASHED",
+    "ABBAS",
+    "SULAIMAN"
+  ],
+  "DateOfBirth": "01/01/1963",
+  "PlaceOfBirthAr": "اليمن - أرخبيل سقطره",
+  "PlaceOfBirthEn": "SUQATRA - YEM",
+  "BirthCityAr": "أرخبيل سقطره",
+  "BirthCityEn": "SUQATRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "M",
+  "DateOfIssue": "22/08/2022",
+  "DateOfExpiry": "22/08/2028",
+  "ProfessionAr": "موظف",
+  "ProfessionEn": "EMPLOYEE",
+  "IssuingAuthorityAr": "المكلا",
+  "IssuingAuthorityEn": "MUKALLA"
+}

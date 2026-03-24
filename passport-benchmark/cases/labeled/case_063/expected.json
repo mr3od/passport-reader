@@ -1,0 +1,43 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "scanned",
+    "layout": "single_page",
+    "image_quality": "good",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.40.34.jpeg",
+    "reasoning": "Standard yemen passport data page, good quality scan."
+  },
+  "PassportNumber": "14324872",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMABDULLAH<<MOHAMMED<ALI<TALEB<HUSSEIN<<<",
+  "MrzLine2": "14324872<1YEM6102021M3103201<<<<<<<<<<<<<<08",
+  "SurnameAr": "عبدالله",
+  "GivenNameTokensAr": [
+    "محمد",
+    "علي",
+    "طالب",
+    "حسين"
+  ],
+  "SurnameEn": "ABDULLAH",
+  "GivenNameTokensEn": [
+    "MOHAMMED",
+    "ALI",
+    "TALEB",
+    "HUSSEIN"
+  ],
+  "DateOfBirth": "02/02/1961",
+  "PlaceOfBirthAr": "اليمن - أرخبيل سقطرى",
+  "PlaceOfBirthEn": "SOCOTRA - YEM",
+  "BirthCityAr": "أرخبيل سقطرى",
+  "BirthCityEn": "SOCOTRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "M",
+  "DateOfIssue": "20/03/2025",
+  "DateOfExpiry": "20/03/2031",
+  "ProfessionAr": "عمل خاص",
+  "ProfessionEn": "PRIVATE JOB",
+  "IssuingAuthorityAr": "سقطرى",
+  "IssuingAuthorityEn": "Socotra"
+}

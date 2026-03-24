@@ -1,0 +1,43 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "photographed",
+    "layout": "single_page",
+    "image_quality": "good",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.40.15.jpeg",
+    "reasoning": "The image is a direct, clear photograph of a single passport data page."
+  },
+  "PassportNumber": "09491615",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMALHAMED<<MANAL<MOHAMMED<SALEM<MOHAMMED<",
+  "MrzLine2": "09491615<5YEM8801018F2701286<<<<<<<<<<<<<<02",
+  "SurnameAr": "الحامد",
+  "GivenNameTokensAr": [
+    "منال",
+    "محمد",
+    "سالم",
+    "محمد"
+  ],
+  "SurnameEn": "AL-HAMED",
+  "GivenNameTokensEn": [
+    "MANAL",
+    "MOHAMMED",
+    "SALEM",
+    "MOHAMMED"
+  ],
+  "DateOfBirth": "01/01/1988",
+  "PlaceOfBirthAr": "اليمن - ارخبيل سقطره",
+  "PlaceOfBirthEn": "SUQATRA - YEM",
+  "BirthCityAr": "ارخبيل سقطره",
+  "BirthCityEn": "SUQATRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "F",
+  "DateOfIssue": "28/01/2021",
+  "DateOfExpiry": "28/01/2027",
+  "ProfessionAr": "ربة بيت",
+  "ProfessionEn": "HOUSE WIFE",
+  "IssuingAuthorityAr": "المكلا",
+  "IssuingAuthorityEn": "MUKALLA"
+}

@@ -1,0 +1,43 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "photographed",
+    "layout": "single_page",
+    "image_quality": "good",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.39.25 (1).jpeg",
+    "reasoning": "Clear single passport data page photo. Identity fields and MRZ are readable. Birthplace uses the longer Socotra locality form while issuing authority stays the shorter Socotra authority label."
+  },
+  "PassportNumber": "15358639",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMALORQBI<<SENA<SAEED<AHMED<SAEED<<<<<<<<",
+  "MrzLine2": "15358639<8YEM8005034F3105261<<<<<<<<<<<<<<04",
+  "SurnameAr": "العرقبي",
+  "GivenNameTokensAr": [
+    "سيناء",
+    "سعيد",
+    "احمد",
+    "سعيد"
+  ],
+  "SurnameEn": "AL-ORQBI",
+  "GivenNameTokensEn": [
+    "SENA",
+    "SAEED",
+    "AHMED",
+    "SAEED"
+  ],
+  "DateOfBirth": "03/05/1980",
+  "PlaceOfBirthAr": "اليمن - أرخبيل سقطرى",
+  "PlaceOfBirthEn": "SOCOTRA - YEM",
+  "BirthCityAr": "أرخبيل سقطرى",
+  "BirthCityEn": "SOCOTRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "F",
+  "DateOfIssue": "26/05/2025",
+  "DateOfExpiry": "26/05/2031",
+  "ProfessionAr": "ربة بيت",
+  "ProfessionEn": "HOUSE WIFE",
+  "IssuingAuthorityAr": "سقطرى",
+  "IssuingAuthorityEn": "Socotra"
+}

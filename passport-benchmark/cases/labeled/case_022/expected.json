@@ -1,0 +1,43 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "scanned",
+    "layout": "single_page",
+    "image_quality": "good",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.39.27 (1).jpeg",
+    "reasoning": "Clean single data page scan. Four English given-name tokens are all clearly visible and must be preserved. Birthplace uses the longer Suqatra locality form, while issuing authority is the shorter Socotra authority label."
+  },
+  "PassportNumber": "13686864",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMALI<<MAZEN<SAAD<SALEM<SAAD<<<<<<<<<<<<<",
+  "MrzLine2": "13686864<8YEM9201017M3007309<<<<<<<<<<<<<<04",
+  "SurnameAr": "علي",
+  "GivenNameTokensAr": [
+    "مازن",
+    "سعد",
+    "سالم",
+    "سعد"
+  ],
+  "SurnameEn": "ALI",
+  "GivenNameTokensEn": [
+    "MAZEN",
+    "SAAD",
+    "SALEM",
+    "SAAD"
+  ],
+  "DateOfBirth": "01/01/1992",
+  "PlaceOfBirthAr": "اليمن - أرخبيل سقطره",
+  "PlaceOfBirthEn": "SUQATRA - YEM",
+  "BirthCityAr": "أرخبيل سقطره",
+  "BirthCityEn": "SUQATRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "M",
+  "DateOfIssue": "30/07/2024",
+  "DateOfExpiry": "30/07/2030",
+  "ProfessionAr": "طالب",
+  "ProfessionEn": "STUDENT",
+  "IssuingAuthorityAr": "سقطرى",
+  "IssuingAuthorityEn": "Socotra"
+}

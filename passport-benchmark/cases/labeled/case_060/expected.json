@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "scanned",
+    "layout": "single_page",
+    "image_quality": "good",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.40.31.jpeg",
+    "reasoning": "Passport data page scanned in good quality."
+  },
+  "PassportNumber": "12189243",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMABDULLAH<<AISHA<ADEL<OMAR<<<<<<<<<<<<<<",
+  "MrzLine2": "12189243<6YEM0111274F2905154<<<<<<<<<<<<<<08",
+  "SurnameAr": "عبدالله",
+  "GivenNameTokensAr": [
+    "عائشه",
+    "عادل",
+    "عمر"
+  ],
+  "SurnameEn": "ABDULLAH",
+  "GivenNameTokensEn": [
+    "AISHA",
+    "ADEL",
+    "OMAR"
+  ],
+  "DateOfBirth": "27/11/2001",
+  "PlaceOfBirthAr": "اليمن - أرخبيل سقطرى",
+  "PlaceOfBirthEn": "SOCOTRA - YEM",
+  "BirthCityAr": "أرخبيل سقطرى",
+  "BirthCityEn": "SOCOTRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "F",
+  "DateOfIssue": "15/05/2023",
+  "DateOfExpiry": "15/05/2029",
+  "ProfessionAr": "طالبة",
+  "ProfessionEn": "STUDENT",
+  "IssuingAuthorityAr": "سقطرى",
+  "IssuingAuthorityEn": "Socotra"
+}

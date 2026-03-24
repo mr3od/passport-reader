@@ -1,0 +1,40 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "scanned",
+    "layout": "single_page",
+    "image_quality": "good",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.39.59.jpeg",
+    "reasoning": "Standard passport data page scan, clear quality."
+  },
+  "PassportNumber": "15680900",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMSALEM<<SALEM<MUBARAK<NEHIS<<<<<<<<<<<<<",
+  "MrzLine2": "15680900<3YEM5905029M3202104<<<<<<<<<<<<<<04",
+  "SurnameAr": "سالم",
+  "GivenNameTokensAr": [
+    "سالم",
+    "مبارك",
+    "نحيش"
+  ],
+  "SurnameEn": "SALEM",
+  "GivenNameTokensEn": [
+    "SALEM",
+    "MUBARAK"
+  ],
+  "DateOfBirth": "02/05/1959",
+  "PlaceOfBirthAr": "اليمن - ارخبيل سقطرى",
+  "PlaceOfBirthEn": "SOCOTRA - YEM",
+  "BirthCityAr": "ارخبيل سقطرى",
+  "BirthCityEn": "SOCOTRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "M",
+  "DateOfIssue": "10/02/2026",
+  "DateOfExpiry": "10/02/2032",
+  "ProfessionAr": "عامل",
+  "ProfessionEn": "LABORER",
+  "IssuingAuthorityAr": "سقطرى",
+  "IssuingAuthorityEn": "Socotra"
+}

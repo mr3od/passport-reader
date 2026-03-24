@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "scanned",
+    "layout": "single_page",
+    "image_quality": "good",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.39.51.jpeg",
+    "reasoning": "Standard flat scan of a yemeni passport data page."
+  },
+  "PassportNumber": "10804190",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMALI<<WAFA<SAEED<ALFAN<<<<<<<<<<<<<<<<<<",
+  "MrzLine2": "10804190<1YEM9704068F2802297<<<<<<<<<<<<<<08",
+  "SurnameAr": "علي",
+  "GivenNameTokensAr": [
+    "وفاء",
+    "سعيد",
+    "الفان"
+  ],
+  "SurnameEn": "ALI",
+  "GivenNameTokensEn": [
+    "WAFA",
+    "SAEED",
+    "ALFAN"
+  ],
+  "DateOfBirth": "06/04/1997",
+  "PlaceOfBirthAr": "اليمن - أرخبيل سقطره",
+  "PlaceOfBirthEn": "SUQATRA - YEM",
+  "BirthCityAr": "أرخبيل سقطره",
+  "BirthCityEn": "SUQATRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "F",
+  "DateOfIssue": "28/02/2022",
+  "DateOfExpiry": "29/02/2028",
+  "ProfessionAr": "طالبة",
+  "ProfessionEn": "STUDENT",
+  "IssuingAuthorityAr": "المكلا",
+  "IssuingAuthorityEn": "MUKALLA"
+}
