@@ -31,6 +31,10 @@ Do this before any other backlog item — it pays forward to every agent session
 
 ### P1. Remove direct `passport-core` dependency from `passport-telegram`
 
+Status
+- Completed by `codex`
+- `passport-telegram` now depends on `passport-platform` builders and result views only.
+
 **Goal**
 - `passport-telegram` depends only on `passport-platform`.
 
@@ -50,6 +54,10 @@ Do this before any other backlog item — it pays forward to every agent session
 - `passport-telegram` does not relay through `passport-api`
 
 ### P2. Centralize runtime/service construction in `passport-platform`
+
+Status
+- Completed by `codex`
+- Shared runtime builders now construct adapter services from `passport-platform`.
 
 **Goal**
 - shared builders in `passport-platform` construct runtime services for adapters

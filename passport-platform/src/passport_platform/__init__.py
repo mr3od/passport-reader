@@ -17,12 +17,19 @@ from passport_platform.errors import (
     UnsupportedExternalProviderError,
     UserBlockedError,
 )
-from passport_platform.factory import build_processing_service
+from passport_platform.factory import (
+    PlatformRuntime,
+    ProcessingRuntime,
+    build_platform_runtime,
+    build_processing_runtime,
+    build_processing_service,
+)
 from passport_platform.schemas import (
     AuthenticatedSession,
     IssuedExtensionSession,
     IssuedTempToken,
     MonthlyUsageReport,
+    PassportExtractionView,
     ProcessUploadCommand,
     QuotaDecision,
     RecentUploadRecord,
@@ -50,9 +57,12 @@ __all__ = [
     "IssuedExtensionSession",
     "IssuedTempToken",
     "MonthlyUsageReport",
+    "PassportExtractionView",
     "PlanName",
     "PlatformSettings",
+    "PlatformRuntime",
     "ProcessUploadCommand",
+    "ProcessingRuntime",
     "ProcessingFailedError",
     "ProcessingService",
     "QuotaDecision",
@@ -61,6 +71,8 @@ __all__ = [
     "RecentUploadRecord",
     "RecordsService",
     "ReportingService",
+    "build_platform_runtime",
+    "build_processing_runtime",
     "build_processing_service",
     "LocalArtifactStore",
     "TrackedProcessingResult",

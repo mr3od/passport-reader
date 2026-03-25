@@ -7,7 +7,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
 from fastapi.responses import FileResponse
 from passport_platform import AuthenticatedSession, ProcessUploadCommand
 from passport_platform.enums import ChannelName, ExternalProvider, PlanName
-
 from passport_platform.strings import RECORD_IMAGE_NOT_ON_DISK, RECORD_NO_IMAGE, RECORD_NOT_FOUND
 
 from passport_api.deps import get_api_services, get_authenticated_session
@@ -82,14 +81,10 @@ def get_record_image(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=RECORD_NOT_FOUND)
     uri = record.passport_image_uri
     if not uri:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=RECORD_NO_IMAGE
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=RECORD_NO_IMAGE)
     path = Path(uri)
     if not path.exists():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=RECORD_IMAGE_NOT_ON_DISK
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=RECORD_IMAGE_NOT_ON_DISK)
     return FileResponse(path, media_type=record.mime_type or "image/jpeg")
 
 

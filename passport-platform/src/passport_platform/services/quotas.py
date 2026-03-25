@@ -51,10 +51,11 @@ class QuotaService:
         reason: str | None = None
         allowed = remaining_uploads > 0 and remaining_successes > 0
         if not allowed:
-            if remaining_uploads == 0:
-                reason = QUOTA_UPLOADS_EXCEEDED
-            else:
-                reason = QUOTA_SUCCESSES_EXCEEDED
+            reason = (
+                QUOTA_UPLOADS_EXCEEDED
+                if remaining_uploads == 0
+                else QUOTA_SUCCESSES_EXCEEDED
+            )
 
         return QuotaDecision(
             allowed=allowed,

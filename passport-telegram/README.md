@@ -1,8 +1,8 @@
 # Passport Telegram
 
-`passport-telegram` is the first user-facing adapter for `passport-core`.
+`passport-telegram` is the agency-facing Telegram adapter for `passport-platform`.
 
-It receives passport images from Telegram users, downloads the image bytes, hands the request to `passport-platform` for user/quota/upload orchestration, then runs `passport-core` through that shared processing service. Successful results are returned as one media group that contains:
+It receives passport images from Telegram users, downloads the image bytes, and hands the request to `passport-platform`. Telegram does not construct or import `passport-core` directly; `passport-platform` owns the shared runtime builders and processing orchestration. Successful results are returned as one media group that contains:
 
 - the original passport image
 - the cropped face image
@@ -70,6 +70,7 @@ Notes:
 - supports media groups by collecting images briefly, then processing them as one batch
 - replies in Arabic
 - returns each successful result as one two-image media group with an Arabic-first caption
+- depends on `passport-platform` only at the Python package boundary
 - formats extracted values in the caption for easier copying into منصة نسك forms
 - returns partial failure messages when the image is not a passport or when face crop fails
 - directs agencies to `@mr3od` or `@naaokun` for clarifications or plan changes

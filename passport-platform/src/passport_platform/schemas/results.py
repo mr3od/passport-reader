@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
+
+from pydantic import BaseModel, Field
 
 from passport_platform.enums import PlanName, UploadStatus, UserStatus
 from passport_platform.models.upload import ProcessingResult, Upload
@@ -12,6 +14,35 @@ if TYPE_CHECKING:
     from passport_core.workflow import PassportWorkflowResult
 else:
     PassportWorkflowResult = Any
+
+
+class PassportExtractionView(BaseModel):
+    """Adapter-safe projection of extracted passport data."""
+
+    passport_number: str | None = None
+    country_code: str | None = None
+    surname_ar: str | None = None
+    given_names_ar: str | None = None
+    given_name_tokens_ar: list[str] = Field(default_factory=list)
+    full_name_ar: str | None = None
+    surname_en: str | None = None
+    given_names_en: str | None = None
+    given_name_tokens_en: list[str] = Field(default_factory=list)
+    full_name_en: str | None = None
+    date_of_birth: str | None = None
+    place_of_birth_ar: str | None = None
+    place_of_birth_en: str | None = None
+    birth_city_ar: str | None = None
+    birth_city_en: str | None = None
+    birth_country_ar: str | None = None
+    birth_country_en: str | None = None
+    sex: str | None = None
+    date_of_issue: str | None = None
+    date_of_expiry: str | None = None
+    profession_ar: str | None = None
+    profession_en: str | None = None
+    issuing_authority_ar: str | None = None
+    issuing_authority_en: str | None = None
 
 
 @dataclass(slots=True)
@@ -35,6 +66,45 @@ class TrackedProcessingResult:
     quota_decision: QuotaDecision
     workflow_result: PassportWorkflowResult
     processing_result: ProcessingResult
+
+    @property
+    def filename(self) -> str:
+        return self.upload.filename
+
+    @property
+    def mime_type(self) -> str:
+        return self.upload.mime_type
+
+    @property
+    def source_ref(self) -> str:
+        return self.upload.source_ref
+
+    @property
+    def is_passport(self) -> bool:
+        return self.processing_result.is_passport
+
+    @property
+    def has_face_crop(self) -> bool:
+        return self.processing_result.has_face
+
+    @property
+    def is_complete(self) -> bool:
+        return self.processing_result.is_complete
+
+    @property
+    def image_bytes(self) -> bytes:
+        image_bytes = getattr(self.workflow_result, "image_bytes", None)
+        return image_bytes if isinstance(image_bytes, bytes) else b""
+
+    @property
+    def face_crop_bytes(self) -> bytes | None:
+        face_crop_bytes = getattr(self.workflow_result, "face_crop_bytes", None)
+        return face_crop_bytes if isinstance(face_crop_bytes, bytes) else None
+
+    @property
+    def extracted_data(self) -> PassportExtractionView | None:
+        data = getattr(self.workflow_result, "data", None)
+        return _build_extraction_view(data)
 
 
 @dataclass(slots=True)
@@ -99,3 +169,77 @@ class UserRecord:
     masar_status: str | None
     masar_mutamer_id: str | None
     masar_scan_result: dict[str, Any] | None
+
+
+def _build_extraction_view(data: object | None) -> PassportExtractionView | None:
+    """Map either legacy v1 or v2 passport-core data into a stable adapter view."""
+    if data is None:
+        return None
+
+    given_name_tokens_ar = _token_list_value(data, "GivenNameTokensAr")
+    given_name_tokens_en = _token_list_value(data, "GivenNameTokensEn")
+    given_names_ar = _string_value(data, "GivenNamesAr") or _join_tokens(given_name_tokens_ar)
+    given_names_en = _string_value(data, "GivenNamesEn") or _join_tokens(given_name_tokens_en)
+    surname_ar = _string_value(data, "SurnameAr")
+    surname_en = _string_value(data, "SurnameEn")
+
+    return PassportExtractionView(
+        passport_number=_string_value(data, "PassportNumber"),
+        country_code=_string_value(data, "CountryCode"),
+        surname_ar=surname_ar,
+        given_names_ar=given_names_ar,
+        given_name_tokens_ar=given_name_tokens_ar,
+        full_name_ar=_join_values(given_names_ar, surname_ar),
+        surname_en=surname_en,
+        given_names_en=given_names_en,
+        given_name_tokens_en=given_name_tokens_en,
+        full_name_en=_join_values(given_names_en, surname_en),
+        date_of_birth=_string_value(data, "DateOfBirth"),
+        place_of_birth_ar=_string_value(data, "PlaceOfBirthAr"),
+        place_of_birth_en=_string_value(data, "PlaceOfBirthEn"),
+        birth_city_ar=_string_value(data, "BirthCityAr"),
+        birth_city_en=_string_value(data, "BirthCityEn"),
+        birth_country_ar=_string_value(data, "BirthCountryAr"),
+        birth_country_en=_string_value(data, "BirthCountryEn"),
+        sex=_string_value(data, "Sex"),
+        date_of_issue=_string_value(data, "DateOfIssue"),
+        date_of_expiry=_string_value(data, "DateOfExpiry"),
+        profession_ar=_string_value(data, "ProfessionAr"),
+        profession_en=_string_value(data, "ProfessionEn"),
+        issuing_authority_ar=_string_value(data, "IssuingAuthorityAr"),
+        issuing_authority_en=_string_value(data, "IssuingAuthorityEn"),
+    )
+
+
+def _data_value(data: object, field_name: str) -> object | None:
+    if isinstance(data, dict):
+        return cast(dict[str, object], data).get(field_name)
+    return getattr(data, field_name, None)
+
+
+def _string_value(data: object, field_name: str) -> str | None:
+    value = _data_value(data, field_name)
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip()
+    return normalized or None
+
+
+def _token_list_value(data: object, field_name: str) -> list[str]:
+    value = _data_value(data, field_name)
+    if not isinstance(value, list):
+        return []
+    return [item.strip() for item in value if isinstance(item, str) and item.strip()]
+
+
+def _join_tokens(values: list[str]) -> str | None:
+    if not values:
+        return None
+    return " ".join(values)
+
+
+def _join_values(*values: str | None) -> str | None:
+    normalized = [value.strip() for value in values if isinstance(value, str) and value.strip()]
+    if not normalized:
+        return None
+    return " ".join(normalized)

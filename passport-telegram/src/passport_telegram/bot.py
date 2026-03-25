@@ -6,17 +6,13 @@ import mimetypes
 from dataclasses import dataclass, field
 from io import BytesIO
 from pathlib import Path
+from typing import Any, cast
 
-from passport_core import PassportWorkflow
-from passport_core.config import Settings as CoreSettings
 from passport_platform import (
     AuthService,
     ChannelName,
-    Database,
     ExternalProvider,
-    LocalArtifactStore,
     PlanName,
-    PlatformSettings,
     ProcessingFailedError,
     ProcessingService,
     ProcessUploadCommand,
@@ -24,18 +20,11 @@ from passport_platform import (
     QuotaService,
     RecordsService,
     ReportingService,
-    UploadService,
     UserBlockedError,
     UserService,
     UserStatus,
-)
-from passport_platform.repositories import (
-    AuthTokensRepository,
-    RecordsRepository,
-    ReportingRepository,
-    UploadsRepository,
-    UsageRepository,
-    UsersRepository,
+    build_platform_runtime,
+    build_processing_runtime,
 )
 from passport_platform.schemas.commands import EnsureUserCommand
 from telegram import Document, InputMediaPhoto, Message, PhotoSize, Update
@@ -297,18 +286,19 @@ async def usage_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 external_user_id=_external_user_id(update),
                 display_name=_display_name(update),
             ),
-        )
+    )
         report = await asyncio.to_thread(services.reporting.get_user_usage_report, user.id)
         await _reply_text(update, format_user_usage_report(report))
         return
     if not await _require_admin(update, context):
         return
-    if len(context.args) != 1:
+    args = context.args or []
+    if len(args) != 1:
         await _reply_text(update, admin_usage_help_text())
         return
-    user = services.users.get_by_external_identity(ExternalProvider.TELEGRAM, context.args[0])
+    user = services.users.get_by_external_identity(ExternalProvider.TELEGRAM, args[0])
     if user is None:
-        await _reply_text(update, user_not_found_text(context.args[0]))
+        await _reply_text(update, user_not_found_text(args[0]))
         return
     report = await asyncio.to_thread(services.reporting.get_user_usage_report, user.id)
     await _reply_text(update, format_user_usage_report(report))
@@ -317,16 +307,17 @@ async def usage_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 async def setplan_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not await _require_admin(update, context):
         return
-    if len(context.args) != 2:
+    args = context.args or []
+    if len(args) != 2:
         await _reply_text(update, admin_setplan_help_text())
         return
     services: BotServices = context.application.bot_data["services"]
-    user = services.users.get_by_external_identity(ExternalProvider.TELEGRAM, context.args[0])
+    user = services.users.get_by_external_identity(ExternalProvider.TELEGRAM, args[0])
     if user is None:
-        await _reply_text(update, user_not_found_text(context.args[0]))
+        await _reply_text(update, user_not_found_text(args[0]))
         return
     try:
-        plan = PlanName(context.args[1].lower())
+        plan = PlanName(args[1].lower())
     except ValueError:
         await _reply_text(update, admin_setplan_help_text())
         return
@@ -376,7 +367,11 @@ async def image_message_handler(update: Update, context: ContextTypes.DEFAULT_TY
         if existing_job is not None:
             existing_job.schedule_removal()
 
-        jobs[key] = context.job_queue.run_once(
+        job_queue = context.job_queue
+        if job_queue is None:
+            raise RuntimeError("telegram job queue is not configured")
+
+        jobs[key] = job_queue.run_once(
             flush_media_group,
             when=settings.album_collection_window_seconds,
             data={"key": key},
@@ -394,7 +389,12 @@ async def image_message_handler(update: Update, context: ContextTypes.DEFAULT_TY
 
 
 async def flush_media_group(context: ContextTypes.DEFAULT_TYPE) -> None:
-    key = context.job.data["key"]
+    job = context.job
+    if job is None or not isinstance(job.data, dict):
+        return
+    key = cast(Any, job.data).get("key")
+    if not isinstance(key, str):
+        return
     collector: MediaGroupCollector = context.application.bot_data["collector"]
     jobs: dict[str, object] = context.application.bot_data["media_group_jobs"]
     pending = collector.pop(key)
@@ -464,7 +464,6 @@ async def process_upload_batch(
                     external_file_id=upload.external_file_id,
                 ),
             )
-            result = tracked.workflow_result
         except QuotaExceededError as exc:
             await context.bot.send_message(chat_id=chat_id, text=quota_exceeded_text(exc.decision))
             break
@@ -480,18 +479,18 @@ async def process_upload_batch(
             await context.bot.send_message(chat_id=chat_id, text=processing_error_text())
             continue
 
-        if not result.is_complete:
+        if not tracked.is_complete:
             await context.bot.send_message(
                 chat_id=chat_id,
-                text=format_failure_text(result, position=index, total=len(batch)),
+                text=format_failure_text(tracked, position=index, total=len(batch)),
             )
             continue
 
         await context.bot.send_media_group(
             chat_id=chat_id,
             media=_build_success_media_group(
-                result=result,
-                caption=format_success_text(result, position=index, total=len(batch)),
+                result=tracked,
+                caption=format_success_text(tracked, position=index, total=len(batch)),
             ),
         )
 
@@ -503,68 +502,28 @@ async def telegram_error_handler(
     logging.getLogger(__name__).exception("telegram_update_failed", exc_info=context.error)
 
 
-def _build_processing_service(settings: TelegramSettings) -> ProcessingService:
-    return _build_bot_services(settings).processing
-
-
 def _build_bot_services(settings: TelegramSettings) -> BotServices:
-    core_settings = _build_core_settings(settings)
-    workflow = PassportWorkflow(settings=core_settings)
-    platform_settings = _build_platform_settings(settings)
-    db = Database(platform_settings.db_path)
-    db.initialize()
-    users = UserService(UsersRepository(db))
-    auth = AuthService(AuthTokensRepository(db), users)
-    usage = UsageRepository(db)
-    quotas = QuotaService(usage)
-    uploads = UploadService(UploadsRepository(db), usage)
-    processing = ProcessingService(
-        users=users,
-        quotas=quotas,
-        uploads=uploads,
-        workflow=workflow,
-        artifacts=LocalArtifactStore(platform_settings.artifacts_dir),
+    platform_runtime = build_platform_runtime(
+        platform_env_file=settings.platform_env_file,
+        platform_root_dir=settings.platform_root_dir,
     )
-    reporting = ReportingService(
-        users=users,
-        quotas=quotas,
-        reporting=ReportingRepository(db),
+    processing_runtime = build_processing_runtime(
+        platform_runtime=platform_runtime,
+        core_env_file=settings.core_env_file,
+        core_root_dir=settings.core_root_dir,
     )
-    records = RecordsService(RecordsRepository(db))
+    processing = processing_runtime.processing
+    if processing is None:
+        raise RuntimeError("passport-core runtime is not configured for passport-telegram")
+
     return BotServices(
-        auth=auth,
+        auth=platform_runtime.auth,
         processing=processing,
-        users=users,
-        quotas=quotas,
-        reporting=reporting,
-        records=records,
+        users=platform_runtime.users,
+        quotas=platform_runtime.quotas,
+        reporting=platform_runtime.reporting,
+        records=platform_runtime.records,
     )
-
-
-def _build_core_settings(settings: TelegramSettings) -> CoreSettings:
-    core_settings = CoreSettings(_env_file=settings.core_env_file)
-    root = settings.core_root_dir
-
-    core_settings.assets_dir = _resolve_path(root, core_settings.assets_dir)
-    core_settings.template_path = _resolve_path(root, core_settings.template_path)
-    core_settings.face_model_path = _resolve_path(root, core_settings.face_model_path)
-    return core_settings
-
-
-def _build_platform_settings(settings: TelegramSettings) -> PlatformSettings:
-    platform_settings = PlatformSettings(_env_file=settings.platform_env_file)
-    platform_settings.db_path = _resolve_path(settings.platform_root_dir, platform_settings.db_path)
-    platform_settings.artifacts_dir = _resolve_path(
-        settings.platform_root_dir,
-        platform_settings.artifacts_dir,
-    )
-    return platform_settings
-
-
-def _resolve_path(root: Path, value: Path) -> Path:
-    if value.is_absolute():
-        return value
-    return (root / value).resolve()
 
 
 async def _download_upload(
@@ -679,13 +638,14 @@ async def _set_user_status(
 ) -> None:
     if not await _require_admin(update, context):
         return
-    if len(context.args) != 1:
+    args = context.args or []
+    if len(args) != 1:
         await _reply_text(update, admin_status_help_text(command_name))
         return
     services: BotServices = context.application.bot_data["services"]
-    user = services.users.get_by_external_identity(ExternalProvider.TELEGRAM, context.args[0])
+    user = services.users.get_by_external_identity(ExternalProvider.TELEGRAM, args[0])
     if user is None:
-        await _reply_text(update, user_not_found_text(context.args[0]))
+        await _reply_text(update, user_not_found_text(args[0]))
         return
     updated = services.users.change_status(user.id, status)
     await _reply_text(update, user_status_updated_text(updated))

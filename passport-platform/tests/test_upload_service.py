@@ -82,12 +82,15 @@ def test_register_upload_creates_upload_and_usage_entry(tmp_path) -> None:
 
     assert upload.status is UploadStatus.RECEIVED
     period_start, period_end = _month_window(upload.created_at)
-    assert usage.sum_units_for_period(
-        user_id=user.id,
-        event_type=UsageEventType.UPLOAD_RECEIVED,
-        period_start=period_start,
-        period_end=period_end,
-    ) == 1
+    assert (
+        usage.sum_units_for_period(
+            user_id=user.id,
+            event_type=UsageEventType.UPLOAD_RECEIVED,
+            period_start=period_start,
+            period_end=period_end,
+        )
+        == 1
+    )
 
 
 def test_record_processing_result_marks_upload_complete_and_records_usage(tmp_path) -> None:
@@ -136,9 +139,12 @@ def test_record_processing_result_marks_upload_complete_and_records_usage(tmp_pa
     assert stored_upload is not None
     assert stored_upload.status is UploadStatus.PROCESSED
     period_start, period_end = _month_window(stored_upload.created_at)
-    assert usage.sum_units_for_period(
-        user_id=user.id,
-        event_type=UsageEventType.SUCCESSFUL_PROCESS,
-        period_start=period_start,
-        period_end=period_end,
-    ) == 1
+    assert (
+        usage.sum_units_for_period(
+            user_id=user.id,
+            event_type=UsageEventType.SUCCESSFUL_PROCESS,
+            period_start=period_start,
+            period_end=period_end,
+        )
+        == 1
+    )

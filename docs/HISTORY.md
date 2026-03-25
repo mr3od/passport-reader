@@ -2,6 +2,14 @@
 
 Agent-maintained log of significant changes. Each entry records what was done and who did it.
 
+## 2026-03-24 — upstream runtime boundary cleanup [codex]
+
+- Added shared `passport-platform` runtime builders for adapters
+- Added adapter-safe extracted-data/result accessors on `TrackedProcessingResult`
+- Refactored `passport-api` to build services through `passport-platform`
+- Refactored `passport-telegram` to use `passport-platform` only and removed its direct `passport-core` dependency
+- Updated backlog and package READMEs to reflect completed P1/P2 runtime boundary work
+
 ## 2026-03-24 — prompt and token validation updates [codex]
 
 - Added prompt design notes in `docs/PROMPT-DESIGN.md`

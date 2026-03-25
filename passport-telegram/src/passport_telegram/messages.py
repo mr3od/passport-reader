@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from datetime import UTC
 
-from passport_core import PassportWorkflowResult
 from passport_platform import (
     IssuedTempToken,
     MonthlyUsageReport,
     QuotaDecision,
     RecentUploadRecord,
+    TrackedProcessingResult,
     UserUsageReport,
 )
 from passport_platform.models.user import User
@@ -74,10 +74,10 @@ def batch_limit_exceeded_text(*, total: int, limit: int) -> str:
     )
 
 
-def format_failure_text(result: PassportWorkflowResult, *, position: int, total: int) -> str:
+def format_failure_text(result: TrackedProcessingResult, *, position: int, total: int) -> str:
     prefix = f"الصورة {position} من {total}\n" if total > 1 else ""
 
-    if not result.validation.is_passport:
+    if not result.is_passport:
         return (
             prefix + "تعذر التحقق من أن الصورة تخص جوازًا صالحًا للمعالجة. "
             "تأكد من وضوح الصورة وإظهار كامل صفحة الجواز."
@@ -92,29 +92,26 @@ def format_failure_text(result: PassportWorkflowResult, *, position: int, total:
     return prefix + "تعذر إكمال معالجة الصورة الحالية. يُرجى إعادة المحاولة بصورة أوضح."
 
 
-def format_success_text(result: PassportWorkflowResult, *, position: int, total: int) -> str:
+def format_success_text(result: TrackedProcessingResult, *, position: int, total: int) -> str:
     prefix = f"الصورة {position} من {total}\n" if total > 1 else ""
-    data = result.data
+    data = result.extracted_data
     if data is None:
         return prefix + "تعذر استخراج البيانات من الصورة الحالية."
-
-    full_name_ar = _join_values(data.GivenNamesAr, data.SurnameAr)
-    full_name_en = _join_values(data.GivenNamesEn, data.SurnameEn)
 
     lines = [
         prefix + "تمت معالجة الجواز بنجاح.",
         "نسخ سريع:",
-        f"الاسم الكامل بالعربية: {_code(full_name_ar)}",
-        f"الاسم الكامل بالإنجليزية: {_code(full_name_en)}",
-        f"رقم الجواز: {_code(data.PassportNumber)}",
-        f"الجنسية: {_code(data.CountryCode)}",
-        f"تاريخ الميلاد: {_code(data.DateOfBirth)}",
-        f"الجنس: {_code(data.Sex)}",
-        f"مكان الميلاد: {_code(_first_value(data.PlaceOfBirthAr, data.PlaceOfBirthEn))}",
-        f"المهنة: {_code(_first_value(data.ProfessionAr, data.ProfessionEn))}",
-        f"جهة الإصدار: {_code(_first_value(data.IssuingAuthorityAr, data.IssuingAuthorityEn))}",
-        f"تاريخ الإصدار: {_code(data.DateOfIssue)}",
-        f"تاريخ الانتهاء: {_code(data.DateOfExpiry)}",
+        f"الاسم الكامل بالعربية: {_code(data.full_name_ar)}",
+        f"الاسم الكامل بالإنجليزية: {_code(data.full_name_en)}",
+        f"رقم الجواز: {_code(data.passport_number)}",
+        f"الجنسية: {_code(data.country_code)}",
+        f"تاريخ الميلاد: {_code(data.date_of_birth)}",
+        f"الجنس: {_code(data.sex)}",
+        f"مكان الميلاد: {_code(_first_value(data.place_of_birth_ar, data.place_of_birth_en))}",
+        f"المهنة: {_code(_first_value(data.profession_ar, data.profession_en))}",
+        f"جهة الإصدار: {_code(_first_value(data.issuing_authority_ar, data.issuing_authority_en))}",
+        f"تاريخ الإصدار: {_code(data.date_of_issue)}",
+        f"تاريخ الانتهاء: {_code(data.date_of_expiry)}",
     ]
     return "\n".join(line for line in lines if line.strip())
 
