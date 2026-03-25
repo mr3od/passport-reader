@@ -10,6 +10,12 @@ _CHAR_VALUES: dict[str, int] = {str(i): i for i in range(10)}
 _CHAR_VALUES.update({chr(c): c - 55 for c in range(ord("A"), ord("Z") + 1)})
 _CHAR_VALUES["<"] = 0
 _MRZ_NAME_CLEANUP = re.compile(r"[^A-Z0-9<]")
+_REQUIRED_LINE2_CHECK_DIGITS = (
+    ("passport_number", 9, slice(0, 9)),
+    ("dob", 19, slice(13, 19)),
+    ("expiry", 27, slice(21, 27)),
+    ("overall", 43, None),
+)
 
 
 def check_digit(s: str) -> int:
@@ -165,6 +171,25 @@ class MrzParsed:
     warnings: list[str] = field(default_factory=list)
 
 
+def _append_required_line2_checks(
+    line2: str, checks: list[CheckDigitResult], warnings: list[str]
+) -> bool:
+    """Append required TD3 line 2 checks and flag missing check-digit characters."""
+    all_present = True
+    for name, index, raw_slice in _REQUIRED_LINE2_CHECK_DIGITS:
+        expected = line2[index]
+        if not expected.isdigit():
+            warnings.append(f"MRZ line 2 {name} check digit missing or invalid")
+            all_present = False
+            continue
+
+        raw_value = (
+            line2[0:10] + line2[13:20] + line2[21:43] if raw_slice is None else line2[raw_slice]
+        )
+        checks.append(CheckDigitResult(name, int(expected), check_digit(raw_value)))
+    return all_present
+
+
 def parse_mrz(line1: str | None, line2: str | None) -> MrzParsed:
     """Parse TD3 MRZ lines and validate check digits."""
     result = MrzParsed()
@@ -178,7 +203,7 @@ def parse_mrz(line1: str | None, line2: str | None) -> MrzParsed:
         if len(line1) != 44:
             result.warnings.append(f"MRZ line 1 length is {len(line1)}, expected 44")
 
-        if len(line1) >= 44:
+        if len(line1) == 44:
             result.country_code = line1[2:5].replace("<", "")
             name_section = line1[5:44]
             parts = name_section.split("<<", 1)
@@ -193,29 +218,18 @@ def parse_mrz(line1: str | None, line2: str | None) -> MrzParsed:
     line2 = line2.replace(" ", "").upper()
     if len(line2) != 44:
         result.warnings.append(f"MRZ line 2 length is {len(line2)}, expected 44")
-
-    if len(line2) < 44:
         return result
 
     raw_pn = line2[0:9]
     result.passport_number = raw_pn.replace("<", "").strip()
 
-    if line2[9].isdigit():
-        result.checks.append(
-            CheckDigitResult("passport_number", int(line2[9]), check_digit(raw_pn))
-        )
-
     raw_dob = line2[13:19]
     result.dob = _yymmdd_to_ddmmyyyy(raw_dob, pivot=30)
-    if line2[19].isdigit():
-        result.checks.append(CheckDigitResult("dob", int(line2[19]), check_digit(raw_dob)))
 
     result.sex = line2[20] if line2[20] in ("M", "F") else None
 
     raw_exp = line2[21:27]
     result.expiry = _yymmdd_to_ddmmyyyy(raw_exp, pivot=70)
-    if line2[27].isdigit():
-        result.checks.append(CheckDigitResult("expiry", int(line2[27]), check_digit(raw_exp)))
 
     raw_optional = line2[28:42]
     if line2[42].isdigit():
@@ -223,14 +237,17 @@ def parse_mrz(line1: str | None, line2: str | None) -> MrzParsed:
             CheckDigitResult("optional_data", int(line2[42]), check_digit(raw_optional))
         )
 
-    composite = line2[0:10] + line2[13:20] + line2[21:43]
-    if line2[43].isdigit():
-        result.checks.append(CheckDigitResult("overall", int(line2[43]), check_digit(composite)))
+    required_checks_present = _append_required_line2_checks(
+        line2,
+        result.checks,
+        result.warnings,
+    )
 
-    result.valid = all(c.ok for c in result.checks)
+    result.valid = required_checks_present and all(c.ok for c in result.checks)
     if not result.valid:
         failed = [c.name for c in result.checks if not c.ok]
-        result.warnings.append(f"Check digit failures: {', '.join(failed)}")
+        if failed:
+            result.warnings.append(f"Check digit failures: {', '.join(failed)}")
 
     return result
 
@@ -244,28 +261,20 @@ def validate_mrz(line2: str | None) -> tuple[bool, list[str]]:
         return False, ["MRZ line 2 missing"]
 
     line2 = line2.replace(" ", "").upper()
-    if len(line2) < 44:
+    if len(line2) != 44:
         return False, [f"MRZ line 2 length is {len(line2)}, expected 44"]
 
     warnings: list[str] = []
     checks: list[CheckDigitResult] = []
-
-    if line2[9].isdigit():
-        checks.append(CheckDigitResult("passport_number", int(line2[9]), check_digit(line2[0:9])))
-    if line2[19].isdigit():
-        checks.append(CheckDigitResult("dob", int(line2[19]), check_digit(line2[13:19])))
-    if line2[27].isdigit():
-        checks.append(CheckDigitResult("expiry", int(line2[27]), check_digit(line2[21:27])))
     if line2[42].isdigit():
         checks.append(CheckDigitResult("optional_data", int(line2[42]), check_digit(line2[28:42])))
 
-    composite = line2[0:10] + line2[13:20] + line2[21:43]
-    if line2[43].isdigit():
-        checks.append(CheckDigitResult("overall", int(line2[43]), check_digit(composite)))
+    required_checks_present = _append_required_line2_checks(line2, checks, warnings)
 
-    all_pass = all(c.ok for c in checks)
+    all_pass = required_checks_present and all(c.ok for c in checks)
     if not all_pass:
         failed = [c.name for c in checks if not c.ok]
-        warnings.append(f"Check digit failures: {', '.join(failed)}")
+        if failed:
+            warnings.append(f"Check digit failures: {', '.join(failed)}")
 
     return all_pass, warnings

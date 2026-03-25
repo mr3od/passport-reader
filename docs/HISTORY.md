@@ -2,6 +2,12 @@
 
 Agent-maintained log of significant changes. Each entry records what was done and who did it.
 
+## 2026-03-24 — MRZ validator hardening and benchmark test cleanup [codex]
+
+- Tightened TD3 MRZ line 2 validation to require exact length and required check digits
+- Added direct `passport-core` MRZ tests for missing check digits and malformed line lengths
+- Removed stale `passport-benchmark` tests that still imported deleted compatibility modules
+
 ## 2026-03-24 — upstream runtime boundary cleanup [codex]
 
 - Added shared `passport-platform` runtime builders for adapters
