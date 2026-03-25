@@ -229,3 +229,41 @@ class TestCrossValidate:
         warnings = cross_validate(actual)
         assert not any("SurnameEn:" in warning for warning in warnings)
         assert not any("GivenNameTokensEn:" in warning for warning in warnings)
+
+    def test_warns_when_given_name_token_count_is_below_range(self):
+        actual = {
+            "PassportNumber": "15680900",
+            "CountryCode": "YEM",
+            "MrzLine1": "P<YEMSALEM<<SALEM<MUBARAK<NEHIS<<<<<<<<<<<<<",
+            "MrzLine2": "15680900<3YEM5905029M3202104<<<<<<<<<<<<<<04",
+            "SurnameEn": "SALEM",
+            "GivenNameTokensEn": ["SALEM", "MUBARAK"],
+            "GivenNameTokensAr": ["سالم", "مبارك"],
+            "DateOfBirth": "02/05/1959",
+            "DateOfExpiry": "10/02/2032",
+            "Sex": "M",
+        }
+
+        warnings = cross_validate(actual)
+
+        assert "Given name token count out of range: Arabic=2 (expected 3-4)" in warnings
+        assert "Given name token count out of range: English=2 (expected 3-4)" in warnings
+
+    def test_warns_when_given_name_token_count_is_above_range(self):
+        actual = {
+            "PassportNumber": "14323310",
+            "CountryCode": "YEM",
+            "MrzLine1": "P<YEMHASAN<<AMAL<SAEED<SAAD<MOHAMMED<<<<<<<<",
+            "MrzLine2": "14323310<5YEM7501012F3012095<<<<<<<<<<<<<<02",
+            "SurnameEn": "HASAN",
+            "GivenNameTokensEn": ["AMAL", "SAEED", "SAAD", "MOHAMMED", "ALI"],
+            "GivenNameTokensAr": ["أمال", "سعيد", "سعد", "محمد", "علي"],
+            "DateOfBirth": "01/01/1975",
+            "DateOfExpiry": "09/12/2030",
+            "Sex": "F",
+        }
+
+        warnings = cross_validate(actual)
+
+        assert "Given name token count out of range: Arabic=5 (expected 3-4)" in warnings
+        assert "Given name token count out of range: English=5 (expected 3-4)" in warnings

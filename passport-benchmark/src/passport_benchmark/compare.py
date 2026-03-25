@@ -332,6 +332,19 @@ def cross_validate(actual: dict) -> list[str]:
         en_count = len(en)
         if ar_count != en_count:
             warnings.append(f"Given name tokens: Arabic={ar_count} vs English={en_count}")
+    for field_name, label in (
+        ("GivenNameTokensAr", "Arabic"),
+        ("GivenNameTokensEn", "English"),
+    ):
+        tokens = actual.get(field_name)
+        if not isinstance(tokens, list):
+            continue
+        token_count = len(tokens)
+        if 3 <= token_count <= 4:
+            continue
+        warnings.append(
+            f"Given name token count out of range: {label}={token_count} (expected 3-4)"
+        )
 
     rebuilt_mrz1 = build_mrz_line1(
         actual.get("CountryCode"),

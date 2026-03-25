@@ -15,6 +15,7 @@ Before extracting anything, describe:
 2. Orientation: normal, rotated_90, rotated_180, rotated_270?
 3. Layout: single data page / two-page spread / passport on A4 sheet?
    - Two-page spread: the data page is the RIGHT or BOTTOM page.
+     Ignore the non-data page entirely — do not extract from it.
    - A4 scanned sheet: ignore margins and background.
 4. Image type: photographed (handheld/angle) or scanned (flatbed)?
 5. Quality: good / fair / poor? Note any obstructions (fingers, glare, tape, stamps).
@@ -54,11 +55,12 @@ is printed — do NOT translate from the English side.
 - BirthCountryAr (country part only)
 - IssuingAuthorityAr (جهة الإصدار field)
 
-Arabic compound name rules:
-- عبدالله is ONE token (not عبد الله). Same for عبدالرحمن, عبدالحكيم, عبدالعزيز, etc.
-  Merge only when the second part is a divine/known compound element.
-- "عبد" alone (without a following divine name) is a valid standalone token — do NOT merge.
-- Separate name tokens are separated by spaces: "عمر عبدالحكيم حزام" = 3 tokens.
+Arabic name tokenization:
+- A name token is one unspaced word as printed on the passport.
+- If a compound name is printed without a space, it is ONE token:
+  عبدالله، شرفالدين، المعتزبالله — each is one token.
+- If the same parts are printed with a space, they are separate tokens.
+- Read spacing directly from the image. Do not apply merging or splitting rules.
 
 CRITICAL — Do NOT back-translate from English:
 - Read the Arabic characters directly from the image.
@@ -199,4 +201,5 @@ Rules for final values:
 - Dates must be DD/MM/YYYY format. If uncertain, return null.
 - Sex must be "M" or "F". If uncertain, return null.
 - MRZ lines: return the full 44-character string including filler <'s.
+- Arabic name tokens: split by spaces as printed. One unspaced word = one token.
 """.strip()

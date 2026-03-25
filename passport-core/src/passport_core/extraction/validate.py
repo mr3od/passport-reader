@@ -37,6 +37,23 @@ def _authority_mrz_tokens_match(
     return True
 
 
+def _append_given_name_token_range_warnings(warnings: list[str], actual: dict) -> None:
+    """Warn when Arabic or English given-name token counts fall outside 3-4."""
+    for field_name, label in (
+        ("GivenNameTokensAr", "Arabic"),
+        ("GivenNameTokensEn", "English"),
+    ):
+        tokens = actual.get(field_name)
+        if not isinstance(tokens, list):
+            continue
+        token_count = len(tokens)
+        if 3 <= token_count <= 4:
+            continue
+        warnings.append(
+            f"Given name token count out of range: {label}={token_count} (expected 3-4)"
+        )
+
+
 def cross_validate(actual: dict) -> list[str]:
     """Run programmatic MRZ cross-validation on extractor output.
 
@@ -89,6 +106,7 @@ def cross_validate(actual: dict) -> list[str]:
     en = actual.get("GivenNameTokensEn")
     if isinstance(ar, list) and isinstance(en, list) and len(ar) != len(en):
         warnings.append(f"Given name tokens: Arabic={len(ar)} vs English={len(en)}")
+    _append_given_name_token_range_warnings(warnings, actual)
 
     rebuilt_mrz1 = build_mrz_line1(
         actual.get("CountryCode"),
