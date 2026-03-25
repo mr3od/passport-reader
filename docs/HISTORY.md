@@ -2,6 +2,14 @@
 
 Agent-maintained log of significant changes. Each entry records what was done and who did it.
 
+## 2026-03-24 — prompt and token validation updates [codex]
+
+- Added prompt design notes in `docs/PROMPT-DESIGN.md`
+- Refined the extraction prompt for two-page spreads and Arabic token spacing
+- Corrected benchmark expectations for `case_038`
+- Added warning-only validation for Arabic/English given-name token counts outside the 3-4 range
+- Added benchmark coverage for the new token-count validation warnings
+
 ## 2026-03-24 — v2 extraction migration [claude]
 
 **passport-core 0.2.0**
