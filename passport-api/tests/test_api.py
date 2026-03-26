@@ -63,12 +63,12 @@ class FakeRecordsService:
                     "created_at": datetime(2026, 3, 13, 10, 0, tzinfo=UTC),
                     "completed_at": datetime(2026, 3, 13, 10, 1, tzinfo=UTC),
                     "is_passport": True,
-                    "has_face": True,
                     "is_complete": True,
+                    "review_status": "auto",
                     "passport_number": "12345678",
                     "passport_image_uri": "/tmp/original.jpg",
-                    "face_crop_uri": "/tmp/face.jpg",
-                    "core_result": {"data": {"PassportNumber": "12345678"}},
+                    "confidence_overall": 0.91,
+                    "extraction_result": {"data": {"PassportNumber": "12345678"}},
                     "error_code": None,
                     "masar_status": None,
                 },
@@ -150,12 +150,12 @@ def test_end_to_end_exchange_me_and_records(tmp_path: Path):
         RecordProcessingResultCommand(
             upload_id=upload.id,
             is_passport=True,
-            has_face=True,
             is_complete=True,
+            review_status="auto",
             passport_number="12345678",
             passport_image_uri="/tmp/original.jpg",
-            face_crop_uri="/tmp/face.jpg",
-            core_result_json='{"data":{"PassportNumber":"12345678"}}',
+            confidence_overall=0.91,
+            extraction_result_json='{"data":{"PassportNumber":"12345678"}}',
             completed_at=datetime(2026, 3, 13, 10, 1, tzinfo=UTC),
         ),
     )
@@ -177,3 +177,99 @@ def test_end_to_end_exchange_me_and_records(tmp_path: Path):
     assert records.status_code == 200
     assert len(records.json()) == 1
     assert records.json()[0]["passport_number"] == "12345678"
+
+
+def test_review_gate_before_masar_submit(tmp_path: Path):
+    platform_dir = tmp_path / "platform"
+    platform_dir.mkdir()
+    db_path = platform_dir / "platform.sqlite3"
+    env_path = platform_dir / ".env"
+    env_path.write_text(
+        f"PASSPORT_PLATFORM_DB_PATH={db_path.name}\n",
+        encoding="utf-8",
+    )
+
+    services = build_services(
+        type(
+            "Settings",
+            (),
+            {
+                "platform_env_file": env_path,
+                "platform_root_dir": platform_dir,
+            },
+        )()
+    )
+    db = Database(db_path)
+    users = UserService(UsersRepository(db))
+    uploads = UploadService(UploadsRepository(db), UsageRepository(db))
+    user = users.get_or_create_user(
+        EnsureUserCommand(
+            external_provider=ExternalProvider.TELEGRAM,
+            external_user_id="12345",
+            display_name="Agency A",
+        )
+    )
+    upload = uploads.register_upload(
+        RegisterUploadCommand(
+            user_id=user.id,
+            channel=ChannelName.TELEGRAM,
+            filename="passport.jpg",
+            mime_type="image/jpeg",
+            source_ref="telegram://chat/1/message/2/file/abc",
+        )
+    )
+    uploads.record_processing_result(
+        user.id,
+        RecordProcessingResultCommand(
+            upload_id=upload.id,
+            is_passport=True,
+            is_complete=True,
+            review_status="needs_review",
+            passport_number="12345678",
+            passport_image_uri="/tmp/original.jpg",
+            confidence_overall=0.71,
+            extraction_result_json='{"data":{"PassportNumber":"12345678"},"warnings":["requires_review"]}',
+            completed_at=datetime(2026, 3, 13, 10, 1, tzinfo=UTC),
+        ),
+    )
+    temp = services.auth.issue_temp_token(user.id)
+
+    app = create_app()
+    app.dependency_overrides[get_api_services] = lambda: services
+    client = TestClient(app)
+
+    exchange = client.post("/auth/exchange", json={"token": temp.token})
+    assert exchange.status_code == 200
+    session_token = exchange.json()["session_token"]
+    headers = {"Authorization": f"Bearer {session_token}"}
+
+    blocked_submit = client.patch(
+        f"/records/{upload.id}/masar-status",
+        headers=headers,
+        json={
+            "status": "submitted",
+            "masar_mutamer_id": "M-1",
+            "masar_scan_result": {"ok": True},
+        },
+    )
+    assert blocked_submit.status_code == 409
+
+    review = client.patch(
+        f"/records/{upload.id}/review-status",
+        headers=headers,
+        json={"status": "reviewed"},
+    )
+    assert review.status_code == 200
+    assert review.json()["review_status"] == "reviewed"
+
+    submit = client.patch(
+        f"/records/{upload.id}/masar-status",
+        headers=headers,
+        json={
+            "status": "submitted",
+            "masar_mutamer_id": "M-1",
+            "masar_scan_result": {"ok": True},
+        },
+    )
+    assert submit.status_code == 200
+    assert submit.json()["masar_status"] == "submitted"

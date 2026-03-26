@@ -5,12 +5,17 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
 from fastapi.responses import FileResponse
-from passport_platform import AuthenticatedSession, ProcessUploadCommand
+from passport_platform import AuthenticatedSession, ProcessUploadCommand, ReviewRequiredError
 from passport_platform.enums import ChannelName, ExternalProvider, PlanName
-from passport_platform.strings import RECORD_IMAGE_NOT_ON_DISK, RECORD_NO_IMAGE, RECORD_NOT_FOUND
+from passport_platform.strings import (
+    RECORD_IMAGE_NOT_ON_DISK,
+    RECORD_NO_IMAGE,
+    RECORD_NOT_FOUND,
+    RECORD_REVIEW_REQUIRED,
+)
 
 from passport_api.deps import get_api_services, get_authenticated_session
-from passport_api.schemas import MasarStatusUpdate, RecordResponse
+from passport_api.schemas import MasarStatusUpdate, RecordResponse, ReviewStatusUpdate
 from passport_api.services import ApiServices
 
 router = APIRouter(tags=["records"])
@@ -100,6 +105,14 @@ def update_masar_status(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="status must be 'submitted' or 'failed'",
         )
+    if body.status == "submitted":
+        try:
+            services.records.assert_submission_allowed(
+                upload_id=upload_id,
+                user_id=authenticated.user.id,
+            )
+        except ReviewRequiredError as exc:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     updated = services.records.update_masar_status(
         upload_id=upload_id,
         user_id=authenticated.user.id,
@@ -116,6 +129,32 @@ def update_masar_status(
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=RECORD_NOT_FOUND)
 
 
+@router.patch("/records/{upload_id}/review-status", response_model=RecordResponse)
+def update_review_status(
+    upload_id: int,
+    body: ReviewStatusUpdate,
+    authenticated: Annotated[AuthenticatedSession, Depends(get_authenticated_session)],
+    services: Annotated[ApiServices, Depends(get_api_services)],
+) -> RecordResponse:
+    if body.status != "reviewed":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="status must be 'reviewed'",
+        )
+    record = services.records.get_user_record(authenticated.user.id, upload_id)
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=RECORD_NOT_FOUND)
+    if record.review_status != "needs_review":
+        return _record_to_response(record)
+    updated = services.records.mark_reviewed(upload_id=upload_id, user_id=authenticated.user.id)
+    if not updated:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=RECORD_NOT_FOUND)
+    updated_record = services.records.get_user_record(authenticated.user.id, upload_id)
+    if updated_record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=RECORD_NOT_FOUND)
+    return _record_to_response(updated_record)
+
+
 def _record_to_response(record) -> RecordResponse:
     return RecordResponse(
         upload_id=record.upload_id,
@@ -127,12 +166,19 @@ def _record_to_response(record) -> RecordResponse:
         created_at=record.created_at,
         completed_at=record.completed_at,
         is_passport=record.is_passport,
-        has_face=record.has_face,
         is_complete=record.is_complete,
+        review_status=record.review_status,
         passport_number=record.passport_number,
         passport_image_uri=record.passport_image_uri,
-        face_crop_uri=record.face_crop_uri,
-        core_result=record.core_result,
+        confidence_overall=record.confidence_overall,
+        review_summary=_review_summary(record),
+        extraction_result=record.extraction_result,
         error_code=record.error_code,
         masar_status=record.masar_status,
     )
+
+
+def _review_summary(record) -> str | None:
+    if record.review_status != "needs_review":
+        return None
+    return RECORD_REVIEW_REQUIRED
