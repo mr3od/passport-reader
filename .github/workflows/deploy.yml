@@ -131,12 +131,12 @@ jobs:
 
             TELEGRAM_CONTAINER=\$(kctl -n ${K8S_NAMESPACE} get deploy \"\$TELEGRAM_DEPLOY\" -o jsonpath='{.spec.template.spec.containers[0].name}')
             kctl -n ${K8S_NAMESPACE} set image deploy/\"\$TELEGRAM_DEPLOY\" \"\$TELEGRAM_CONTAINER\"=\"\$IMAGE\"
-            kctl -n ${K8S_NAMESPACE} patch deploy \"\$TELEGRAM_DEPLOY\" --type='merge' -p \"{\\\"spec\\\":{\\\"template\\\":{\\\"spec\\\":{\\\"containers\\\":[{\\\"name\\\":\\\"\$TELEGRAM_CONTAINER\\\",\\\"command\\\":[\\\"passport-telegram\\\"]}]}}}}\"
+            kctl -n ${K8S_NAMESPACE} patch deploy \"\$TELEGRAM_DEPLOY\" --type='strategic' -p \"{\\\"spec\\\":{\\\"template\\\":{\\\"spec\\\":{\\\"containers\\\":[{\\\"name\\\":\\\"\$TELEGRAM_CONTAINER\\\",\\\"image\\\":\\\"\$IMAGE\\\",\\\"command\\\":[\\\"passport-telegram\\\"]}]}}}}\"
 
             if [ -n \"\$API_DEPLOY\" ]; then
               API_CONTAINER=\$(kctl -n ${K8S_NAMESPACE} get deploy \"\$API_DEPLOY\" -o jsonpath='{.spec.template.spec.containers[0].name}')
               kctl -n ${K8S_NAMESPACE} set image deploy/\"\$API_DEPLOY\" \"\$API_CONTAINER\"=\"\$IMAGE\"
-              kctl -n ${K8S_NAMESPACE} patch deploy \"\$API_DEPLOY\" --type='merge' -p \"{\\\"spec\\\":{\\\"template\\\":{\\\"spec\\\":{\\\"containers\\\":[{\\\"name\\\":\\\"\$API_CONTAINER\\\",\\\"command\\\":[\\\"passport-api\\\"]}]}}}}\"
+              kctl -n ${K8S_NAMESPACE} patch deploy \"\$API_DEPLOY\" --type='strategic' -p \"{\\\"spec\\\":{\\\"template\\\":{\\\"spec\\\":{\\\"containers\\\":[{\\\"name\\\":\\\"\$API_CONTAINER\\\",\\\"image\\\":\\\"\$IMAGE\\\",\\\"command\\\":[\\\"passport-api\\\"]}]}}}}\"
             fi
 
             kctl -n ${K8S_NAMESPACE} rollout status deploy/\"\$TELEGRAM_DEPLOY\" --timeout=180s
