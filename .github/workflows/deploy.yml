@@ -83,7 +83,6 @@ jobs:
               exit 1
             fi
             kctl() { microk8s kubectl \"\$@\"; }
-            mctr() { microk8s ctr \"\$@\"; }
 
             resolve_deploy() {
               local label=\"\$1\"
@@ -102,8 +101,10 @@ jobs:
             echo \"Building image \$IMAGE\"
             docker build -t \"\$IMAGE\" .
 
-            echo 'Importing image into MicroK8s containerd'
-            docker save \"\$IMAGE\" | mctr image import -
+            REGISTRY_IMAGE=\"localhost:32000/passport-reader:${IMAGE_TAG}\"
+            echo \"Pushing image to MicroK8s registry: \$REGISTRY_IMAGE\"
+            docker tag \"\$IMAGE\" \"\$REGISTRY_IMAGE\"
+            docker push \"\$REGISTRY_IMAGE\"
 
             echo 'Upserting unified runtime env secret'
             kctl -n ${K8S_NAMESPACE} create secret generic passport-reader-env \
@@ -131,11 +132,11 @@ jobs:
             fi
 
             TELEGRAM_CONTAINER=\$(kctl -n ${K8S_NAMESPACE} get deploy \"\$TELEGRAM_DEPLOY\" -o jsonpath='{.spec.template.spec.containers[0].name}')
-            kctl -n ${K8S_NAMESPACE} set image deploy/\"\$TELEGRAM_DEPLOY\" \"\$TELEGRAM_CONTAINER\"=\"\$IMAGE\"
+            kctl -n ${K8S_NAMESPACE} set image deploy/\"\$TELEGRAM_DEPLOY\" \"\$TELEGRAM_CONTAINER\"=\"\$REGISTRY_IMAGE\"
 
             if [ -n \"\$API_DEPLOY\" ]; then
               API_CONTAINER=\$(kctl -n ${K8S_NAMESPACE} get deploy \"\$API_DEPLOY\" -o jsonpath='{.spec.template.spec.containers[0].name}')
-              kctl -n ${K8S_NAMESPACE} set image deploy/\"\$API_DEPLOY\" \"\$API_CONTAINER\"=\"\$IMAGE\"
+              kctl -n ${K8S_NAMESPACE} set image deploy/\"\$API_DEPLOY\" \"\$API_CONTAINER\"=\"\$REGISTRY_IMAGE\"
             fi
 
             kctl -n ${K8S_NAMESPACE} rollout status deploy/\"\$TELEGRAM_DEPLOY\" --timeout=180s
