@@ -97,7 +97,7 @@ Adding a column requires all of the following to be updated together — a parti
 5. The SELECT queries in `repositories/records.py`
 6. The `RecordResponse` schema and route logic in `passport-api`
 
-## Extraction pipeline (passport-core 0.2.0+)
+## Extraction pipeline (passport-core 0.3.0+)
 
 - The v2 extraction entry point is `passport_core.extraction.PassportExtractor`.
 - `workflow.py`, `llm.py`, and the old v1 extraction models have been removed from `passport-core`.
