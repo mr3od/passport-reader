@@ -77,6 +77,9 @@ jobs:
             echo 'Ensuring required MicroK8s addons are enabled'
             microk8s enable ingress
             microk8s enable cert-manager
+            kctl -n cert-manager rollout status deploy/cert-manager --timeout=180s
+            kctl -n cert-manager rollout status deploy/cert-manager-cainjector --timeout=180s
+            kctl -n cert-manager rollout status deploy/cert-manager-webhook --timeout=180s
 
             IMAGE='passport-reader:${IMAGE_TAG}'
             docker build -t \"\$IMAGE\" .

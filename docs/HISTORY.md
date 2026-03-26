@@ -2,6 +2,12 @@
 
 Agent-maintained log of significant changes. Each entry records what was done and who did it.
 
+## 2026-03-27 — ingress deployment hardening [codex]
+
+- Disabled FastAPI debug mode before public exposure through the API Ingress
+- Switched API readiness and liveness probes from raw TCP checks to HTTP `/health`
+- Added cert-manager rollout waits in the deploy workflow before applying the `ClusterIssuer`
+
 ## 2026-03-27 — MicroK8s ingress and cert-manager exposure for API [codex]
 
 - Added a production `ClusterIssuer` for Let's Encrypt using cert-manager and the MicroK8s `public` ingress class

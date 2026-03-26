@@ -106,6 +106,17 @@ def test_exchange_me_and_records_endpoints():
     assert records.json()[0]["passport_number"] == "12345678"
 
 
+def test_health_endpoint_and_debug_mode():
+    app = create_app()
+    client = TestClient(app)
+
+    response = client.get("/health")
+
+    assert app.debug is False
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
 def test_end_to_end_exchange_me_and_records(tmp_path: Path):
     platform_dir = tmp_path / "platform"
     platform_dir.mkdir()
