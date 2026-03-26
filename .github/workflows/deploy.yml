@@ -102,9 +102,14 @@ jobs:
             docker build -t \"\$IMAGE\" .
 
             REGISTRY_IMAGE=\"localhost:32000/passport-reader:${IMAGE_TAG}\"
+            USE_REGISTRY_IMAGE=1
             echo \"Pushing image to MicroK8s registry: \$REGISTRY_IMAGE\"
             docker tag \"\$IMAGE\" \"\$REGISTRY_IMAGE\"
-            docker push \"\$REGISTRY_IMAGE\"
+            if ! docker push \"\$REGISTRY_IMAGE\"; then
+              echo 'Registry push failed; falling back to microk8s images import'
+              USE_REGISTRY_IMAGE=0
+              docker save \"\$IMAGE\" | microk8s images import
+            fi
 
             echo 'Upserting unified runtime env secret'
             kctl -n ${K8S_NAMESPACE} create secret generic passport-reader-env \
@@ -132,11 +137,19 @@ jobs:
             fi
 
             TELEGRAM_CONTAINER=\$(kctl -n ${K8S_NAMESPACE} get deploy \"\$TELEGRAM_DEPLOY\" -o jsonpath='{.spec.template.spec.containers[0].name}')
-            kctl -n ${K8S_NAMESPACE} set image deploy/\"\$TELEGRAM_DEPLOY\" \"\$TELEGRAM_CONTAINER\"=\"\$REGISTRY_IMAGE\"
+            if [ \"\$USE_REGISTRY_IMAGE\" -eq 1 ]; then
+              kctl -n ${K8S_NAMESPACE} set image deploy/\"\$TELEGRAM_DEPLOY\" \"\$TELEGRAM_CONTAINER\"=\"\$REGISTRY_IMAGE\"
+            else
+              kctl -n ${K8S_NAMESPACE} set image deploy/\"\$TELEGRAM_DEPLOY\" \"\$TELEGRAM_CONTAINER\"=\"\$IMAGE\"
+            fi
 
             if [ -n \"\$API_DEPLOY\" ]; then
               API_CONTAINER=\$(kctl -n ${K8S_NAMESPACE} get deploy \"\$API_DEPLOY\" -o jsonpath='{.spec.template.spec.containers[0].name}')
-              kctl -n ${K8S_NAMESPACE} set image deploy/\"\$API_DEPLOY\" \"\$API_CONTAINER\"=\"\$REGISTRY_IMAGE\"
+              if [ \"\$USE_REGISTRY_IMAGE\" -eq 1 ]; then
+                kctl -n ${K8S_NAMESPACE} set image deploy/\"\$API_DEPLOY\" \"\$API_CONTAINER\"=\"\$REGISTRY_IMAGE\"
+              else
+                kctl -n ${K8S_NAMESPACE} set image deploy/\"\$API_DEPLOY\" \"\$API_CONTAINER\"=\"\$IMAGE\"
+              fi
             fi
 
             kctl -n ${K8S_NAMESPACE} rollout status deploy/\"\$TELEGRAM_DEPLOY\" --timeout=180s
