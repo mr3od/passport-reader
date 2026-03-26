@@ -11,9 +11,9 @@ from passport_platform.models.upload import ProcessingResult, Upload
 from passport_platform.models.user import User
 
 if TYPE_CHECKING:
-    from passport_core.workflow import PassportWorkflowResult
+    from passport_core.extraction.models import ExtractionResult
 else:
-    PassportWorkflowResult = Any
+    ExtractionResult = Any
 
 
 class PassportExtractionView(BaseModel):
@@ -64,7 +64,7 @@ class TrackedProcessingResult:
     user: User
     upload: Upload
     quota_decision: QuotaDecision
-    workflow_result: PassportWorkflowResult
+    extraction_result: ExtractionResult | None
     processing_result: ProcessingResult
 
     @property
@@ -84,27 +84,28 @@ class TrackedProcessingResult:
         return self.processing_result.is_passport
 
     @property
-    def has_face_crop(self) -> bool:
-        return self.processing_result.has_face
-
-    @property
     def is_complete(self) -> bool:
         return self.processing_result.is_complete
 
     @property
-    def image_bytes(self) -> bytes:
-        image_bytes = getattr(self.workflow_result, "image_bytes", None)
-        return image_bytes if isinstance(image_bytes, bytes) else b""
+    def confidence_overall(self) -> float | None:
+        return self.processing_result.confidence_overall
 
     @property
-    def face_crop_bytes(self) -> bytes | None:
-        face_crop_bytes = getattr(self.workflow_result, "face_crop_bytes", None)
-        return face_crop_bytes if isinstance(face_crop_bytes, bytes) else None
+    def review_status(self) -> str:
+        return self.processing_result.review_status
+
+    @property
+    def warnings(self) -> list[str]:
+        if self.extraction_result is None:
+            return []
+        return list(self.extraction_result.warnings or [])
 
     @property
     def extracted_data(self) -> PassportExtractionView | None:
-        data = getattr(self.workflow_result, "data", None)
-        return _build_extraction_view(data)
+        if self.extraction_result is None:
+            return None
+        return _build_extraction_view(self.extraction_result.data)
 
 
 @dataclass(slots=True)
@@ -159,12 +160,14 @@ class UserRecord:
     created_at: datetime
     completed_at: datetime | None
     is_passport: bool | None
-    has_face: bool | None
     is_complete: bool | None
+    review_status: str | None
+    reviewed_by_user_id: int | None
+    reviewed_at: datetime | None
     passport_number: str | None
     passport_image_uri: str | None
-    face_crop_uri: str | None
-    core_result: dict[str, Any] | None
+    confidence_overall: float | None
+    extraction_result: dict[str, Any] | None
     error_code: str | None
     masar_status: str | None
     masar_mutamer_id: str | None
@@ -172,14 +175,14 @@ class UserRecord:
 
 
 def _build_extraction_view(data: object | None) -> PassportExtractionView | None:
-    """Map either legacy v1 or v2 passport-core data into a stable adapter view."""
+    """Map v2 passport-core fields into a stable adapter view."""
     if data is None:
         return None
 
     given_name_tokens_ar = _token_list_value(data, "GivenNameTokensAr")
     given_name_tokens_en = _token_list_value(data, "GivenNameTokensEn")
-    given_names_ar = _string_value(data, "GivenNamesAr") or _join_tokens(given_name_tokens_ar)
-    given_names_en = _string_value(data, "GivenNamesEn") or _join_tokens(given_name_tokens_en)
+    given_names_ar = _join_tokens(given_name_tokens_ar)
+    given_names_en = _join_tokens(given_name_tokens_en)
     surname_ar = _string_value(data, "SurnameAr")
     surname_en = _string_value(data, "SurnameEn")
 

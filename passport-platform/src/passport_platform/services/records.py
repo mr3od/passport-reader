@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 
+from passport_platform.errors import ReviewRequiredError
 from passport_platform.repositories.records import RecordsRepository
 from passport_platform.schemas.results import UserRecord
 
@@ -30,10 +31,23 @@ class RecordsService:
         masar_scan_result_json = (
             json.dumps(masar_scan_result) if masar_scan_result is not None else None
         )
-        return self.records.update_masar_status(
+        return self.records.insert_masar_submission(
             upload_id=upload_id,
             user_id=user_id,
             status=status,
             masar_mutamer_id=masar_mutamer_id,
             masar_scan_result_json=masar_scan_result_json,
         )
+
+    def mark_reviewed(self, *, upload_id: int, user_id: int) -> bool:
+        return self.records.mark_reviewed(upload_id=upload_id, user_id=user_id)
+
+    def assert_submission_allowed(self, *, upload_id: int, user_id: int) -> None:
+        record = self.records.get_user_record(user_id, upload_id)
+        if record is None:
+            return
+        if not record.is_complete:
+            raise ReviewRequiredError()
+        if record.review_status in {"auto", "reviewed"}:
+            return
+        raise ReviewRequiredError()

@@ -5,8 +5,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 from uuid import uuid4
 
-import numpy as np
-
 from passport_platform.enums import ChannelName, ExternalProvider, UploadStatus, UserStatus
 from passport_platform.errors import (
     ProcessingFailedError,
@@ -26,30 +24,14 @@ from passport_platform.services.uploads import UploadService
 from passport_platform.services.users import UserService
 from passport_platform.storage import ArtifactStore
 
+CONFIDENCE_AUTO_THRESHOLD = 0.85
+
 if TYPE_CHECKING:
-    from passport_core.workflow import PassportWorkflowResult
+    from passport_core.extraction.models import ExtractionResult
 
 
-class WorkflowProtocol(Protocol):
-    def process_bytes(
-        self,
-        data: bytes,
-        *,
-        filename: str,
-        mime_type: str,
-        source: str | None = None,
-    ) -> PassportWorkflowResult: ...
-
-    def load_bytes(
-        self,
-        data: bytes,
-        *,
-        filename: str = "upload.jpg",
-        mime_type: str = "image/jpeg",
-        source: str | None = None,
-    ): ...
-
-    def close(self) -> None: ...
+class ExtractorProtocol(Protocol):
+    def extract(self, image_bytes: bytes, mime_type: str = "image/jpeg") -> ExtractionResult: ...
 
 
 class ProcessingService:
@@ -59,17 +41,17 @@ class ProcessingService:
         users: UserService,
         quotas: QuotaService,
         uploads: UploadService,
-        workflow: WorkflowProtocol,
+        extractor: ExtractorProtocol,
         artifacts: ArtifactStore,
     ) -> None:
         self.users = users
         self.quotas = quotas
         self.uploads = uploads
-        self.workflow = workflow
+        self.extractor = extractor
         self.artifacts = artifacts
 
     def close(self) -> None:
-        self.workflow.close()
+        """No-op to preserve adapter lifecycle compatibility."""
 
     def process_bytes(self, command: ProcessUploadCommand) -> TrackedProcessingResult:
         trace_id = uuid4().hex
@@ -104,44 +86,39 @@ class ProcessingService:
         passport_image_uri = self._store_original_upload(command, upload.id, artifact_errors)
 
         try:
-            workflow_result = self.workflow.process_bytes(
-                command.payload,
-                filename=command.filename,
-                mime_type=command.mime_type,
-                source=command.source_ref,
-            )
+            extraction_result = self.extractor.extract(command.payload, mime_type=command.mime_type)
         except Exception as exc:
-            workflow_result = self._failed_workflow_result(command)
             try:
                 processing_result = self.uploads.record_processing_result(
                     user.id,
                     RecordProcessingResultCommand(
                         upload_id=upload.id,
                         is_passport=False,
-                        has_face=False,
                         is_complete=False,
+                        review_status="needs_review",
                         passport_image_uri=passport_image_uri,
-                        core_result_json=_serialize_workflow_result(
-                            workflow_result,
-                            trace_id=trace_id,
-                            passport_image_uri=passport_image_uri,
-                            face_crop_uri=None,
-                            error_details=artifact_errors
-                            + [
-                                {
-                                    "code": "INTERNAL_ERROR",
-                                    "stage": "workflow",
-                                    "message": str(exc),
-                                    "retryable": False,
-                                }
-                            ],
+                        confidence_overall=None,
+                        extraction_result_json=json.dumps(
+                            {
+                                "trace_id": trace_id,
+                                "error_details": artifact_errors
+                                + [
+                                    {
+                                        "code": "INTERNAL_ERROR",
+                                        "stage": "extract",
+                                        "message": str(exc),
+                                        "retryable": False,
+                                    }
+                                ],
+                            },
+                            ensure_ascii=True,
+                            separators=(",", ":"),
                         ),
-                        error_code="workflow_exception",
+                        error_code="extractor_exception",
                     ),
                 )
             except Exception:
-                # Last resort: at minimum move the upload out of PROCESSING
-                # so it does not stay stuck forever.
+                # Last resort: move upload out of PROCESSING so it never stays stuck.
                 self.uploads.uploads.update_status(upload.id, UploadStatus.FAILED)
                 raise
             final_upload = self._load_upload(upload.id)
@@ -149,34 +126,32 @@ class ProcessingService:
                 user=user,
                 upload=final_upload,
                 quota_decision=quota_decision,
-                workflow_result=workflow_result,
+                extraction_result=None,
                 processing_result=processing_result,
             )
             raise ProcessingFailedError(tracked, exc) from exc
 
-        face_crop_uri = self._store_face_crop(workflow_result, upload.id, artifact_errors)
+        is_passport = bool(extraction_result.meta.is_passport) if extraction_result.meta else False
+        passport_number = extraction_result.data.PassportNumber
+        is_complete = is_passport and passport_number is not None
+        review_status = _review_status(extraction_result) if is_passport else "needs_review"
+        confidence_overall = (
+            extraction_result.confidence.overall
+            if extraction_result.confidence is not None
+            else None
+        )
         processing_result = self.uploads.record_processing_result(
             user.id,
             RecordProcessingResultCommand(
                 upload_id=upload.id,
-                is_passport=workflow_result.validation.is_passport,
-                has_face=workflow_result.has_face_crop,
-                is_complete=workflow_result.is_complete,
-                passport_number=(
-                    workflow_result.data.PassportNumber
-                    if workflow_result.data is not None
-                    else None
-                ),
+                is_passport=is_passport,
+                is_complete=is_complete,
+                review_status=review_status,
+                passport_number=passport_number,
                 passport_image_uri=passport_image_uri,
-                face_crop_uri=face_crop_uri,
-                core_result_json=_serialize_workflow_result(
-                    workflow_result,
-                    trace_id=trace_id,
-                    passport_image_uri=passport_image_uri,
-                    face_crop_uri=face_crop_uri,
-                    error_details=artifact_errors + _workflow_error_details(workflow_result),
-                ),
-                error_code=_result_error_code(workflow_result),
+                confidence_overall=confidence_overall,
+                extraction_result_json=extraction_result.model_dump_json(),
+                error_code=_result_error_code(is_passport=is_passport, is_complete=is_complete),
             ),
         )
         final_upload = self._load_upload(upload.id)
@@ -184,7 +159,7 @@ class ProcessingService:
             user=user,
             upload=final_upload,
             quota_decision=quota_decision,
-            workflow_result=workflow_result,
+            extraction_result=extraction_result,
             processing_result=processing_result,
         )
 
@@ -227,23 +202,6 @@ class ProcessingService:
             errors=errors,
         )
 
-    def _store_face_crop(
-        self,
-        workflow_result: PassportWorkflowResult,
-        upload_id: int,
-        errors: list[dict[str, Any]],
-    ) -> str | None:
-        if workflow_result.face_crop_bytes is None:
-            return None
-        return self._store_artifact(
-            data=workflow_result.face_crop_bytes,
-            folder="faces",
-            filename=f"upload-{upload_id}-face.jpg",
-            content_type="image/jpeg",
-            stage="store_face_crop",
-            errors=errors,
-        )
-
     def _store_artifact(
         self,
         *,
@@ -272,100 +230,24 @@ class ProcessingService:
             )
             return None
 
-    def _failed_workflow_result(self, command: ProcessUploadCommand):
-        from passport_core.workflow import PassportWorkflowResult, ValidationResult
 
-        try:
-            loaded = self.workflow.load_bytes(
-                command.payload,
-                filename=command.filename,
-                mime_type=command.mime_type,
-                source=command.source_ref,
-            )
-        except Exception:
-            from passport_core.workflow import LoadedImage
-
-            loaded = LoadedImage(
-                source=command.source_ref,
-                data=command.payload,
-                mime_type=command.mime_type,
-                filename=command.filename,
-                bgr=np.zeros((1, 1, 3), dtype=np.uint8),
-            )
-        return PassportWorkflowResult(
-            loaded=loaded,
-            validation=ValidationResult(is_passport=False),
-        )
+def _review_status(extraction_result: ExtractionResult) -> str:
+    confidence = extraction_result.confidence
+    if confidence is None or confidence.overall is None:
+        return "needs_review"
+    if confidence.overall < CONFIDENCE_AUTO_THRESHOLD:
+        return "needs_review"
+    if extraction_result.warnings:
+        return "needs_review"
+    return "auto"
 
 
-def _result_error_code(workflow_result: PassportWorkflowResult) -> str | None:
-    if workflow_result.is_complete:
+def _result_error_code(*, is_passport: bool, is_complete: bool) -> str | None:
+    if is_complete:
         return None
-    if not workflow_result.validation.is_passport:
+    if not is_passport:
         return "not_passport"
-    if not workflow_result.has_face_crop:
-        return "face_crop_failed"
-    return "incomplete_processing"
-
-
-def _serialize_workflow_result(
-    workflow_result: PassportWorkflowResult,
-    *,
-    trace_id: str,
-    passport_image_uri: str | None,
-    face_crop_uri: str | None,
-    error_details: list[dict[str, Any]] | None = None,
-) -> str:
-    payload = {
-        "source": workflow_result.source,
-        "trace_id": trace_id,
-        "passport_image_uri": passport_image_uri,
-        "face_crop_uri": face_crop_uri,
-        "validation": workflow_result.validation.model_dump(mode="json"),
-        "face": (
-            workflow_result.face.model_dump(mode="json")
-            if workflow_result.face is not None
-            else None
-        ),
-        "data": (
-            workflow_result.data.model_dump(mode="json")
-            if workflow_result.data is not None
-            else None
-        ),
-        "error_details": error_details or [],
-    }
-    return json.dumps(payload, ensure_ascii=True, separators=(",", ":"))
-
-
-def _workflow_error_details(workflow_result: PassportWorkflowResult) -> list[dict[str, Any]]:
-    if workflow_result.is_complete:
-        return []
-    if not workflow_result.validation.is_passport:
-        return [
-            {
-                "code": "VALIDATION_ERROR",
-                "stage": "validate",
-                "message": "The uploaded image did not validate as a passport.",
-                "retryable": False,
-            }
-        ]
-    if not workflow_result.has_face_crop:
-        return [
-            {
-                "code": "FACE_DETECTION_ERROR",
-                "stage": "face_detect",
-                "message": "No face crop could be produced from the passport image.",
-                "retryable": False,
-            }
-        ]
-    return [
-        {
-            "code": "EXTRACTION_ERROR",
-            "stage": "extract",
-            "message": "Passport extraction did not complete successfully.",
-            "retryable": True,
-        }
-    ]
+    return "incomplete_extraction"
 
 
 def _artifact_filename(upload_id: int, filename: str) -> str:

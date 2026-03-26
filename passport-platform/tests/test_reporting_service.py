@@ -52,8 +52,8 @@ def test_get_user_usage_report_returns_month_counts_and_quota(tmp_path) -> None:
         RecordProcessingResultCommand(
             upload_id=upload.id,
             is_passport=True,
-            has_face=True,
             is_complete=True,
+            review_status="auto",
             passport_number="12345678",
             completed_at=datetime(2026, 3, 15, 12, 0, tzinfo=UTC),
         ),
@@ -144,8 +144,8 @@ def test_list_recent_uploads_returns_latest_first_with_joined_fields(tmp_path) -
         RecordProcessingResultCommand(
             upload_id=first.id,
             is_passport=False,
-            has_face=False,
             is_complete=False,
+            review_status="needs_review",
             error_code="not_passport",
             completed_at=datetime(2026, 3, 1, 9, 0, tzinfo=UTC),
         ),
@@ -164,8 +164,8 @@ def test_list_recent_uploads_returns_latest_first_with_joined_fields(tmp_path) -
         RecordProcessingResultCommand(
             upload_id=second.id,
             is_passport=True,
-            has_face=True,
             is_complete=True,
+            review_status="auto",
             passport_number="87654321",
             completed_at=datetime(2026, 3, 2, 9, 0, tzinfo=UTC),
         ),

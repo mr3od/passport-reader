@@ -37,14 +37,28 @@ CREATE TABLE IF NOT EXISTS processing_results (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     upload_id INTEGER NOT NULL UNIQUE,
     is_passport INTEGER NOT NULL,
-    has_face INTEGER NOT NULL,
     is_complete INTEGER NOT NULL,
+    review_status TEXT NOT NULL DEFAULT 'auto',
+    reviewed_by_user_id INTEGER,
+    reviewed_at TEXT,
     passport_number TEXT,
     passport_image_uri TEXT,
-    face_crop_uri TEXT,
-    core_result_json TEXT,
+    confidence_overall REAL,
+    extraction_result_json TEXT,
     error_code TEXT,
     completed_at TEXT NOT NULL,
+    FOREIGN KEY (upload_id) REFERENCES uploads(id) ON DELETE CASCADE,
+    FOREIGN KEY (reviewed_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS masar_submissions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    upload_id INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    mutamer_id TEXT,
+    scan_result_json TEXT,
+    submitted_at TEXT,
+    created_at TEXT NOT NULL,
     FOREIGN KEY (upload_id) REFERENCES uploads(id) ON DELETE CASCADE
 );
 
@@ -89,6 +103,18 @@ CREATE INDEX IF NOT EXISTS idx_uploads_user_created_at
 
 CREATE INDEX IF NOT EXISTS idx_processing_results_upload_id
     ON processing_results (upload_id);
+
+CREATE INDEX IF NOT EXISTS idx_processing_results_confidence
+    ON processing_results (confidence_overall);
+
+CREATE INDEX IF NOT EXISTS idx_processing_results_review_status
+    ON processing_results (review_status);
+
+CREATE INDEX IF NOT EXISTS idx_masar_submissions_upload_id_id
+    ON masar_submissions (upload_id, id DESC);
+
+CREATE INDEX IF NOT EXISTS idx_masar_submissions_status
+    ON masar_submissions (status);
 
 CREATE INDEX IF NOT EXISTS idx_temp_tokens_user_created_at
     ON temp_tokens (user_id, created_at);
@@ -140,18 +166,4 @@ class Database:
 
     @staticmethod
     def _upgrade_schema(conn: sqlite3.Connection) -> None:
-        columns = {
-            row["name"] for row in conn.execute("PRAGMA table_info(processing_results)").fetchall()
-        }
-        if "passport_image_uri" not in columns:
-            conn.execute("ALTER TABLE processing_results ADD COLUMN passport_image_uri TEXT")
-        if "face_crop_uri" not in columns:
-            conn.execute("ALTER TABLE processing_results ADD COLUMN face_crop_uri TEXT")
-        if "core_result_json" not in columns:
-            conn.execute("ALTER TABLE processing_results ADD COLUMN core_result_json TEXT")
-        if "masar_status" not in columns:
-            conn.execute("ALTER TABLE processing_results ADD COLUMN masar_status TEXT")
-        if "masar_mutamer_id" not in columns:
-            conn.execute("ALTER TABLE processing_results ADD COLUMN masar_mutamer_id TEXT")
-        if "masar_scan_result_json" not in columns:
-            conn.execute("ALTER TABLE processing_results ADD COLUMN masar_scan_result_json TEXT")
+        del conn

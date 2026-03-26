@@ -52,12 +52,12 @@ def test_list_user_records_returns_only_owned_uploads(tmp_path) -> None:
         RecordProcessingResultCommand(
             upload_id=owned.id,
             is_passport=True,
-            has_face=True,
             is_complete=True,
+            review_status="auto",
             passport_number="12345678",
             passport_image_uri="/tmp/original.jpg",
-            face_crop_uri="/tmp/face.jpg",
-            core_result_json='{"source":"telegram://owned","data":{"PassportNumber":"12345678"}}',
+            confidence_overall=0.97,
+            extraction_result_json='{"source":"telegram://owned","data":{"PassportNumber":"12345678"}}',
             completed_at=datetime(2026, 3, 13, 12, 0, tzinfo=UTC),
         ),
     )
@@ -75,8 +75,8 @@ def test_list_user_records_returns_only_owned_uploads(tmp_path) -> None:
         RecordProcessingResultCommand(
             upload_id=other.id,
             is_passport=False,
-            has_face=False,
             is_complete=False,
+            review_status="needs_review",
             error_code="not_passport",
             completed_at=datetime(2026, 3, 13, 12, 5, tzinfo=UTC),
         ),
@@ -88,6 +88,7 @@ def test_list_user_records_returns_only_owned_uploads(tmp_path) -> None:
     assert user_records[0].filename == "owned.jpg"
     assert user_records[0].passport_number == "12345678"
     assert user_records[0].passport_image_uri == "/tmp/original.jpg"
-    assert user_records[0].face_crop_uri == "/tmp/face.jpg"
-    assert user_records[0].core_result is not None
-    assert user_records[0].core_result["data"]["PassportNumber"] == "12345678"
+    assert user_records[0].confidence_overall == 0.97
+    assert user_records[0].review_status == "auto"
+    assert user_records[0].extraction_result is not None
+    assert user_records[0].extraction_result["data"]["PassportNumber"] == "12345678"

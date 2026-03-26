@@ -25,14 +25,24 @@ class ProcessingResult:
     id: int
     upload_id: int
     is_passport: bool
-    has_face: bool
     is_complete: bool
+    review_status: str
+    reviewed_by_user_id: int | None
+    reviewed_at: datetime | None
     passport_number: str | None
     passport_image_uri: str | None
-    face_crop_uri: str | None
-    core_result_json: str | None
+    confidence_overall: float | None
+    extraction_result_json: str | None
     error_code: str | None
     completed_at: datetime
-    masar_status: str | None
-    masar_mutamer_id: str | None
-    masar_scan_result_json: str | None
+
+
+@dataclass(slots=True)
+class MasarSubmission:
+    id: int
+    upload_id: int
+    status: str
+    mutamer_id: str | None
+    scan_result_json: str | None
+    submitted_at: datetime | None
+    created_at: datetime

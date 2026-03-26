@@ -76,11 +76,7 @@ def build_processing_runtime(
         return ProcessingRuntime(platform=platform_runtime, processing=None)
 
     resolved_core_env_file = core_env_file.expanduser().resolve()
-    resolved_core_root_dir = (
-        core_root_dir.expanduser().resolve()
-        if core_root_dir is not None
-        else resolved_core_env_file.parent
-    )
+    del core_root_dir
 
     if not resolved_core_env_file.exists():
         log.info(
@@ -90,17 +86,15 @@ def build_processing_runtime(
         return ProcessingRuntime(platform=platform_runtime, processing=None)
 
     try:
-        from passport_core import PassportWorkflow
         from passport_core.config import Settings as CoreSettings
+        from passport_core.extraction import PassportExtractor
 
         core_settings = cast(Any, CoreSettings)(_env_file=resolved_core_env_file)
-        core_settings.assets_dir = _resolve(resolved_core_root_dir, core_settings.assets_dir)
-        core_settings.template_path = _resolve(resolved_core_root_dir, core_settings.template_path)
-        core_settings.face_model_path = _resolve(
-            resolved_core_root_dir,
-            core_settings.face_model_path,
+        extractor = PassportExtractor(
+            api_key=core_settings.requesty_api_key.get_secret_value(),
+            model=core_settings.llm_model,
+            base_url=core_settings.requesty_base_url,
         )
-        workflow = PassportWorkflow(settings=core_settings)
     except Exception:
         log.exception("Failed to initialise passport-core — OCR pipeline disabled")
         return ProcessingRuntime(platform=platform_runtime, processing=None)
@@ -109,7 +103,7 @@ def build_processing_runtime(
         users=platform_runtime.users,
         quotas=platform_runtime.quotas,
         uploads=platform_runtime.uploads,
-        workflow=workflow,
+        extractor=extractor,
         artifacts=platform_runtime.artifacts,
     )
     return ProcessingRuntime(platform=platform_runtime, processing=processing)

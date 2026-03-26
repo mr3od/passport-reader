@@ -1,7 +1,12 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from types import SimpleNamespace
+
+from passport_core.extraction.models import (
+    Confidence,
+    ExtractionResult,
+    PassportFields,
+)
 
 from passport_platform.enums import (
     ChannelName,
@@ -15,35 +20,19 @@ from passport_platform.models.user import User
 from passport_platform.schemas.results import QuotaDecision, TrackedProcessingResult
 
 
-def test_tracked_processing_result_exposes_legacy_v1_names():
+def test_tracked_processing_result_exposes_v2_tokenized_names() -> None:
     result = make_tracked_result(
-        {
-            "PassportNumber": "12345678",
-            "SurnameAr": "الهاشمي",
-            "GivenNamesAr": "أحمد علي",
-            "SurnameEn": "ALHASHMI",
-            "GivenNamesEn": "AHMAD ALI",
-        }
-    )
-
-    data = result.extracted_data
-
-    assert data is not None
-    assert data.full_name_ar == "أحمد علي الهاشمي"
-    assert data.full_name_en == "AHMAD ALI ALHASHMI"
-    assert result.image_bytes == b"passport"
-    assert result.face_crop_bytes == b"face"
-
-
-def test_tracked_processing_result_exposes_v2_tokenized_names():
-    result = make_tracked_result(
-        {
-            "PassportNumber": "87654321",
-            "SurnameAr": "العكبري",
-            "GivenNameTokensAr": ["عبدالله", "مرشد", "حسن"],
-            "SurnameEn": "AL-AKBARI",
-            "GivenNameTokensEn": ["ABDULLAH", "MURSHED", "HASAN"],
-        }
+        ExtractionResult(
+            data=PassportFields(
+                PassportNumber="87654321",
+                SurnameAr="العكبري",
+                GivenNameTokensAr=["عبدالله", "مرشد", "حسن"],
+                SurnameEn="AL-AKBARI",
+                GivenNameTokensEn=["ABDULLAH", "MURSHED", "HASAN"],
+            ),
+            confidence=Confidence(overall=0.91),
+            warnings=[],
+        )
     )
 
     data = result.extracted_data
@@ -53,9 +42,29 @@ def test_tracked_processing_result_exposes_v2_tokenized_names():
     assert data.given_names_en == "ABDULLAH MURSHED HASAN"
     assert data.full_name_ar == "عبدالله مرشد حسن العكبري"
     assert data.full_name_en == "ABDULLAH MURSHED HASAN AL-AKBARI"
+    assert result.confidence_overall == 0.91
+    assert result.review_status == "auto"
 
 
-def make_tracked_result(extracted_data: dict[str, object]) -> TrackedProcessingResult:
+def test_tracked_processing_result_exposes_warning_list() -> None:
+    result = make_tracked_result(
+        ExtractionResult(
+            data=PassportFields(PassportNumber="12345678"),
+            confidence=Confidence(overall=0.62),
+            warnings=["Given name tokens: Arabic=4 vs English=3"],
+        ),
+        review_status="needs_review",
+    )
+
+    assert result.warnings == ["Given name tokens: Arabic=4 vs English=3"]
+    assert result.review_status == "needs_review"
+
+
+def make_tracked_result(
+    extraction_result: ExtractionResult,
+    *,
+    review_status: str = "auto",
+) -> TrackedProcessingResult:
     user = User(
         id=1,
         external_provider=ExternalProvider.TELEGRAM,
@@ -81,17 +90,16 @@ def make_tracked_result(extracted_data: dict[str, object]) -> TrackedProcessingR
         id=1,
         upload_id=upload.id,
         is_passport=True,
-        has_face=True,
         is_complete=True,
-        passport_number="12345678",
+        review_status=review_status,
+        reviewed_by_user_id=None,
+        reviewed_at=None,
+        passport_number=extraction_result.data.PassportNumber,
         passport_image_uri="/tmp/original.jpg",
-        face_crop_uri="/tmp/face.jpg",
-        core_result_json=None,
+        confidence_overall=extraction_result.confidence.overall,
+        extraction_result_json=extraction_result.model_dump_json(),
         error_code=None,
         completed_at=datetime(2026, 3, 13, 10, 1, tzinfo=UTC),
-        masar_status=None,
-        masar_mutamer_id=None,
-        masar_scan_result_json=None,
     )
 
     return TrackedProcessingResult(
@@ -108,10 +116,6 @@ def make_tracked_result(extracted_data: dict[str, object]) -> TrackedProcessingR
             remaining_successes=300,
             max_batch_size=10,
         ),
-        workflow_result=SimpleNamespace(
-            image_bytes=b"passport",
-            face_crop_bytes=b"face",
-            data=extracted_data,
-        ),
+        extraction_result=extraction_result,
         processing_result=processing_result,
     )
