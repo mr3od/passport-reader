@@ -67,6 +67,15 @@ jobs:
               exit 1
             fi
 
+            echo "Deploy SSH user: $(whoami)"
+            id
+
+            if ! id -nG | tr ' ' '\n' | grep -qx microk8s; then
+              echo 'Deploy user is not in microk8s group.' >&2
+              echo 'Fix on server: sudo usermod -a -G microk8s $(whoami)' >&2
+              exit 1
+            fi
+
             if ! microk8s status >/dev/null 2>&1; then
               echo 'microk8s is not accessible for this deploy user (no sudo fallback in CI).' >&2
               echo 'Fix on server: add deploy user to microk8s group and re-login.' >&2
