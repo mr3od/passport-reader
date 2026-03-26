@@ -15,18 +15,11 @@ runs/                 # Extraction outputs and reports per run
 ## CLI
 
 ```bash
-# Score an existing run
-benchmark-run cases/ --run-id <run-id>
-
-# Run extraction then score
-benchmark-run cases/ --extract --run-id <run-id>
-benchmark-run cases/ --extract --model google/gemini-3.1-flash-lite-preview
-
-# Organize raw images into case directories
-benchmark-organize <images-dir> cases/
-
-# Draft expected.json for unlabeled cases
-benchmark-draft-unlabeled cases/
+uv run benchmark-run cases/ --run-id <run-id>
+uv run benchmark-run cases/ --extract --run-id <run-id>
+uv run benchmark-run cases/ --extract --model google/gemini-3.1-flash-lite-preview
+uv run benchmark-organize <images-dir> cases/
+uv run benchmark-draft-unlabeled cases/
 ```
 
 ## Scoring
@@ -48,8 +41,7 @@ Reports (markdown + CSV) are written to the run directory.
 ## Installation
 
 ```bash
-cd passport-benchmark
-uv sync --extra dev
+uv sync --all-packages
 ```
 
-Requires `passport-core` `.env` with `PASSPORT_REQUESTY_API_KEY` for `--extract` mode.
+Requires `passport-core/.env` with `PASSPORT_REQUESTY_API_KEY` for `--extract` mode.

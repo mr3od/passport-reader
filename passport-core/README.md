@@ -56,19 +56,18 @@ result = workflow.process_bytes(image_bytes, filename="p.jpg", mime_type="image/
 ## Installation
 
 ```bash
-cd passport-core
-uv sync --extra dev
-cp .env.example .env
+uv sync --all-packages
+cp passport-core/.env.example passport-core/.env
 ```
 
-Set `PASSPORT_REQUESTY_API_KEY` in `.env`.
+Set `PASSPORT_REQUESTY_API_KEY` in `passport-core/.env`.
 
 ## Development
 
 ```bash
-uv run pytest -q
-uv run ruff check src/
-uv run ruff format src/
+uv run --package passport-core pytest passport-core/tests -q
+uv run ruff check passport-core/src/
+uv run ruff format passport-core/src/
 ```
 
 ## Benchmarking

@@ -27,19 +27,14 @@ It does not own:
 ## Setup
 
 ```bash
-cd passport-platform
-uv venv --python 3.12
-source .venv/bin/activate
-uv sync --extra dev
-cp .env.example .env
+uv sync --all-packages
+cp passport-platform/.env.example passport-platform/.env
 ```
 
 ## Environment
 
 - `PASSPORT_PLATFORM_DB_PATH`: SQLite database file path
-- `PASSPORT_PLATFORM_ARTIFACT_STORE_BACKEND`: currently `local`
 - `PASSPORT_PLATFORM_ARTIFACTS_DIR`: local root for stored upload and face-crop artifacts
-- `PASSPORT_PLATFORM_LOG_LEVEL`: logging level
 
 ## Database
 
@@ -108,6 +103,6 @@ The reporting service provides:
 ## Development
 
 ```bash
-uv run --extra dev pytest -q
-uv run --extra dev ruff check .
+uv run --package passport-platform pytest passport-platform/tests -q
+uv run ruff check passport-platform/src/
 ```

@@ -2,6 +2,15 @@
 
 Agent-maintained log of significant changes. Each entry records what was done and who did it.
 
+## 2026-03-27 — root workspace packaging and env cleanup [codex]
+
+- Added a root-managed `uv` workspace with a shared lockfile, shared tooling config, and shared dev dependency group
+- Excluded experimental `browser-session` from the maintained workspace path
+- Reduced maintained package manifests to thin distribution metadata while preserving separate package identities
+- Updated maintained package READMEs to teach a root-first workspace workflow
+- Removed stale environment variables and unused config fields from production examples and package settings
+- Added workspace design and implementation plan docs under `docs/superpowers/`
+
 ## 2026-03-24 — MRZ validator hardening and benchmark test cleanup [codex]
 
 - Tightened TD3 MRZ line 2 validation to require exact length and required check digits

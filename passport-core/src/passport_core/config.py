@@ -44,9 +44,6 @@ class Settings(BaseSettings):
     llm_model: str = "openai-responses/gpt-5-mini"
     requesty_api_key: SecretStr | None = None
     requesty_base_url: str = "https://router.requesty.ai/v1"
-    log_level: str = "INFO"
-    log_json: bool = False
-
     @model_validator(mode="after")
     def _resolve_asset_paths(self) -> Settings:
         if not self.template_path.is_absolute() and not self._is_under_assets_dir(

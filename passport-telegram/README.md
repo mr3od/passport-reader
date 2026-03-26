@@ -13,11 +13,10 @@ Successful results are returned as a single photo message (the original upload) 
 ## Setup
 
 ```bash
-cd passport-telegram
-uv venv --python 3.12
-source .venv/bin/activate
-uv sync --extra dev
-cp .env.example .env
+uv sync --all-packages
+cp passport-core/.env.example passport-core/.env
+cp passport-platform/.env.example passport-platform/.env
+cp passport-telegram/.env.example passport-telegram/.env
 ```
 
 Then set:
@@ -37,7 +36,6 @@ The platform `.env` should contain the shared application database path, such as
 ## Run
 
 ```bash
-cd passport-telegram
 uv run passport-telegram
 ```
 
@@ -94,6 +92,6 @@ Notes:
 ## Development
 
 ```bash
-uv run --extra dev pytest -q
-uv run --extra dev ruff check .
+uv run --package passport-telegram pytest passport-telegram/tests -q
+uv run ruff check passport-telegram/src/
 ```

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -14,6 +13,4 @@ class PlatformSettings(BaseSettings):
     )
 
     db_path: Path = Path("data/platform.sqlite3")
-    artifact_store_backend: Literal["local"] = "local"
     artifacts_dir: Path = Path("data/artifacts")
-    log_level: str = "INFO"
