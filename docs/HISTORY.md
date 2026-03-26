@@ -2,6 +2,13 @@
 
 Agent-maintained log of significant changes. Each entry records what was done and who did it.
 
+## 2026-03-27 — MicroK8s ingress and cert-manager exposure for API [codex]
+
+- Added a production `ClusterIssuer` for Let's Encrypt using cert-manager and the MicroK8s `public` ingress class
+- Added an API Ingress for `passport-api.mr3od.dev` with TLS managed by cert-manager
+- Updated the deploy workflow to enable the MicroK8s `ingress` and `cert-manager` addons before applying manifests
+- Extended deployment verification to report ingress and certificate resources after rollout
+
 ## 2026-03-27 — runtime contract consolidation for MicroK8s [codex]
 
 - Added one root `.env.example` for local development and removed duplicate package env examples

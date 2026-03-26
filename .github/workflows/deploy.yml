@@ -74,17 +74,23 @@ jobs:
 
             kctl() { microk8s kubectl \"\$@\"; }
 
+            echo 'Ensuring required MicroK8s addons are enabled'
+            microk8s enable ingress
+            microk8s enable cert-manager
+
             IMAGE='passport-reader:${IMAGE_TAG}'
             docker build -t \"\$IMAGE\" .
             docker save \"\$IMAGE\" | microk8s images import
 
             kctl apply -f k8s/namespace.yaml
+            kctl apply -f k8s/cluster-issuer.yaml
             kctl -n ${K8S_NAMESPACE} create secret generic passport-reader-env \
               --from-env-file=.env.production \
               --dry-run=client -o yaml | kctl apply -f -
             kctl apply -f k8s/pvc.yaml
             kctl apply -f k8s/api-deployment.yaml
             kctl apply -f k8s/api-service.yaml
+            kctl apply -f k8s/api-ingress.yaml
             kctl apply -f k8s/telegram-deployment.yaml
 
             kctl -n ${K8S_NAMESPACE} set image deploy/passport-api passport-api=\"\$IMAGE\"
@@ -106,7 +112,9 @@ jobs:
             set -euo pipefail
             cd $DEPLOY_PATH
             kctl() { microk8s kubectl \"\$@\"; }
-            kctl -n ${K8S_NAMESPACE} get deploy,pods,svc,pvc
+            kctl -n ${K8S_NAMESPACE} get deploy,pods,svc,pvc,ingress
+            kctl get clusterissuer letsencrypt-production || true
+            kctl -n ${K8S_NAMESPACE} get certificate,certificaterequest,challenge,order || true
             kctl -n ${K8S_NAMESPACE} logs deploy/passport-api --tail=80 || true
             kctl -n ${K8S_NAMESPACE} logs deploy/passport-telegram --tail=80 || true
           "
