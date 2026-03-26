@@ -34,12 +34,13 @@ class RecordResponse(BaseModel):
     created_at: datetime
     completed_at: datetime | None
     is_passport: bool | None
-    has_face: bool | None
     is_complete: bool | None
+    review_status: str | None
     passport_number: str | None
     passport_image_uri: str | None
-    face_crop_uri: str | None
-    core_result: dict[str, Any] | None
+    confidence_overall: float | None
+    review_summary: str | None
+    extraction_result: dict[str, Any] | None
     error_code: str | None
     masar_status: str | None
 
@@ -48,3 +49,7 @@ class MasarStatusUpdate(BaseModel):
     status: str
     masar_mutamer_id: str | None = None
     masar_scan_result: dict[str, Any] | None = None
+
+
+class ReviewStatusUpdate(BaseModel):
+    status: str

@@ -2,6 +2,8 @@
 
 All user-facing strings are in Arabic. Developer/ops strings (RuntimeError, logs, error codes, JSON blobs) stay English.
 
+This applies to product/runtime text shown to agency users inside the system. It does not apply to developer collaboration in this workspace: agent replies, code review comments, commit messages, shell guidance, and implementation discussion with repository developers stay English unless the developer explicitly asks for Arabic.
+
 ## Tone
 
 Short, direct, non-technical. Agencies are not developers.
@@ -79,6 +81,29 @@ Adding a column requires all of the following to be updated together — a parti
 4. The `UserRecord` schema in `schemas/results.py`
 5. The SELECT queries in `repositories/records.py`
 6. The `RecordResponse` schema and route logic in `passport-api`
+
+## Extraction pipeline (passport-core 0.2.0+)
+
+- The v2 extraction entry point is `passport_core.extraction.PassportExtractor`.
+- `workflow.py`, `llm.py`, `models.py` in passport-core are deprecated v1 — do not extend them.
+- Confidence is programmatic (image metadata + cross-validation warnings), never LLM self-reported.
+- `passport-benchmark` is for scoring only — extraction logic lives in `passport-core`.
+
+## Code quality
+
+- Non-obvious functions must have a Python docstring.
+- Deprecated modules must emit `DeprecationWarning` at import time and carry a `.. deprecated::` directive in their module docstring pointing to the replacement.
+
+## Pre-commit checklist (all agents)
+
+Before committing:
+1. Run `uv run ruff check src/` and `uv run ruff format src/` — must pass.
+2. Run `uv run ty check src` — must pass.
+3. Verify non-obvious functions have Python docstrings.
+4. If changes are large or structural, update the package's `AGENTS.md` and `README.md`.
+5. Bump the version in `pyproject.toml` and `__version__` if the public API changed.
+6. After commit, append to `docs/HISTORY.md` what was done and which agent authored the commit.
+7. Include the agent name in the commit message (e.g. `[claude]`, `[codex]`, `[kiro]`, `[antigravity]`).
 
 ## Simplicity rule
 

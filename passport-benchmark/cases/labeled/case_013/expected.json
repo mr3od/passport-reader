@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "scanned",
+    "layout": "single_page",
+    "image_quality": "good",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.39.00.jpeg",
+    "reasoning": "Clean single data page scan. All printed fields and MRZ are sharp and fully readable. Profession is clearly SALES REP / مندوب مبيعات. Birthplace and issuing authority both refer to Socotra but must stay distinct by field."
+  },
+  "PassportNumber": "15680080",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMAHMED<<SALEM<ABDULLAH<SULAIMAN<<<<<<<<<",
+  "MrzLine2": "15680080<0YEM8802026M3111253<<<<<<<<<<<<<<06",
+  "SurnameAr": "أحمد",
+  "GivenNameTokensAr": [
+    "سالم",
+    "عبدالله",
+    "سليمان"
+  ],
+  "SurnameEn": "AHMED",
+  "GivenNameTokensEn": [
+    "SALEM",
+    "ABDULLAH",
+    "SULAIMAN"
+  ],
+  "DateOfBirth": "02/02/1988",
+  "PlaceOfBirthAr": "اليمن - أرخبيل سقطرى",
+  "PlaceOfBirthEn": "SOCOTRA - YEM",
+  "BirthCityAr": "أرخبيل سقطرى",
+  "BirthCityEn": "SOCOTRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "M",
+  "DateOfIssue": "25/11/2025",
+  "DateOfExpiry": "25/11/2031",
+  "ProfessionAr": "مندوب مبيعات",
+  "ProfessionEn": "SALES REP",
+  "IssuingAuthorityAr": "سقطرى",
+  "IssuingAuthorityEn": "Socotra"
+}

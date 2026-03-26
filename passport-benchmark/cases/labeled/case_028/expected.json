@@ -1,0 +1,43 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "scanned",
+    "layout": "single_page",
+    "image_quality": "good",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.39.38 (1).jpeg",
+    "reasoning": "Single data page of a yemeni passport, high-quality scan."
+  },
+  "PassportNumber": "09893574",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMBINNASEB<<ABDULELAH<ALI<AMER<SALEM<<<<<",
+  "MrzLine2": "09893574<3YEM8101051M2706122<<<<<<<<<<<<<<02",
+  "SurnameAr": "بن نصيب",
+  "GivenNameTokensAr": [
+    "عبدالاله",
+    "علي",
+    "عامر",
+    "سالم"
+  ],
+  "SurnameEn": "BIN NASEB",
+  "GivenNameTokensEn": [
+    "ABDULELAH",
+    "ALI",
+    "AMER",
+    "SALEM"
+  ],
+  "DateOfBirth": "05/01/1981",
+  "PlaceOfBirthAr": "اليمن - أرخبيل سقطره",
+  "PlaceOfBirthEn": "SUQATRA - YEM",
+  "BirthCityAr": "أرخبيل سقطره",
+  "BirthCityEn": "SUQATRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "M",
+  "DateOfIssue": "12/06/2021",
+  "DateOfExpiry": "12/06/2027",
+  "ProfessionAr": "عامل",
+  "ProfessionEn": "LABORER",
+  "IssuingAuthorityAr": "المكلا",
+  "IssuingAuthorityEn": "MUKALLA"
+}

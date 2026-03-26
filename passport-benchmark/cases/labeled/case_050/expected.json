@@ -1,0 +1,43 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "photographed",
+    "layout": "single_page",
+    "image_quality": "good",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.40.19.jpeg",
+    "reasoning": "The image is a clear, high-quality photograph of a single passport data page."
+  },
+  "PassportNumber": "09889268",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMABDULLAH<<MOHAMMED<AHMED<ALI<HELWAN<<<<",
+  "MrzLine2": "09889268<6YEM0101262M2704139<<<<<<<<<<<<<<02",
+  "SurnameAr": "عبدالله",
+  "GivenNameTokensAr": [
+    "محمد",
+    "أحمد",
+    "علي",
+    "حلوان"
+  ],
+  "SurnameEn": "ABDULLAH",
+  "GivenNameTokensEn": [
+    "MOHAMMED",
+    "AHMED",
+    "ALI",
+    "HELWAN"
+  ],
+  "DateOfBirth": "26/01/2001",
+  "PlaceOfBirthAr": "اليمن - أرخبيل سقطره",
+  "PlaceOfBirthEn": "SUQATRA - YEM",
+  "BirthCityAr": "أرخبيل سقطره",
+  "BirthCityEn": "SUQATRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "M",
+  "DateOfIssue": "13/04/2021",
+  "DateOfExpiry": "13/04/2027",
+  "ProfessionAr": "عامل",
+  "ProfessionEn": "LABORER",
+  "IssuingAuthorityAr": "المكلا",
+  "IssuingAuthorityEn": "MUKALLA"
+}

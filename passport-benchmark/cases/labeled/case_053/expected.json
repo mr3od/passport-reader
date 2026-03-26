@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "scanned",
+    "layout": "single_page",
+    "image_quality": "good",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.40.22.jpeg",
+    "reasoning": "Standard passport data page, clear scan."
+  },
+  "PassportNumber": "09485749",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMABDULLAH<<ZAINAH<NASSER<SEROR<<<<<<<<<<",
+  "MrzLine2": "09485749<4YEM5901021F2612258<<<<<<<<<<<<<<02",
+  "SurnameAr": "عبدالله",
+  "GivenNameTokensAr": [
+    "زينه",
+    "ناصر",
+    "سرور"
+  ],
+  "SurnameEn": "ABDULLAH",
+  "GivenNameTokensEn": [
+    "ZAINAH",
+    "NASSER",
+    "SEROR"
+  ],
+  "DateOfBirth": "02/01/1959",
+  "PlaceOfBirthAr": "اليمن - أرخبيل سقطره",
+  "PlaceOfBirthEn": "SUQATRA - YEM",
+  "BirthCityAr": "أرخبيل سقطره",
+  "BirthCityEn": "SUQATRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "F",
+  "DateOfIssue": "25/12/2020",
+  "DateOfExpiry": "25/12/2026",
+  "ProfessionAr": "ربة بيت",
+  "ProfessionEn": "HOUSE WIFE",
+  "IssuingAuthorityAr": "المكلا",
+  "IssuingAuthorityEn": "MUKALLA"
+}

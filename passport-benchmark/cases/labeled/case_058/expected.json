@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "photographed",
+    "layout": "two_page_spread",
+    "image_quality": "good",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.40.29.jpeg",
+    "reasoning": "Standard two-page spread passport image of a yemeni passport."
+  },
+  "PassportNumber": "14323660",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMNONHA<<SAEED<EISSA<ABDULLAH<<<<<<<<<<<<",
+  "MrzLine2": "14323660<3YEM8002273M3101193<<<<<<<<<<<<<<02",
+  "SurnameAr": "نونها",
+  "GivenNameTokensAr": [
+    "سعيد",
+    "عيسى",
+    "عبدالله"
+  ],
+  "SurnameEn": "NONHA",
+  "GivenNameTokensEn": [
+    "SAEED",
+    "EISSA",
+    "ABDULLAH"
+  ],
+  "DateOfBirth": "27/02/1980",
+  "PlaceOfBirthAr": "اليمن - أرخبيل سقطرى",
+  "PlaceOfBirthEn": "SOCOTRA - YEM",
+  "BirthCityAr": "أرخبيل سقطرى",
+  "BirthCityEn": "SOCOTRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "M",
+  "DateOfIssue": "19/01/2025",
+  "DateOfExpiry": "19/01/2031",
+  "ProfessionAr": "مندوب مبيعات",
+  "ProfessionEn": "SALES REP.",
+  "IssuingAuthorityAr": "سقطرى",
+  "IssuingAuthorityEn": "Socotra"
+}

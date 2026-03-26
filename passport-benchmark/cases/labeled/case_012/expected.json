@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "photographed",
+    "layout": "single_page",
+    "image_quality": "fair",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.40.18.jpeg",
+    "reasoning": "Single data page photo. Slightly washed out / low contrast. The second English given-name token KHAMIS is identical to the surname KHAMIS — valid and must not be 'corrected'. Profession field area appears blank or illegible in the image."
+  },
+  "PassportNumber": "15359022",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMKHAMIS<<ENAS<KHAMIS<SAAD<<<<<<<<<<<<<<<",
+  "MrzLine2": "15359022<7YEM9010015F3107209<<<<<<<<<<<<<<02",
+  "SurnameAr": "خميس",
+  "GivenNameTokensAr": [
+    "إيناس",
+    "خميس",
+    "سعد"
+  ],
+  "SurnameEn": "KHAMIS",
+  "GivenNameTokensEn": [
+    "ENAS",
+    "KHAMIS",
+    "SAAD"
+  ],
+  "DateOfBirth": "01/10/1990",
+  "PlaceOfBirthAr": "اليمن - أرخبيل سقطره",
+  "PlaceOfBirthEn": "SUQATRA - YEM",
+  "BirthCityAr": "أرخبيل سقطره",
+  "BirthCityEn": "SUQATRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "F",
+  "DateOfIssue": "20/07/2025",
+  "DateOfExpiry": "20/07/2031",
+  "ProfessionAr": null,
+  "ProfessionEn": null,
+  "IssuingAuthorityAr": "سقطرى",
+  "IssuingAuthorityEn": "Socotra"
+}

@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "photographed",
+    "layout": "single_page",
+    "image_quality": "good",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.39.12.jpeg",
+    "reasoning": "Clear single data page photo. All core fields and MRZ are readable. Profession is printed as PRIVATE JOB / عمل خاص. Birthplace is the longer Socotra locality form, while issuing authority is the shorter Socotra authority name."
+  },
+  "PassportNumber": "15359242",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMMUBARAK<<MUNEER<ALI<MOHAMMED<<<<<<<<<<<",
+  "MrzLine2": "15359242<3YEM7303021M3108125<<<<<<<<<<<<<<00",
+  "SurnameAr": "مبارك",
+  "GivenNameTokensAr": [
+    "منير",
+    "علي",
+    "محمد"
+  ],
+  "SurnameEn": "MUBARAK",
+  "GivenNameTokensEn": [
+    "MUNEER",
+    "ALI",
+    "MOHAMMED"
+  ],
+  "DateOfBirth": "02/03/1973",
+  "PlaceOfBirthAr": "اليمن - أرخبيل سقطرى",
+  "PlaceOfBirthEn": "SOCOTRA - YEM",
+  "BirthCityAr": "أرخبيل سقطرى",
+  "BirthCityEn": "SOCOTRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "M",
+  "DateOfIssue": "12/08/2025",
+  "DateOfExpiry": "12/08/2031",
+  "ProfessionAr": "عمل خاص",
+  "ProfessionEn": "PRIVATE JOB",
+  "IssuingAuthorityAr": "سقطرى",
+  "IssuingAuthorityEn": "Socotra"
+}

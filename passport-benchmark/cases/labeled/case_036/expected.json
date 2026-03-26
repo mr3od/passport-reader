@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "photographed",
+    "layout": "single_page",
+    "image_quality": "good",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.39.56.jpeg",
+    "reasoning": "Passport data page is clear and well-lit with all necessary fields visible."
+  },
+  "PassportNumber": "11731504",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMSALEM<<BAKHILAH<SALEM<AHMED<<<<<<<<<<<<",
+  "MrzLine2": "11731504<8YEM6602093F2903046<<<<<<<<<<<<<<02",
+  "SurnameAr": "سالم",
+  "GivenNameTokensAr": [
+    "بقيله",
+    "سالم",
+    "احمد"
+  ],
+  "SurnameEn": "SALEM",
+  "GivenNameTokensEn": [
+    "BAKHILAH",
+    "SALEM",
+    "AHMED"
+  ],
+  "DateOfBirth": "09/02/1966",
+  "PlaceOfBirthAr": "اليمن - أرخبيل سقطرى",
+  "PlaceOfBirthEn": "SOCOTRA - YEM",
+  "BirthCityAr": "أرخبيل سقطرى",
+  "BirthCityEn": "SOCOTRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "F",
+  "DateOfIssue": "04/03/2023",
+  "DateOfExpiry": "04/03/2029",
+  "ProfessionAr": "ربة بيت",
+  "ProfessionEn": "HOUSE WIFE",
+  "IssuingAuthorityAr": "سقطرى",
+  "IssuingAuthorityEn": "Socotra"
+}

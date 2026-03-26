@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "photographed",
+    "layout": "single_page",
+    "image_quality": "good",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.40.28.jpeg",
+    "reasoning": "Standard single-page data view of a yemeni passport, clearly legible."
+  },
+  "PassportNumber": "10505030",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMABOBAKR<<NAMOASA<SALEH<MOHAMMED<<<<<<<<",
+  "MrzLine2": "10505030<8YEM7001017F2711162<<<<<<<<<<<<<<08",
+  "SurnameAr": "ابوبكر",
+  "GivenNameTokensAr": [
+    "ناموسا",
+    "صالح",
+    "محمد"
+  ],
+  "SurnameEn": "ABOBAKR",
+  "GivenNameTokensEn": [
+    "NAMOASA",
+    "SALEH",
+    "MOHAMMED"
+  ],
+  "DateOfBirth": "01/01/1970",
+  "PlaceOfBirthAr": "اليمن - أرخبيل سقطره",
+  "PlaceOfBirthEn": "SUQATRA - YEM",
+  "BirthCityAr": "أرخبيل سقطره",
+  "BirthCityEn": "SUQATRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "F",
+  "DateOfIssue": "16/11/2021",
+  "DateOfExpiry": "16/11/2027",
+  "ProfessionAr": "ربة بيت",
+  "ProfessionEn": "HOUSE WIFE",
+  "IssuingAuthorityAr": "المكلا",
+  "IssuingAuthorityEn": "MUKALLA"
+}

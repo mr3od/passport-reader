@@ -42,7 +42,9 @@ def dev_token(
     if not settings.dev_token_secret:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     if x_dev_secret != settings.dev_token_secret:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=AUTH_DEV_SECRET_INVALID)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail=AUTH_DEV_SECRET_INVALID
+        )
     user = services.users.get_or_create_user(
         EnsureUserCommand(
             external_provider=ExternalProvider.API,

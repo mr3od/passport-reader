@@ -1,11 +1,10 @@
 [project]
 name = "passport-telegram"
 version = "0.1.0"
-description = "Telegram bot adapter for passport-core"
+description = "Telegram bot adapter for passport-platform"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-  "passport-core",
   "passport-platform",
   "pydantic-settings>=2.4.0",
   "python-dotenv>=1.0.1",
@@ -22,7 +21,6 @@ dev = [
 passport-telegram = "passport_telegram.cli:main"
 
 [tool.uv.sources]
-passport-core = { path = "../passport-core", editable = true }
 passport-platform = { path = "../passport-platform", editable = true }
 
 [tool.ruff]

@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "scanned",
+    "layout": "two_page_spread",
+    "image_quality": "fair",
+    "original_filename": "case_006_grayscale_input.jpeg",
+    "reasoning": "Grayscale/contrast-adjusted variant of case_006. Two-page spread scan remains legible, but color cues are removed and contrast has been remapped while keeping the MRZ and VIZ readable."
+  },
+  "PassportNumber": "09309931",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMBINSALEM<<AHMED<SALEM<OMER<<<<<<<<<<<<<",
+  "MrzLine2": "09309931<0YEM7405121M2611239<<<<<<<<<<<<<<08",
+  "SurnameAr": "بن سالم",
+  "GivenNameTokensAr": [
+    "أحمد",
+    "سالم",
+    "عمر"
+  ],
+  "SurnameEn": "BIN SALEM",
+  "GivenNameTokensEn": [
+    "AHMED",
+    "SALEM",
+    "OMER"
+  ],
+  "DateOfBirth": "12/05/1974",
+  "PlaceOfBirthAr": "السعودية - جده",
+  "PlaceOfBirthEn": "JEDDAH - KSA",
+  "BirthCityAr": "جده",
+  "BirthCityEn": "JEDDAH",
+  "BirthCountryAr": "السعودية",
+  "BirthCountryEn": "KSA",
+  "Sex": "M",
+  "DateOfIssue": "23/11/2020",
+  "DateOfExpiry": "23/11/2026",
+  "ProfessionAr": "مدير تجاري",
+  "ProfessionEn": "COMMERCIAL MANG.",
+  "IssuingAuthorityAr": "كوالالمبور",
+  "IssuingAuthorityEn": "KUALA LUMPUR"
+}

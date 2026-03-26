@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "scanned",
+    "layout": "single_page",
+    "image_quality": "good",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.40.20.jpeg",
+    "reasoning": "Passport data page of a yemeni passport, scanned with high quality."
+  },
+  "PassportNumber": "14323753",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMALASHAARI<<SABER<ALI<MOHAMMED<<<<<<<<<<",
+  "MrzLine2": "14323753<6YEM5601011M3101296<<<<<<<<<<<<<<00",
+  "SurnameAr": "الأشعري",
+  "GivenNameTokensAr": [
+    "صابر",
+    "علي",
+    "محمد"
+  ],
+  "SurnameEn": "AL-ASHAARI",
+  "GivenNameTokensEn": [
+    "SABER",
+    "ALI",
+    "MOHAMMED"
+  ],
+  "DateOfBirth": "01/01/1956",
+  "PlaceOfBirthAr": "اليمن - أرخبيل سقطره",
+  "PlaceOfBirthEn": "SUQATRA - YEM",
+  "BirthCityAr": "أرخبيل سقطره",
+  "BirthCityEn": "SUQATRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "M",
+  "DateOfIssue": "29/01/2025",
+  "DateOfExpiry": "29/01/2031",
+  "ProfessionAr": "عامل",
+  "ProfessionEn": "LABORER",
+  "IssuingAuthorityAr": "سقطرى",
+  "IssuingAuthorityEn": "Socotra"
+}

@@ -55,20 +55,24 @@ uv run passport-telegram
 
 ### passport-core
 
-Stateless processing pipeline. Entry point is `PassportWorkflow.process_bytes(image_bytes)` → `PassportWorkflowResult`.
+Current extraction entry point is `passport_core.extraction.PassportExtractor`.
 
-Three stages:
-1. **Vision** (`vision.py`) — validates passport presence, detects and crops face using ONNX RetinaFace model
-2. **LLM extraction** (`llm.py`) — `PassportExtractor` sends the image to an LLM via Requesty router and returns structured `PassportData`
-3. **Result assembly** — combines vision + LLM outputs into `PassportWorkflowResult`
+V2 extraction is a single extractor call that returns `ExtractionResult`, including:
+- structured data (`data`)
+- image/meta assessment (`meta`)
+- programmatic confidence (`confidence`)
+- validation warnings (`warnings`)
+- usage and trace payloads (`usage`, `message_history_json`)
 
-Config via `Settings` (prefix `PASSPORT_`). Requires `PASSPORT_REQUESTY_API_KEY` and model-related env vars. Assets (ONNX model, template image) must exist at paths defined in settings.
+`workflow.py`, `llm.py`, and v1 workflow models are deprecated compatibility modules. Do not extend them for new behavior.
+
+Config via `Settings` (prefix `PASSPORT_`). Runtime extraction requires Requesty credentials/model env vars (for example `PASSPORT_REQUESTY_API_KEY`, `PASSPORT_LLM_MODEL`, `PASSPORT_REQUESTY_BASE_URL`).
 
 ### passport-platform
 
 Shared application layer consumed by both adapters. Never instantiated directly by end-users.
 
-**Database** (`db.py`): SQLite via `Database` class. Call `db.initialize()` at startup — it runs `SCHEMA_SQL`, calls `_upgrade_schema()` for additive column migrations, then `INDEX_SQL`. Schema upgrades are done inline in `_upgrade_schema()` (not via migration files — the `.sql` files in `migrations/` are reference only).
+**Database** (`db.py`): SQLite via `Database` class. Call `db.initialize()` at startup — it runs `SCHEMA_SQL` then `INDEX_SQL`. Current v2 baseline uses clean reset semantics; `_upgrade_schema()` is intentionally a no-op.
 
 Two transaction patterns:
 - `db.connect()` — read-only / manual commit
@@ -79,7 +83,12 @@ Two transaction patterns:
 - Services own business logic and call repositories
 - Adapters (telegram/api) instantiate services and call them
 
-**`ProcessingService`** is the main orchestrator: quota check → reserve upload → store artifact → run `PassportWorkflow` → persist result → update ledger.
+**`ProcessingService`** is the main orchestrator: quota check → reserve upload → store artifact → run `PassportExtractor` → persist full `ExtractionResult` JSON → update ledger.
+
+Review automation in platform:
+- `review_status` is computed as `auto` or `needs_review` using confidence and warnings.
+- `reviewed` is a manual transition used by adapters before submission.
+- submission gating is enforced in platform/api, not only in extension UI.
 
 ### passport-api
 
@@ -94,6 +103,7 @@ New routes go in `routes/`, registered in `app.py`. All routes use the `get_auth
 Single-file bot (`bot.py`). `MediaGroupCollector` batches photos sent as Telegram media groups (waits `album_collection_window_seconds` before processing). The bot loads both `passport-core` and `passport-platform` env files at startup via `python-dotenv`.
 
 Messages are Arabic-first; all user-facing strings are in `messages.py`.
+Successful processing replies with a single photo (original upload) and caption (no face-crop media).
 
 ### passport-masar-extension (Chrome MV3)
 
@@ -101,7 +111,7 @@ Background service worker (`background.js`) does everything — no content scrip
 
 **Header capture**: `webRequest.onSendHeaders` passively captures `activeentityid`, `activeentitytypeid`, `contractid` from any outgoing masar request and persists them to `chrome.storage.local`. These are required for all masar API calls.
 
-**5-step submission flow** (all endpoints under `https://masar.nusuk.sa/umrah/groups_apis/api/`):
+**6-step submission flow** (all endpoints under `https://masar.nusuk.sa/umrah/groups_apis/api/`):
 1. `POST Mutamer/ScanPassport` — multipart upload, response at `response.data.passportResponse`
 2. `POST Mutamer/SubmitPassportInforamtionWithNationality` — note the typo in endpoint name; names sent as `{en, ar}` objects; response `data.id` = mutamerId
 3. `POST /umrah/common_apis/api/Attachment/Upload` — vaccination image; response at `data.attachmentResponse.id`
@@ -113,11 +123,16 @@ All API responses are wrapped: `{ response: { data: { ... } } }`.
 
 ## Schema Changes
 
-New columns go in two places:
-1. `passport-platform/src/passport_platform/db.py` — add `ALTER TABLE` in `_upgrade_schema()` so existing DBs upgrade automatically on next startup
-2. The `.sql` migration files in `passport-platform/migrations/` — for reference/documentation
+Current v2 baseline is clean-reset oriented:
+1. Update `passport-platform/src/passport_platform/db.py` (`SCHEMA_SQL` and `INDEX_SQL`)
+2. Keep `passport-platform/migrations/*.sql` in sync as the baseline reference
+3. Reset local DB files before running when schema changes are not backward-compatible
 
-The `ProcessingResult` dataclass (`models/upload.py`), `UserRecord` schema (`schemas/results.py`), repository SELECT queries (`repositories/records.py`), the platform service, and the API schema/route all need updating together when adding columns.
+When adding/changing result fields, update all linked layers together:
+- `ProcessingResult` (`models/upload.py`)
+- platform result schemas (`schemas/results.py`)
+- repository SELECT projections (`repositories/records.py`)
+- platform services and API response schemas/routes
 
 ## Environment Files
 

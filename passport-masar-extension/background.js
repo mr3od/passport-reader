@@ -330,6 +330,24 @@ function coreDate(str) {
   return null;
 }
 
+function mapNameTokens(tokens, sanitise) {
+  if (!Array.isArray(tokens) || tokens.length === 0) {
+    return { first: null, second: null, third: null };
+  }
+  if (tokens.length <= 3) {
+    return {
+      first: sanitise(tokens[0]),
+      second: sanitise(tokens[1]),
+      third: sanitise(tokens[2]),
+    };
+  }
+  return {
+    first: sanitise(tokens[0]),
+    second: sanitise(tokens.slice(1, -1).join(" ")),
+    third: sanitise(tokens[tokens.length - 1]),
+  };
+}
+
 async function submitToMasar(record) {
   const settings = await new Promise((resolve) =>
     chrome.storage.local.get(["agency_email", "agency_phone", "agency_phone_country_code"], resolve)
@@ -337,15 +355,17 @@ async function submitToMasar(record) {
 
   // passport-core OCR data — used for all text fields (better quality than ScanPassport OCR).
   // ScanPassport is still called for image uploads and numeric IDs it returns.
-  const core = record.core_result?.data || {};
-  log("submitToMasar — core_result fields available:", Object.keys(core).filter((k) => core[k]));
+  const core = record.extraction_result?.data || {};
+  log("submitToMasar — extraction_result fields available:", Object.keys(core).filter((k) => core[k]));
 
-  const firstEn  = sanitiseEnName(core.FirstNameEn);
-  const secondEn = sanitiseEnName(core.FatherNameEn);
-  const thirdEn  = sanitiseEnName(core.GrandfatherNameEn);
-  const firstAr  = sanitiseArName(core.FirstNameAr);
-  const secondAr = sanitiseArName(core.FatherNameAr);
-  const thirdAr  = sanitiseArName(core.GrandfatherNameAr);
+  const namesEn = mapNameTokens(core.GivenNameTokensEn, sanitiseEnName);
+  const namesAr = mapNameTokens(core.GivenNameTokensAr, sanitiseArName);
+  const firstEn  = namesEn.first;
+  const secondEn = namesEn.second;
+  const thirdEn  = namesEn.third;
+  const firstAr  = namesAr.first;
+  const secondAr = namesAr.second;
+  const thirdAr  = namesAr.third;
   const familyEn = sanitiseEnName(core.SurnameEn);
   const familyAr = sanitiseArName(core.SurnameAr);
 
@@ -678,6 +698,9 @@ async function handleMessage(msg) {
     const record = msg.record;
     log("SUBMIT_RECORD — upload_id:", record.upload_id);
     return serialiseSubmit(async () => {
+    if (record.review_status === "needs_review") {
+      return { ok: false, error: S.REVIEW_REQUIRED };
+    }
     try {
       const { mutamerId, scanResult } = await submitToMasar(record);
       const patchRes = await apiFetch(`/records/${record.upload_id}/masar-status`, {
@@ -708,6 +731,18 @@ async function handleMessage(msg) {
       return { ok: false, error: err.message };
     }
     }); // end serialiseSubmit
+  }
+
+  if (msg.type === "MARK_REVIEWED") {
+    const uploadId = msg.uploadId;
+    const patchRes = await apiFetch(`/records/${uploadId}/review-status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: "reviewed" }),
+    });
+    if (!patchRes.ok) {
+      return { ok: false, status: patchRes.status };
+    }
+    return { ok: true };
   }
 
   if (msg.type === "OPEN_MASAR") {

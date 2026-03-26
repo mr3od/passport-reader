@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "scanned",
+    "layout": "single_page",
+    "image_quality": "good",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.40.04.jpeg",
+    "reasoning": "The image is a high-quality scan of a standard yemeni passport data page."
+  },
+  "PassportNumber": "12403701",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMARZHN<<SHAIKHAH<ASHOOR<ABDULLAH<<<<<<<<",
+  "MrzLine2": "12403701<6YEM5901010F2903105<<<<<<<<<<<<<<02",
+  "SurnameAr": "عرزهن",
+  "GivenNameTokensAr": [
+    "شيخة",
+    "عاشور",
+    "عبدالله"
+  ],
+  "SurnameEn": "ARZHN",
+  "GivenNameTokensEn": [
+    "SHAIKHAH",
+    "ASHOOR",
+    "ABDULLAH"
+  ],
+  "DateOfBirth": "01/01/1959",
+  "PlaceOfBirthAr": "اليمن - أرخبيل سقطره",
+  "PlaceOfBirthEn": "SUQATRA - YEM",
+  "BirthCityAr": "أرخبيل سقطره",
+  "BirthCityEn": "SUQATRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "F",
+  "DateOfIssue": "10/03/2023",
+  "DateOfExpiry": "10/03/2029",
+  "ProfessionAr": "ربة بيت",
+  "ProfessionEn": "HOUSE WIFE",
+  "IssuingAuthorityAr": "المكلا",
+  "IssuingAuthorityEn": "MUKALLA"
+}

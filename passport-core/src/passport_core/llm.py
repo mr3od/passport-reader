@@ -1,6 +1,14 @@
+"""Legacy v1 LLM extraction layer.
+
+.. deprecated:: 0.2.0
+    Use :mod:`passport_core.extraction` instead. This module will be
+    removed once upstream adapters migrate to the v2 extraction pipeline.
+"""
+
 from __future__ import annotations
 
 import re
+import warnings
 from typing import Any, Protocol
 
 from pydantic_ai import Agent, BinaryContent, PromptedOutput
@@ -9,6 +17,12 @@ from pydantic_ai.providers.openai import OpenAIProvider
 
 from passport_core.config import Settings
 from passport_core.models import PassportData
+
+warnings.warn(
+    "passport_core.llm is deprecated, use passport_core.extraction instead",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 DATE_PATTERN = re.compile(r"^\d{2}/\d{2}/\d{4}$")
 
@@ -105,7 +119,9 @@ class PydanticAIRequestyExtractor:
     def __init__(self, api_key: str, model: str, base_url: str) -> None:
 
         self._agent = Agent(
-            model=OpenAIChatModel(model, provider=OpenAIProvider(base_url=base_url, api_key=api_key)),
+            model=OpenAIChatModel(
+                model, provider=OpenAIProvider(base_url=base_url, api_key=api_key)
+            ),
             instructions=EXTRACTION_PROMPT,
             output_type=PromptedOutput(PassportData),
             retries=2,

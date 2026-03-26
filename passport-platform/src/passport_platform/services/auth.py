@@ -11,6 +11,12 @@ from passport_platform.errors import (
     UserBlockedError,
 )
 from passport_platform.repositories.auth_tokens import AuthTokensRepository
+from passport_platform.schemas.auth import (
+    AuthenticatedSession,
+    IssuedExtensionSession,
+    IssuedTempToken,
+)
+from passport_platform.services.users import UserService
 from passport_platform.strings import (
     AUTH_SESSION_EXPIRED,
     AUTH_SESSION_INVALID,
@@ -19,12 +25,6 @@ from passport_platform.strings import (
     AUTH_TOKEN_INVALID,
     AUTH_TOKEN_USED,
 )
-from passport_platform.schemas.auth import (
-    AuthenticatedSession,
-    IssuedExtensionSession,
-    IssuedTempToken,
-)
-from passport_platform.services.users import UserService
 
 
 class AuthService:

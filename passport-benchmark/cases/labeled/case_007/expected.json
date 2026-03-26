@@ -1,0 +1,43 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "photographed",
+    "layout": "single_page",
+    "image_quality": "good",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.38.56 (1).jpeg",
+    "reasoning": "Clean single data page photo. Four given-name tokens (AHMED KHAMIS GUMAAN HUSSEIN). The fourth token HUSSEIN must be preserved in the token arrays. MRZ truncation possible on line 1 for the long name."
+  },
+  "PassportNumber": "13685901",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMBINHUSSEN<<AHMED<KHAMIS<GUMAAN<HUSSEIN<",
+  "MrzLine2": "13685901<5YEM6701011M3003312<<<<<<<<<<<<<<00",
+  "SurnameAr": "بن حسين",
+  "GivenNameTokensAr": [
+    "أحمد",
+    "خميس",
+    "جمعان",
+    "حسين"
+  ],
+  "SurnameEn": "BIN HUSSEN",
+  "GivenNameTokensEn": [
+    "AHMED",
+    "KHAMIS",
+    "GUMAAN",
+    "HUSSEIN"
+  ],
+  "DateOfBirth": "01/01/1967",
+  "PlaceOfBirthAr": "اليمن - أرخبيل سقطرى",
+  "PlaceOfBirthEn": "SOCOTRA - YEM",
+  "BirthCityAr": "أرخبيل سقطرى",
+  "BirthCityEn": "SOCOTRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "M",
+  "DateOfIssue": "31/03/2024",
+  "DateOfExpiry": "31/03/2030",
+  "ProfessionAr": "عامل",
+  "ProfessionEn": "LABORER",
+  "IssuingAuthorityAr": "سقطرى",
+  "IssuingAuthorityEn": "Socotra"
+}

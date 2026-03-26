@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Any, cast
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -14,6 +15,17 @@ from passport_core.models import (
     ValidationResult,
 )
 from passport_core.workflow import PassportWorkflow, _WorkflowCandidate
+
+
+def _mock_method(obj: object, attr: str) -> MagicMock:
+    """Return a mock-backed attribute from a partially constructed workflow object."""
+    return cast(MagicMock, getattr(cast(Any, obj), attr))
+
+
+def _set_mock_method(obj: object, attr: str, mock: MagicMock) -> MagicMock:
+    """Assign a MagicMock to a typed method attribute in tests."""
+    setattr(cast(Any, obj), attr, mock)
+    return mock
 
 
 def _mk_workflow() -> PassportWorkflow:
@@ -36,13 +48,13 @@ def test_process_loaded_requires_face_crop_before_extraction():
         filename="passport.jpg",
         bgr=np.zeros((100, 100, 3), dtype=np.uint8),
     )
-    workflow.validator.validate.return_value = MagicMock(
+    _mock_method(workflow.validator, "validate").return_value = MagicMock(
         result=ValidationResult(is_passport=True, page_quad=[(0, 0), (1, 0), (1, 1), (0, 1)])
     )
-    workflow.face_detector.detect.return_value = FaceDetectionResult(
+    _mock_method(workflow.face_detector, "detect").return_value = FaceDetectionResult(
         bbox_original=BoundingBox(x=5, y=6, width=20, height=30, score=0.9)
     )
-    workflow.face_cropper.crop.return_value = None
+    _mock_method(workflow.face_cropper, "crop").return_value = None
 
     result = workflow.process_loaded(loaded)
 
@@ -53,7 +65,7 @@ def test_process_loaded_requires_face_crop_before_extraction():
     assert result.has_face_crop is False
     assert result.data is None
     assert result.is_complete is False
-    workflow.extractor.extract.assert_not_called()
+    _mock_method(workflow.extractor, "extract").assert_not_called()
 
 
 def test_process_loaded_uses_best_transformed_candidate_before_extraction():
@@ -100,10 +112,18 @@ def test_process_loaded_uses_best_transformed_candidate_before_extraction():
             )
         return None
 
-    workflow.validate_passport = MagicMock(side_effect=lambda image: validate(image).result)
-    workflow.detect_face = MagicMock(side_effect=detect)
-    workflow.crop_face = MagicMock(side_effect=crop)
-    workflow.extract_data = MagicMock(return_value=PassportData(PassportNumber="A123"))
+    _set_mock_method(
+        workflow,
+        "validate_passport",
+        MagicMock(side_effect=lambda image: validate(image).result),
+    )
+    _set_mock_method(workflow, "detect_face", MagicMock(side_effect=detect))
+    _set_mock_method(workflow, "crop_face", MagicMock(side_effect=crop))
+    _set_mock_method(
+        workflow,
+        "extract_data",
+        MagicMock(return_value=PassportData(PassportNumber="A123")),
+    )
 
     result = workflow.process_loaded(loaded)
 
@@ -114,7 +134,7 @@ def test_process_loaded_uses_best_transformed_candidate_before_extraction():
     assert result.face_crop is not None
     assert result.data is not None
     assert result.data.PassportNumber == "A123"
-    workflow.extract_data.assert_called_once_with(result.processed_loaded)
+    _mock_method(workflow, "extract_data").assert_called_once_with(result.processed_loaded)
 
 
 def test_prepare_loaded_maps_geometry_back_to_original_coordinates():
@@ -137,19 +157,23 @@ def test_prepare_loaded_maps_geometry_back_to_original_coordinates():
         height=10,
         jpeg_bytes=b"face",
     )
-    workflow._evaluate_candidates = MagicMock(
-        return_value=[
-            _WorkflowCandidate(
-                name="rot90",
-                image_bgr=np.zeros((200, 100, 3), dtype=np.uint8),
-                validation=ValidationResult(
-                    is_passport=True,
-                    page_quad=[(10, 20), (30, 20), (30, 40), (10, 40)],
-                ),
-                face=face,
-                face_crop=crop,
-            )
-        ]
+    _set_mock_method(
+        workflow,
+        "_evaluate_candidates",
+        MagicMock(
+            return_value=[
+                _WorkflowCandidate(
+                    name="rot90",
+                    image_bgr=np.zeros((200, 100, 3), dtype=np.uint8),
+                    validation=ValidationResult(
+                        is_passport=True,
+                        page_quad=[(10, 20), (30, 20), (30, 40), (10, 40)],
+                    ),
+                    face=face,
+                    face_crop=crop,
+                )
+            ]
+        ),
     )
 
     result = workflow.prepare_loaded(loaded)
@@ -200,7 +224,7 @@ def test_process_loaded_returns_incomplete_when_no_candidates():
         filename="passport.jpg",
         bgr=np.zeros((50, 50, 3), dtype=np.uint8),
     )
-    workflow._evaluate_candidates = MagicMock(return_value=[])
+    _set_mock_method(workflow, "_evaluate_candidates", MagicMock(return_value=[]))
 
     result = workflow.process_loaded(loaded)
 
@@ -218,7 +242,7 @@ def test_prepare_loaded_returns_incomplete_when_no_candidates():
         filename="passport.jpg",
         bgr=np.zeros((50, 50, 3), dtype=np.uint8),
     )
-    workflow._evaluate_candidates = MagicMock(return_value=[])
+    _set_mock_method(workflow, "_evaluate_candidates", MagicMock(return_value=[]))
 
     result = workflow.prepare_loaded(loaded)
 
@@ -242,6 +266,7 @@ def test_early_stop_happens_only_after_face_crop_exists():
         filename="passport.jpg",
         bgr=np.zeros((50, 60, 3), dtype=np.uint8),
     )
+
     def validate(image):
         return ValidationResult(
             is_passport=True,
@@ -261,9 +286,9 @@ def test_early_stop_happens_only_after_face_crop_exists():
         assert bbox is not None
         return FaceCropResult(bbox_original=bbox, width=20, height=30, jpeg_bytes=b"face")
 
-    workflow.validate_passport = MagicMock(side_effect=validate)
-    workflow.detect_face = MagicMock(return_value=face)
-    workflow.crop_face = MagicMock(side_effect=crop)
+    _set_mock_method(workflow, "validate_passport", MagicMock(side_effect=validate))
+    _set_mock_method(workflow, "detect_face", MagicMock(return_value=face))
+    _set_mock_method(workflow, "crop_face", MagicMock(side_effect=crop))
 
     candidates = workflow._evaluate_candidates(loaded)
 
@@ -288,29 +313,33 @@ def test_extract_retries_raise_first_exception_from_last():
         landmarks_original=[(10, 10), (20, 10), (15, 15), (11, 22), (19, 22)],
     )
     crop = FaceCropResult(bbox_original=bbox, width=20, height=30, jpeg_bytes=b"face")
-    workflow._evaluate_candidates = MagicMock(
-        return_value=[
-            _WorkflowCandidate(
-                name="identity",
-                image_bgr=loaded.bgr,
-                loaded=loaded,
-                validation=ValidationResult(is_passport=True),
-                face=face,
-                face_crop=crop,
-            ),
-            _WorkflowCandidate(
-                name="rot180",
-                image_bgr=loaded.bgr,
-                validation=ValidationResult(is_passport=True),
-                face=face,
-                face_crop=crop,
-            ),
-        ]
+    _set_mock_method(
+        workflow,
+        "_evaluate_candidates",
+        MagicMock(
+            return_value=[
+                _WorkflowCandidate(
+                    name="identity",
+                    image_bgr=loaded.bgr,
+                    loaded=loaded,
+                    validation=ValidationResult(is_passport=True),
+                    face=face,
+                    face_crop=crop,
+                ),
+                _WorkflowCandidate(
+                    name="rot180",
+                    image_bgr=loaded.bgr,
+                    validation=ValidationResult(is_passport=True),
+                    face=face,
+                    face_crop=crop,
+                ),
+            ]
+        ),
     )
 
     first = RuntimeError("first")
     last = RuntimeError("last")
-    workflow.extract_data = MagicMock(side_effect=[first, last])
+    _set_mock_method(workflow, "extract_data", MagicMock(side_effect=[first, last]))
 
     try:
         workflow.process_loaded(loaded)
@@ -330,20 +359,20 @@ def test_process_bytes_uses_loaded_bytes_and_returns_complete_result():
         filename="x.jpg",
         bgr=np.zeros((100, 120, 3), dtype=np.uint8),
     )
-    workflow.load_bytes = MagicMock(return_value=loaded)
-    workflow.validator.validate.return_value = MagicMock(
+    _set_mock_method(workflow, "load_bytes", MagicMock(return_value=loaded))
+    _mock_method(workflow.validator, "validate").return_value = MagicMock(
         result=ValidationResult(is_passport=True, page_quad=[(0, 0), (10, 0), (10, 10), (0, 10)])
     )
-    workflow.face_detector.detect.return_value = FaceDetectionResult(
+    _mock_method(workflow.face_detector, "detect").return_value = FaceDetectionResult(
         bbox_original=BoundingBox(x=5, y=6, width=20, height=30, score=0.9)
     )
-    workflow.face_cropper.crop.return_value = FaceCropResult(
+    _mock_method(workflow.face_cropper, "crop").return_value = FaceCropResult(
         bbox_original=BoundingBox(x=5, y=6, width=20, height=30, score=0.9),
         width=20,
         height=30,
         jpeg_bytes=b"face",
     )
-    workflow.extractor.extract.return_value = PassportData(PassportNumber="A123")
+    _mock_method(workflow.extractor, "extract").return_value = PassportData(PassportNumber="A123")
 
     result = workflow.process_bytes(b"raw", filename="x.jpg", source="telegram://1")
 

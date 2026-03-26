@@ -1,25 +1,19 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from types import SimpleNamespace
 
-from passport_core import (
-    BoundingBox,
-    FaceCropResult,
-    FaceDetectionResult,
-    LoadedImage,
-    PassportData,
-    PassportWorkflowResult,
-    ValidationResult,
-)
 from passport_platform import (
     IssuedTempToken,
     MonthlyUsageReport,
     PlanName,
     QuotaDecision,
     RecentUploadRecord,
+    TrackedProcessingResult,
     UserUsageReport,
 )
-from passport_platform.enums import UploadStatus, UserStatus
+from passport_platform.enums import ChannelName, ExternalProvider, UploadStatus, UserStatus
+from passport_platform.models.upload import ProcessingResult, Upload
 from passport_platform.models.user import User
 
 from passport_telegram.messages import (
@@ -44,16 +38,7 @@ from passport_telegram.messages import (
 
 
 def test_format_failure_for_non_passport():
-    result = PassportWorkflowResult(
-        loaded=LoadedImage(
-            source="telegram://1",
-            data=b"raw",
-            mime_type="image/jpeg",
-            filename="x.jpg",
-            bgr=None,  # type: ignore[arg-type]
-        ),
-        validation=ValidationResult(is_passport=False),
-    )
+    result = make_tracked_result(is_passport=False, extracted_data=None)
 
     text = format_failure_text(result, position=1, total=1)
 
@@ -61,35 +46,19 @@ def test_format_failure_for_non_passport():
 
 
 def test_format_success_includes_key_fields():
-    result = PassportWorkflowResult(
-        loaded=LoadedImage(
-            source="telegram://1",
-            data=b"raw",
-            mime_type="image/jpeg",
-            filename="x.jpg",
-            bgr=None,  # type: ignore[arg-type]
-        ),
-        validation=ValidationResult(is_passport=True),
-        face=FaceDetectionResult(
-            bbox_original=BoundingBox(x=1, y=2, width=3, height=4, score=0.9)
-        ),
-        face_crop=FaceCropResult(
-            bbox_original=BoundingBox(x=1, y=2, width=3, height=4, score=0.9),
-            width=3,
-            height=4,
-            jpeg_bytes=b"face",
-        ),
-        data=PassportData(
-            PassportNumber="A123",
-            SurnameAr="الهاشمي",
-            GivenNamesAr="أحمد علي",
-            SurnameEn="ALHASHMI",
-            GivenNamesEn="AHMAD ALI",
-            DateOfBirth="01/01/1990",
-            PlaceOfBirthAr="صنعاء",
-            ProfessionAr="طالب",
-            IssuingAuthorityAr="القاهرة",
-        ),
+    result = make_tracked_result(
+        is_passport=True,
+        extracted_data={
+            "PassportNumber": "A123",
+            "SurnameAr": "الهاشمي",
+            "GivenNameTokensAr": ["أحمد", "علي"],
+            "SurnameEn": "ALHASHMI",
+            "GivenNameTokensEn": ["AHMAD", "ALI"],
+            "DateOfBirth": "01/01/1990",
+            "PlaceOfBirthAr": "صنعاء",
+            "ProfessionAr": "طالب",
+            "IssuingAuthorityAr": "القاهرة",
+        },
     )
 
     text = format_success_text(result, position=1, total=1)
@@ -269,3 +238,70 @@ def test_temp_token_text_includes_token_and_expiry():
     assert "abc123" in text
     assert "2026-03-13 12:00 UTC" in text
     assert "مرة واحدة" in text
+
+
+def make_tracked_result(
+    *,
+    is_passport: bool,
+    extracted_data: dict[str, object] | None,
+    review_status: str = "auto",
+    confidence_overall: float | None = 0.91,
+) -> TrackedProcessingResult:
+    user = User(
+        id=1,
+        external_provider=ExternalProvider.TELEGRAM,
+        external_user_id="12345",
+        display_name="Agency A",
+        plan=PlanName.BASIC,
+        status=UserStatus.ACTIVE,
+        created_at=datetime(2026, 3, 13, 10, 0, tzinfo=UTC),
+    )
+    upload = Upload(
+        id=1,
+        user_id=user.id,
+        channel=ChannelName.TELEGRAM,
+        external_message_id="1",
+        external_file_id="file-1",
+        filename="passport.jpg",
+        mime_type="image/jpeg",
+        source_ref="telegram://1",
+        status=UploadStatus.PROCESSED if is_passport else UploadStatus.FAILED,
+        created_at=datetime(2026, 3, 13, 10, 0, tzinfo=UTC),
+    )
+    processing_result = ProcessingResult(
+        id=1,
+        upload_id=upload.id,
+        is_passport=is_passport,
+        is_complete=is_passport and extracted_data is not None,
+        review_status=review_status,
+        reviewed_by_user_id=None,
+        reviewed_at=None,
+        passport_number=(
+            extracted_data.get("PassportNumber") if isinstance(extracted_data, dict) else None
+        ),
+        passport_image_uri="/tmp/original.jpg",
+        confidence_overall=confidence_overall,
+        extraction_result_json=None,
+        error_code=None,
+        completed_at=datetime(2026, 3, 13, 10, 1, tzinfo=UTC),
+    )
+    extraction_result = (
+        SimpleNamespace(data=extracted_data, warnings=[]) if extracted_data is not None else None
+    )
+    return TrackedProcessingResult(
+        user=user,
+        upload=upload,
+        quota_decision=QuotaDecision(
+            allowed=True,
+            plan=PlanName.BASIC,
+            monthly_upload_limit=300,
+            monthly_uploads_used=0,
+            monthly_success_limit=300,
+            monthly_successes_used=0,
+            remaining_uploads=300,
+            remaining_successes=300,
+            max_batch_size=10,
+        ),
+        extraction_result=extraction_result,
+        processing_result=processing_result,
+    )

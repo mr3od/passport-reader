@@ -54,15 +54,27 @@ Adapters should depend on services, not repositories.
 
 ```python
 from passport_platform import (
-    Database,
-    PlatformSettings,
-    ProcessingService,
-    QuotaService,
-    ReportingService,
-    UploadService,
-    UserService,
+    build_platform_runtime,
+    build_processing_runtime,
+)
+
+platform = build_platform_runtime(
+    platform_env_file=Path("../passport-platform/.env"),
+    platform_root_dir=Path("../passport-platform"),
+)
+runtime = build_processing_runtime(
+    platform_runtime=platform,
+    core_env_file=Path("../passport-core/.env"),
+    core_root_dir=Path("../passport-core"),
 )
 ```
+
+`TrackedProcessingResult` also exposes adapter-safe accessors for:
+
+- upload filename and image bytes
+- face crop bytes
+- completion flags
+- normalized extracted passport data via `result.extracted_data`
 
 ## Current Scope
 
@@ -78,7 +90,7 @@ This package currently includes:
 - transport-neutral processing orchestration around `passport-core`
 - reporting and admin-facing usage summaries
 
-The processing service coordinates:
+The processing runtime coordinates:
 
 - user resolution
 - quota checks

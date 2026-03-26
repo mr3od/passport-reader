@@ -144,6 +144,16 @@ button.secondary:hover { background: #f5f5f5; }
   font-size: 12px;
   color: #777;
 }
+.queue-item .record-review {
+  font-size: 11px;
+  font-weight: 600;
+}
+.queue-item .record-review.ok {
+  color: #2f855a;
+}
+.queue-item .record-review.needs-review {
+  color: #b7791f;
+}
 .queue-item .record-actions {
   display: flex;
   gap: 6px;

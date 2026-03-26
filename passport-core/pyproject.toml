@@ -1,6 +1,6 @@
 [project]
 name = "passport-core"
-version = "0.1.0"
+version = "0.2.0"
 description = "Core passport processing services for Yemeni travel agencies"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -21,9 +21,6 @@ dev = [
   "ruff>=0.6.4",
   "ty>=0.0.1a16",
 ]
-
-[project.scripts]
-passport-benchmark = "passport_core.benchmark:main"
 
 [tool.ruff]
 target-version = "py312"

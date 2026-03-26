@@ -7,15 +7,8 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from passport_core.io import encode_jpeg, load_image_bytes
-from passport_core.models import (
-    BoundingBox,
-    FaceCropResult,
-    FaceDetectionResult,
-    PassportData,
-    ValidationResult,
-)
-from passport_core.workflow import PassportWorkflowResult
+from passport_core.extraction.models import Confidence, ExtractionResult, PassportFields
+from passport_core.io import encode_jpeg
 
 from passport_platform.db import Database
 from passport_platform.enums import (
@@ -43,74 +36,37 @@ from passport_platform.services.users import UserService
 from passport_platform.storage import LocalArtifactStore
 
 
-class FakeWorkflow:
+class FakeExtractor:
     def __init__(
         self,
-        result: PassportWorkflowResult | None = None,
+        result: ExtractionResult | None = None,
         error: Exception | None = None,
-    ):
+    ) -> None:
         self.result = result
         self.error = error
-        self.closed = False
 
-    def process_bytes(
-        self,
-        data: bytes,
-        *,
-        filename: str,
-        mime_type: str,
-        source: str | None = None,
-    ):
+    def extract(self, image_bytes: bytes, mime_type: str = "image/jpeg") -> ExtractionResult:
+        del image_bytes, mime_type
         if self.error is not None:
             raise self.error
         if self.result is None:
-            raise RuntimeError("fake workflow result was not configured")
+            raise RuntimeError("fake extractor result was not configured")
         return self.result
 
-    def load_bytes(
-        self,
-        data: bytes,
-        *,
-        filename: str = "upload.jpg",
-        mime_type: str = "image/jpeg",
-        source: str | None = None,
-    ):
-        return load_image_bytes(
-            data,
-            filename=filename,
-            mime_type=mime_type,
-            source=source,
-        )
 
-    def close(self) -> None:
-        self.closed = True
-
-
-class BlockingWorkflow(FakeWorkflow):
-    def __init__(self, result: PassportWorkflowResult) -> None:
+class BlockingExtractor(FakeExtractor):
+    def __init__(self, result: ExtractionResult) -> None:
         super().__init__(result=result)
         self.started = threading.Event()
         self.release = threading.Event()
         self.calls = 0
 
-    def process_bytes(
-        self,
-        data: bytes,
-        *,
-        filename: str,
-        mime_type: str,
-        source: str | None = None,
-    ):
+    def extract(self, image_bytes: bytes, mime_type: str = "image/jpeg") -> ExtractionResult:
         self.calls += 1
         if self.calls == 1:
             self.started.set()
             assert self.release.wait(timeout=5)
-        return super().process_bytes(
-            data,
-            filename=filename,
-            mime_type=mime_type,
-            source=source,
-        )
+        return super().extract(image_bytes, mime_type)
 
 
 class CoordinatedUsageRepository(UsageRepository):
@@ -152,7 +108,7 @@ class CoordinatedUsageRepository(UsageRepository):
 def test_processing_service_creates_user_and_persists_successful_result(tmp_path) -> None:
     service, usage = build_processing_service(
         tmp_path,
-        workflow=FakeWorkflow(result=make_workflow_result(complete=True)),
+        extractor=FakeExtractor(result=make_extraction_result(complete=True)),
     )
 
     tracked = service.process_bytes(
@@ -172,16 +128,11 @@ def test_processing_service_creates_user_and_persists_successful_result(tmp_path
     assert tracked.processing_result.is_complete is True
     assert tracked.processing_result.passport_number == "12345678"
     assert tracked.processing_result.passport_image_uri is not None
-    assert tracked.processing_result.face_crop_uri is not None
     assert Path(tracked.processing_result.passport_image_uri).exists()
-    assert Path(tracked.processing_result.face_crop_uri).exists()
-    assert tracked.processing_result.core_result_json is not None
-    persisted = json.loads(tracked.processing_result.core_result_json)
-    assert persisted["source"] == "telegram://chat/1/message/2/file/abc"
-    assert persisted["passport_image_uri"] == tracked.processing_result.passport_image_uri
-    assert persisted["face_crop_uri"] == tracked.processing_result.face_crop_uri
+    assert tracked.processing_result.extraction_result_json is not None
+    persisted = json.loads(tracked.processing_result.extraction_result_json)
     assert persisted["data"]["PassportNumber"] == "12345678"
-    assert persisted["error_details"] == []
+    assert tracked.processing_result.review_status == "auto"
     assert tracked.upload.status.value == "processed"
     assert usage_total(usage, tracked.user.id, UsageEventType.UPLOAD_RECEIVED) == 1
     assert usage_total(usage, tracked.user.id, UsageEventType.SUCCESSFUL_PROCESS) == 1
@@ -190,7 +141,7 @@ def test_processing_service_creates_user_and_persists_successful_result(tmp_path
 def test_processing_service_rejects_blocked_user(tmp_path) -> None:
     service, _ = build_processing_service(
         tmp_path,
-        workflow=FakeWorkflow(result=make_workflow_result(complete=True)),
+        extractor=FakeExtractor(result=make_extraction_result(complete=True)),
     )
     blocked_user = service.users.get_or_create_user(
         EnsureUserCommand(
@@ -218,7 +169,7 @@ def test_processing_service_rejects_blocked_user(tmp_path) -> None:
 def test_processing_service_rejects_quota_before_registering_upload(tmp_path) -> None:
     service, usage = build_processing_service(
         tmp_path,
-        workflow=FakeWorkflow(result=make_workflow_result(complete=True)),
+        extractor=FakeExtractor(result=make_extraction_result(complete=True)),
     )
     user = service.users.get_or_create_user(
         EnsureUserCommand(
@@ -246,10 +197,10 @@ def test_processing_service_rejects_quota_before_registering_upload(tmp_path) ->
     assert service.uploads.uploads.get_by_source_ref("telegram://chat/1/message/2/file/abc") is None
 
 
-def test_processing_service_records_failed_result_when_workflow_raises(tmp_path) -> None:
+def test_processing_service_records_failed_result_when_extractor_raises(tmp_path) -> None:
     service, usage = build_processing_service(
         tmp_path,
-        workflow=FakeWorkflow(error=RuntimeError("boom")),
+        extractor=FakeExtractor(error=RuntimeError("boom")),
     )
 
     with pytest.raises(ProcessingFailedError) as exc_info:
@@ -269,25 +220,20 @@ def test_processing_service_records_failed_result_when_workflow_raises(tmp_path)
     assert tracked.processing_result.is_complete is False
     assert tracked.processing_result.passport_image_uri is not None
     assert Path(tracked.processing_result.passport_image_uri).exists()
-    assert tracked.processing_result.face_crop_uri is None
-    assert tracked.processing_result.core_result_json is not None
-    persisted = json.loads(tracked.processing_result.core_result_json)
-    assert persisted["passport_image_uri"] == tracked.processing_result.passport_image_uri
-    assert persisted["face_crop_uri"] is None
-    assert persisted["validation"]["is_passport"] is False
+    assert tracked.processing_result.extraction_result_json is not None
+    persisted = json.loads(tracked.processing_result.extraction_result_json)
     assert persisted["error_details"][0]["code"] == "INTERNAL_ERROR"
-    assert persisted["error_details"][0]["stage"] == "workflow"
-    assert tracked.processing_result.error_code == "workflow_exception"
+    assert tracked.processing_result.error_code == "extractor_exception"
     assert tracked.upload.status.value == "failed"
     assert usage_total(usage, tracked.user.id, UsageEventType.UPLOAD_RECEIVED) == 1
     assert usage_total(usage, tracked.user.id, UsageEventType.FAILED_PROCESS) == 1
 
 
 def test_processing_service_reserves_upload_slot_atomically(tmp_path) -> None:
-    workflow = BlockingWorkflow(result=make_workflow_result(complete=True))
+    extractor = BlockingExtractor(result=make_extraction_result(complete=True))
     service, usage = build_processing_service(
         tmp_path,
-        workflow=workflow,
+        extractor=extractor,
         usage_repository_cls=CoordinatedUsageRepository,
     )
     user = service.users.get_or_create_user(
@@ -321,9 +267,9 @@ def test_processing_service_reserves_upload_slot_atomically(tmp_path) -> None:
 
     with ThreadPoolExecutor(max_workers=2) as executor:
         future_one = executor.submit(service.process_bytes, command_one)
-        assert workflow.started.wait(timeout=5)
+        assert extractor.started.wait(timeout=5)
         future_two = executor.submit(service.process_bytes, command_two)
-        workflow.release.set()
+        extractor.release.set()
 
         tracked = future_one.result(timeout=5)
         with pytest.raises(QuotaExceededError):
@@ -338,7 +284,7 @@ def test_processing_service_reserves_upload_slot_atomically(tmp_path) -> None:
 def test_processing_service_rejects_unsupported_provider_and_channel(tmp_path) -> None:
     service, _ = build_processing_service(
         tmp_path,
-        workflow=FakeWorkflow(result=make_workflow_result(complete=True)),
+        extractor=FakeExtractor(result=make_extraction_result(complete=True)),
     )
 
     with pytest.raises(UnsupportedExternalProviderError):
@@ -371,7 +317,7 @@ def test_processing_service_rejects_unsupported_provider_and_channel(tmp_path) -
 def build_processing_service(
     tmp_path,
     *,
-    workflow: FakeWorkflow,
+    extractor: FakeExtractor,
     usage_repository_cls: type[UsageRepository] = UsageRepository,
 ):
     db = Database(tmp_path / "platform.sqlite3")
@@ -383,40 +329,25 @@ def build_processing_service(
         users=UserService(users_repo),
         quotas=QuotaService(usage_repo),
         uploads=UploadService(uploads_repo, usage_repo),
-        workflow=workflow,
+        extractor=extractor,
         artifacts=LocalArtifactStore(tmp_path / "artifacts"),
     )
     return service, usage_repo
 
 
-def make_workflow_result(*, complete: bool) -> PassportWorkflowResult:
-    loaded = load_image_bytes(
-        JPEG_BYTES,
-        filename="passport.jpg",
-        mime_type="image/jpeg",
-        source="telegram://chat/1/message/2/file/abc",
-    )
+def make_extraction_result(*, complete: bool) -> ExtractionResult:
     if complete:
-        return PassportWorkflowResult(
-            loaded=loaded,
-            validation=ValidationResult(
-                is_passport=True,
-                page_quad=[(0, 0), (10, 0), (10, 10), (0, 10)],
-            ),
-            face=FaceDetectionResult(
-                bbox_original=BoundingBox(x=1, y=1, width=2, height=2),
-            ),
-            face_crop=FaceCropResult(
-                bbox_original=BoundingBox(x=1, y=1, width=2, height=2),
-                width=2,
-                height=2,
-                jpeg_bytes=b"face",
-            ),
-            data=PassportData(PassportNumber="12345678"),
+        return ExtractionResult(
+            data=PassportFields(PassportNumber="12345678"),
+            meta={"is_passport": True},
+            confidence=Confidence(overall=0.97),
+            warnings=[],
         )
-    return PassportWorkflowResult(
-        loaded=loaded,
-        validation=ValidationResult(is_passport=False),
+    return ExtractionResult(
+        data=PassportFields(),
+        meta={"is_passport": False},
+        confidence=Confidence(overall=0.2),
+        warnings=["Not passport"],
     )
 
 

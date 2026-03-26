@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "scanned",
+    "layout": "single_page",
+    "image_quality": "good",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.40.24.jpeg",
+    "reasoning": "Standard single-page passport data page scan."
+  },
+  "PassportNumber": "13686672",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMOTHMAN<<SULAIMAN<MUBARAK<SULAIMAN<<<<<<",
+  "MrzLine2": "13686672<7YEM6501015M3007033<<<<<<<<<<<<<<06",
+  "SurnameAr": "عثمان",
+  "GivenNameTokensAr": [
+    "سليمان",
+    "مبارك",
+    "سليمان"
+  ],
+  "SurnameEn": "OTHMAN",
+  "GivenNameTokensEn": [
+    "SULAIMAN",
+    "MUBARAK",
+    "SULAIMAN"
+  ],
+  "DateOfBirth": "01/01/1965",
+  "PlaceOfBirthAr": "اليمن - أرخبيل سقطرى",
+  "PlaceOfBirthEn": "SOCOTRA - YEM",
+  "BirthCityAr": "أرخبيل سقطرى",
+  "BirthCityEn": "SOCOTRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "M",
+  "DateOfIssue": "03/07/2024",
+  "DateOfExpiry": "03/07/2030",
+  "ProfessionAr": "صياد",
+  "ProfessionEn": "FISHER MAN",
+  "IssuingAuthorityAr": "سقطرى",
+  "IssuingAuthorityEn": "Socotra"
+}

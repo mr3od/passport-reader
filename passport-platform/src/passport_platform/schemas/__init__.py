@@ -11,6 +11,7 @@ from passport_platform.schemas.commands import (
 )
 from passport_platform.schemas.results import (
     MonthlyUsageReport,
+    PassportExtractionView,
     QuotaDecision,
     RecentUploadRecord,
     TrackedProcessingResult,
@@ -24,6 +25,7 @@ __all__ = [
     "IssuedExtensionSession",
     "IssuedTempToken",
     "MonthlyUsageReport",
+    "PassportExtractionView",
     "ProcessUploadCommand",
     "QuotaDecision",
     "RecentUploadRecord",

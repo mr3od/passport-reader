@@ -29,12 +29,12 @@ class RegisterUploadCommand:
 class RecordProcessingResultCommand:
     upload_id: int
     is_passport: bool
-    has_face: bool
     is_complete: bool
+    review_status: str
     passport_number: str | None = None
     passport_image_uri: str | None = None
-    face_crop_uri: str | None = None
-    core_result_json: str | None = None
+    confidence_overall: float | None = None
+    extraction_result_json: str | None = None
     error_code: str | None = None
     completed_at: datetime | None = None
 

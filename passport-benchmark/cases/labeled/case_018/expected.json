@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "scanned",
+    "layout": "single_page",
+    "image_quality": "good",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.39.24.jpeg",
+    "reasoning": "Clean single data page scan. All identity fields and MRZ are readable. Profession is STUDENT / طالب. Birthplace uses the longer Socotra locality form while issuing authority stays the shorter Socotra authority label."
+  },
+  "PassportNumber": "14324383",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMSAEED<<ALI<MUBARAK<MOHAMMED<<<<<<<<<<<<",
+  "MrzLine2": "14324383<6YEM8101017M3103049<<<<<<<<<<<<<<08",
+  "SurnameAr": "سعيد",
+  "GivenNameTokensAr": [
+    "علي",
+    "مبارك",
+    "محمد"
+  ],
+  "SurnameEn": "SAEED",
+  "GivenNameTokensEn": [
+    "ALI",
+    "MUBARAK",
+    "MOHAMMED"
+  ],
+  "DateOfBirth": "01/01/1981",
+  "PlaceOfBirthAr": "اليمن - أرخبيل سقطرى",
+  "PlaceOfBirthEn": "SOCOTRA - YEM",
+  "BirthCityAr": "أرخبيل سقطرى",
+  "BirthCityEn": "SOCOTRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "M",
+  "DateOfIssue": "04/03/2025",
+  "DateOfExpiry": "04/03/2031",
+  "ProfessionAr": "طالب",
+  "ProfessionEn": "STUDENT",
+  "IssuingAuthorityAr": "سقطرى",
+  "IssuingAuthorityEn": "Socotra"
+}

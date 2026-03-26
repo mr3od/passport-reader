@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "scanned",
+    "layout": "two_page_spread",
+    "image_quality": "good",
+    "original_filename": "abdullah_passport.jpg",
+    "reasoning": "Two-page spread scan showing both the contact/address page (top) and the data page (bottom). Data page is the lower half. All fields clearly legible. MRZ at very bottom is sharp and complete."
+  },
+  "PassportNumber": "11648820",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMMOHSEN<<ABDULLAH<MURSHED<HASAN<<<<<<<<<",
+  "MrzLine2": "11648820<0YEM8306306M2905110<<<<<<<<<<<<<<06",
+  "SurnameAr": "محسن",
+  "GivenNameTokensAr": [
+    "عبدالله",
+    "مرشد",
+    "حسن"
+  ],
+  "SurnameEn": "MOHSEN",
+  "GivenNameTokensEn": [
+    "ABDULLAH",
+    "MURSHED",
+    "HASAN"
+  ],
+  "DateOfBirth": "30/06/1983",
+  "PlaceOfBirthAr": "اليمن - ريمة",
+  "PlaceOfBirthEn": "RAIMAH - YEM",
+  "BirthCityAr": "ريمة",
+  "BirthCityEn": "RAIMAH",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "M",
+  "DateOfIssue": "11/05/2023",
+  "DateOfExpiry": "11/05/2029",
+  "ProfessionAr": "طالب",
+  "ProfessionEn": "STUDENT",
+  "IssuingAuthorityAr": "القاهرة",
+  "IssuingAuthorityEn": "CAIRO"
+}

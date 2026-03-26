@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any, cast
 
 from dotenv import load_dotenv
 
@@ -10,7 +11,7 @@ from passport_telegram.config import TelegramSettings
 
 def main() -> int:
     load_dotenv()
-    settings = TelegramSettings()
+    settings = cast(Any, TelegramSettings)()
     load_dotenv(settings.core_env_file, override=False)
     load_dotenv(settings.platform_env_file, override=False)
 

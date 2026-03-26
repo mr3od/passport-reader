@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "rotated_90",
+    "image_type": "photographed",
+    "layout": "single_page",
+    "image_quality": "fair",
+    "original_filename": "case_012_rotated_90_input.jpeg",
+    "reasoning": "90-degree rotated variant of case_012. Single data page photo with the same washed-out / low-contrast appearance, but the whole page is rotated and must be normalized before extraction."
+  },
+  "PassportNumber": "15359022",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMKHAMIS<<ENAS<KHAMIS<SAAD<<<<<<<<<<<<<<<",
+  "MrzLine2": "15359022<7YEM9010015F3107209<<<<<<<<<<<<<<02",
+  "SurnameAr": "خميس",
+  "GivenNameTokensAr": [
+    "إيناس",
+    "خميس",
+    "سعد"
+  ],
+  "SurnameEn": "KHAMIS",
+  "GivenNameTokensEn": [
+    "ENAS",
+    "KHAMIS",
+    "SAAD"
+  ],
+  "DateOfBirth": "01/10/1990",
+  "PlaceOfBirthAr": "اليمن - أرخبيل سقطره",
+  "PlaceOfBirthEn": "SUQATRA - YEM",
+  "BirthCityAr": "أرخبيل سقطره",
+  "BirthCityEn": "SUQATRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "F",
+  "DateOfIssue": "20/07/2025",
+  "DateOfExpiry": "20/07/2031",
+  "ProfessionAr": null,
+  "ProfessionEn": null,
+  "IssuingAuthorityAr": "سقطرى",
+  "IssuingAuthorityEn": "Socotra"
+}

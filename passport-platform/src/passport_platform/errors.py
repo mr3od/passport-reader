@@ -8,6 +8,7 @@ from passport_platform.strings import (
     AUTH_SESSION_INVALID,
     AUTH_TOKEN_INVALID,
     QUOTA_UPLOADS_EXCEEDED,
+    RECORD_REVIEW_REQUIRED,
     USER_BLOCKED,
 )
 
@@ -58,5 +59,11 @@ class InvalidTempTokenError(PlatformError):
 
 class InvalidExtensionSessionError(PlatformError):
     def __init__(self, reason: str = AUTH_SESSION_INVALID) -> None:
+        self.reason = reason
+        super().__init__(reason)
+
+
+class ReviewRequiredError(PlatformError):
+    def __init__(self, reason: str = RECORD_REVIEW_REQUIRED) -> None:
         self.reason = reason
         super().__init__(reason)

@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "photographed",
+    "layout": "single_page",
+    "image_quality": "good",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.40.16 (1).jpeg",
+    "reasoning": "Clear image of a single passport data page."
+  },
+  "PassportNumber": "14324992",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMHWRAHEN<<AHMED<ABDULLAH<MOHAMMED<<<<<<<",
+  "MrzLine2": "14324992<6YEM5801017M3104080<<<<<<<<<<<<<<00",
+  "SurnameAr": "حورهين",
+  "GivenNameTokensAr": [
+    "أحمد",
+    "عبدالله",
+    "محمد"
+  ],
+  "SurnameEn": "HWRAHEN",
+  "GivenNameTokensEn": [
+    "AHMED",
+    "ABDULLAH",
+    "MOHAMMED"
+  ],
+  "DateOfBirth": "01/01/1958",
+  "PlaceOfBirthAr": "اليمن - أرخبيل سقطره",
+  "PlaceOfBirthEn": "SUQATRA - YEM",
+  "BirthCityAr": "أرخبيل سقطره",
+  "BirthCityEn": "SUQATRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "M",
+  "DateOfIssue": "08/04/2025",
+  "DateOfExpiry": "08/04/2031",
+  "ProfessionAr": "موظف تجاري",
+  "ProfessionEn": "COMM. EMPLOYEE",
+  "IssuingAuthorityAr": "سقطرى",
+  "IssuingAuthorityEn": "Socotra"
+}

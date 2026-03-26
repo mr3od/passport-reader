@@ -1,0 +1,43 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "photographed",
+    "layout": "single_page",
+    "image_quality": "good",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.39.36.jpeg",
+    "reasoning": "Passport data page captured in a clear, straightforward photograph."
+  },
+  "PassportNumber": "15358008",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMBADABH<<ALI<MOHAMMED<ABDULLAH<SWYAD<<<<",
+  "MrzLine2": "15358008<8YEM9002203M3104080<<<<<<<<<<<<<<06",
+  "SurnameAr": "بادابه",
+  "GivenNameTokensAr": [
+    "علي",
+    "محمد",
+    "عبدالله",
+    "سوياد"
+  ],
+  "SurnameEn": "BADABH",
+  "GivenNameTokensEn": [
+    "ALI",
+    "MOHAMMED",
+    "ABDULLAH",
+    "SWYAD"
+  ],
+  "DateOfBirth": "20/02/1990",
+  "PlaceOfBirthAr": "اليمن - أرخبيل سقطرى",
+  "PlaceOfBirthEn": "SOCOTRA - YEM",
+  "BirthCityAr": "أرخبيل سقطرى",
+  "BirthCityEn": "SOCOTRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "M",
+  "DateOfIssue": "08/04/2025",
+  "DateOfExpiry": "08/04/2031",
+  "ProfessionAr": "عمل خاص",
+  "ProfessionEn": "PRIVATE JOB",
+  "IssuingAuthorityAr": "سقطرى",
+  "IssuingAuthorityEn": "Socotra"
+}

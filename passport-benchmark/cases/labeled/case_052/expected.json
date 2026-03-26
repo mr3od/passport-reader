@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "photographed",
+    "layout": "single_page",
+    "image_quality": "good",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.40.21.jpeg",
+    "reasoning": "This is a single-page photograph of a yemeni passport data page."
+  },
+  "PassportNumber": "09941976",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMMADAIHEN<<SALEM<SAAD<ALI<<<<<<<<<<<<<<<",
+  "MrzLine2": "09941976<3YEM3804014M2705055<<<<<<<<<<<<<<08",
+  "SurnameAr": "مدائيهن",
+  "GivenNameTokensAr": [
+    "سالم",
+    "سعد",
+    "علي"
+  ],
+  "SurnameEn": "MADAIHEN",
+  "GivenNameTokensEn": [
+    "SALEM",
+    "SAAD",
+    "ALI"
+  ],
+  "DateOfBirth": "01/04/1938",
+  "PlaceOfBirthAr": "اليمن - أرخبيل سقطره",
+  "PlaceOfBirthEn": "SUQATRA - YEM",
+  "BirthCityAr": "أرخبيل سقطره",
+  "BirthCityEn": "SUQATRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "M",
+  "DateOfIssue": "05/05/2021",
+  "DateOfExpiry": "05/05/2027",
+  "ProfessionAr": "مزارع",
+  "ProfessionEn": "FARMER",
+  "IssuingAuthorityAr": "شبوة",
+  "IssuingAuthorityEn": "SHABOWAH"
+}

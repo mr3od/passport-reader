@@ -1,9 +1,29 @@
+"""Legacy v1 data models.
+
+.. deprecated:: 0.2.0
+    Use :mod:`passport_core.extraction.models` instead. This module will be
+    removed once upstream adapters migrate to the v2 extraction pipeline.
+"""
+
 from __future__ import annotations
+
+import warnings
 
 from pydantic import BaseModel, ConfigDict, Field
 
+warnings.warn(
+    "passport_core.models is deprecated, use passport_core.extraction.models instead",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 
 class PassportData(BaseModel):
+    """Deprecated v1 extraction output.
+
+    Use :class:`~passport_core.extraction.models.PassportFields` instead.
+    """
+
     model_config = ConfigDict(extra="ignore")
 
     PassportNumber: str | None = None

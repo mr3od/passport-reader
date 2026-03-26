@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Proposal 3 — Conversational Flow</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Readex+Pro:wght@300;400;500;600;700&display=swap');
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PROPOSAL 3 — "Conversational Flow"
+
+   CONCEPT: The extension talks to you. The UI is structured as a
+   vertical message feed — like a chat with the system. Onboarding
+   steps appear as assistant messages with embedded actions.
+   Queue items appear as incoming "requests" with reply actions.
+
+   WHY THIS WORKS FOR THIS AUDIENCE:
+   - Users already use Telegram daily. Chat is their native interface.
+   - A chat-like flow removes the "where am I in this form?" anxiety.
+   - Each state is a message, not a screen transition.
+   - The assistant's "voice" provides context ("I found 3 passports...")
+
+   STRUCTURAL DISTINCTION:
+   - No separate screens — one continuous message thread
+   - Onboarding: system messages with embedded inputs
+   - Queue: each passport is a "received" message bubble
+   - Actions are reply buttons at the bottom of each bubble
+   - Status is a system message between records
+   - Context info lives in a pinned "system message" at the top
+
+   COLOR: Light sage green + white bubbles (WhatsApp-inspired contrast)
+   TYPOGRAPHY: Readex Pro
+   ═══════════════════════════════════════════════════════════════════════ */
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Readex Pro', sans-serif;
+  background: #E8EDE4;
+  color: #2C3642;
+  padding: 40px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 60px;
+}
+
+.section-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: #7A8A6F;
+  text-align: center;
+  margin-bottom: 12px;
+  direction: ltr;
+}
+
+.popup {
+  width: 340px;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow:
+    0 1px 3px rgba(0,0,0,0.06),
+    0 8px 24px rgba(0,0,0,0.08);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header — looks like a chat header ── */
+.chat-header {
+  background: #2D6B4A;
+  color: white;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.chat-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.chat-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+}
+.chat-info {
+  display: flex;
+  flex-direction: column;
+}
+.chat-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+.chat-status {
+  font-size: 10px;
+  opacity: 0.7;
+}
+.chat-btn {
+  background: rgba(255,255,255,0.15);
+  border: none;
+  color: rgba(255,255,255,0.9);
+  font-size: 14px;
+  padding: 5px 7px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: 'Readex Pro', sans-serif;
+  transition: all 0.15s;
+}
+.chat-btn:hover { background: rgba(255,255,255,0.25); }
+
+/* For light variant header */
+.chat-header.light {
+  background: white;
+  color: #2C3642;
+  border-bottom: 1px solid #E4E8E0;
+}
+.chat-header.light .chat-avatar {
+  background: #2D6B4A;
+  color: white;
+}
+.chat-header.light .chat-btn {
+  background: #F0F3EC;
+  color: #5A7050;
+}
+
+/* ── Chat body (message area) ── */
+.chat-body {
+  background: #ECF0E8;
+  background-image: url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M40 0v80M0 40h80' stroke='%23D8DED2' stroke-width='0.5' fill='none'/%3E%3C/svg%3E");
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 80px;
+}
+
+/* ── Message bubbles ── */
+.msg {
+  max-width: 88%;
+  position: relative;
+}
+
+/* System message (from the assistant) — white, right-aligned (RTL) */
+.msg.system {
+  align-self: flex-end;
+}
+.msg.system .bubble {
+  background: white;
+  border-radius: 12px 12px 4px 12px;
+  padding: 10px 12px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+
+/* Incoming message (passport record) — light green */
+.msg.incoming {
+  align-self: flex-start;
+}
+.msg.incoming .bubble {
+  background: #D9F5E3;
+  border-radius: 12px 12px 12px 4px;
+  padding: 10px 12px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+
+/* Centered system notice */
+.msg.notice {
+  align-self: center;
+}
+.msg.notice .bubble {
+  background: rgba(45,107,74,0.08);
+  border-radius: 8px;
+  padding: 5px 12px;
+  font-size: 10px;
+  color: #5A7050;
+  text-align: center;
+}
+
+.msg-text {
+  font-size: 12px;
+  line-height: 1.6;
+  color: #2C3642;
+}
+.msg-time {
+  font-size: 9px;
+  color: #8A9A80;
+  text-align: left;
+  margin-top: 4px;
+}
+
+/* ── Embedded actions inside bubbles ── */
+.msg-action {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.msg-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1.5px solid #D0D8C8;
+  border-radius: 8px;
+  font-size: 12px;
+  font-family: 'Readex Pro', sans-serif;
+  background: #FAFCF8;
+  color: #2C3642;
+  outline: none;
+  transition: all 0.2s;
+}
+.msg-input:focus {
+  border-color: #2D6B4A;
+  box-shadow: 0 0 0 2px rgba(45,107,74,0.1);
+}
+.msg-input::placeholder { color: #B0BAA8; }
+.msg-select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1.5px solid #D0D8C8;
+  border-radius: 8px;
+  font-size: 12px;
+  font-family: 'Readex Pro', sans-serif;
+  background: #FAFCF8;
+  color: #2C3642;
+  outline: none;
+  appearance: none;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath fill='%238A9A80' d='M0 0l5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 10px center;
+}
+
+.msg-btn {
+  padding: 8px 14px;
+  border: none;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'Readex Pro', sans-serif;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.msg-btn.primary {
+  background: #2D6B4A;
+  color: white;
+}
+.msg-btn.primary:hover { background: #245A3D; }
+.msg-btn.secondary {
+  background: #F0F3EC;
+  color: #4A6040;
+  border: 1px solid #D0D8C8;
+}
+.msg-btn.secondary:hover { background: #E4E8E0; }
+.msg-btn.danger {
+  background: none;
+  border: none;
+  color: #C1553D;
+  font-size: 11px;
+}
+
+/* ── Quick reply buttons (below the chat, like Telegram) ── */
+.quick-replies {
+  background: white;
+  padding: 8px 14px 10px;
+  border-top: 1px solid #E4E8E0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.quick-reply-row {
+  display: flex;
+  gap: 6px;
+}
+.quick-reply-row .msg-btn { flex: 1; }
+
+/* ── Passport card inside a bubble ── */
+.passport-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.passport-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  background: rgba(45,107,74,0.1);
+  flex-shrink: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.passport-info { flex: 1; min-width: 0; }
+.passport-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #2C3642;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.passport-num {
+  font-size: 10px;
+  color: #6A7A60;
+  direction: ltr;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.passport-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+  width: fit-content;
+}
+.passport-status.ready { background: rgba(45,107,74,0.1); color: #2D6B4A; }
+.passport-status.processing { background: rgba(107,143,163,0.1); color: #6B8FA3; }
+.passport-status.failed { background: rgba(193,85,61,0.1); color: #C1553D; }
+.passport-status.submitting { background: rgba(45,107,74,0.15); color: #2D6B4A; }
+
+.passport-dismiss {
+  background: none;
+  border: none;
+  color: #B0BAA8;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 2px;
+  font-family: 'Readex Pro', sans-serif;
+  transition: color 0.15s;
+}
+.passport-dismiss:hover { color: #C1553D; }
+
+.passport-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+.passport-actions .msg-btn { flex: 1; font-size: 11px; padding: 6px 10px; }
+
+/* ── Pinned context bar ── */
+.pinned-ctx {
+  background: rgba(45,107,74,0.06);
+  padding: 6px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(45,107,74,0.08);
+  font-size: 10px;
+  color: #5A7050;
+}
+.pinned-ctx-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pinned-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.pinned-dot.active { background: #2D6B4A; }
+.pinned-dot.expired { background: #C1553D; }
+.pinned-ctx-btn {
+  background: none;
+  border: none;
+  color: #7A8A6F;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px;
+}
+
+/* ── Spinner ── */
+.spinner-ring {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #D0D8C8;
+  border-top-color: #2D6B4A;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.face-placeholder rect { fill: #D4E8D8; }
+.face-placeholder circle { fill: #B0CEB8; }
+.face-placeholder ellipse { fill: #B0CEB8; }
+
+.form-label {
+  font-size: 10px;
+  font-weight: 500;
+  color: #7A8A6F;
+  margin-bottom: 2px;
+}
+
+.phone-row { display: flex; gap: 6px; }
+.phone-row .cc { width: 60px; flex-shrink: 0; }
+.phone-row .num { flex: 1; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ LOADING ═══════════════ -->
+<div>
+  <div class="section-label">Loading</div>
+  <div class="popup">
+    <div class="chat-header">
+      <div class="chat-header-right">
+        <div class="chat-avatar">ت</div>
+        <div class="chat-info">
+          <span class="chat-name">تسجيل المعتمرين</span>
+          <span class="chat-status">جارٍ التحميل…</span>
+        </div>
+      </div>
+      <button class="chat-btn">⚙</button>
+    </div>
+    <div class="chat-body" style="align-items:center; justify-content:center; min-height:100px;">
+      <div class="spinner-ring" style="width:24px; height:24px; border-width:2.5px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ ONBOARDING STEP 1: TOKEN ═══════════════ -->
+<div>
+  <div class="section-label">Step 1 — Token (as a system message with embedded form)</div>
+  <div class="popup">
+    <div class="chat-header">
+      <div class="chat-header-right">
+        <div class="chat-avatar">ت</div>
+        <div class="chat-info">
+          <span class="chat-name">تسجيل المعتمرين</span>
+          <span class="chat-status">بانتظار ربط الحساب</span>
+        </div>
+      </div>
+    </div>
+    <div class="chat-body">
+      <div class="msg notice">
+        <div class="bubble">مرحبًا — ابدأ بربط حسابك</div>
+      </div>
+      <div class="msg system">
+        <div class="bubble">
+          <div class="msg-text" style="margin-bottom:4px;">أرسل <span style="direction:ltr;display:inline;font-weight:600;">/token</span> في تيليجرام، ثم الصق الرمز هنا 👇</div>
+          <div class="msg-action">
+            <input class="msg-input" type="password" placeholder="الصق الرمز هنا…" style="direction:ltr;text-align:right;">
+            <button class="msg-btn primary">حفظ الرمز</button>
+          </div>
+          <div class="msg-time">الخطوة ١ من ٣</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ ONBOARDING STEP 2: ACTIVATE ═══════════════ -->
+<div>
+  <div class="section-label">Step 2 — Activate (previous step becomes a read receipt)</div>
+  <div class="popup">
+    <div class="chat-header">
+      <div class="chat-header-right">
+        <div class="chat-avatar">ت</div>
+        <div class="chat-info">
+          <span class="chat-name">تسجيل المعتمرين</span>
+          <span class="chat-status">بانتظار تسجيل الدخول</span>
+        </div>
+      </div>
+    </div>
+    <div class="chat-body">
+      <!-- Previous step as a completed system notice -->
+      <div class="msg notice">
+        <div class="bubble">✓ تم ربط الحساب بنجاح</div>
+      </div>
+      <div class="msg system">
+        <div class="bubble">
+          <div class="msg-text">ممتاز! الآن افتح منصة نسك وسجّل الدخول — سأتعرف عليها تلقائيًا.</div>
+          <div class="msg-action">
+            <button class="msg-btn primary">افتح منصة نسك ←</button>
+          </div>
+          <div class="msg-time">الخطوة ٢ من ٣</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ ONBOARDING STEP 3: GROUP ═══════════════ -->
+<div>
+  <div class="section-label">Step 3 — Group selection (full conversation history visible)</div>
+  <div class="popup">
+    <div class="chat-header">
+      <div class="chat-header-right">
+        <div class="chat-avatar">ت</div>
+        <div class="chat-info">
+          <span class="chat-name">تسجيل المعتمرين</span>
+          <span class="chat-status">متصل بمنصة نسك</span>
+        </div>
+      </div>
+    </div>
+    <div class="chat-body">
+      <div class="msg notice">
+        <div class="bubble">✓ تم ربط الحساب</div>
+      </div>
+      <div class="msg notice">
+        <div class="bubble">✓ تم الاتصال بمنصة نسك</div>
+      </div>
+      <div class="msg system">
+        <div class="bubble">
+          <div class="msg-text">وجدت حسابك! اختر المجموعة التي تريد العمل عليها:</div>
+          <div class="msg-action">
+            <select class="msg-select">
+              <option>مجموعة 1 — شعبان 1446</option>
+              <option>مجموعة 2 — رمضان 1446</option>
+              <option>مجموعة 3 — ذو الحجة 1446</option>
+            </select>
+            <button class="msg-btn primary">تأكيد</button>
+          </div>
+          <div class="msg-time">الخطوة ٣ من ٣</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ GROUP — WAITING ═══════════════ -->
+<div>
+  <div class="section-label">Group — Waiting for groups to appear</div>
+  <div class="popup">
+    <div class="chat-header">
+      <div class="chat-header-right">
+        <div class="chat-avatar">ت</div>
+        <div class="chat-info">
+          <span class="chat-name">تسجيل المعتمرين</span>
+          <span class="chat-status">بانتظار المجموعات…</span>
+        </div>
+      </div>
+    </div>
+    <div class="chat-body">
+      <div class="msg notice">
+        <div class="bubble">✓ تم ربط الحساب</div>
+      </div>
+      <div class="msg notice">
+        <div class="bubble">✓ تم الاتصال بمنصة نسك</div>
+      </div>
+      <div class="msg system">
+        <div class="bubble">
+          <div class="msg-text">افتح قائمة المجموعات على منصة نسك — سأعرضها هنا فور ظهورها. 💡</div>
+          <div class="msg-time">الخطوة ٣ من ٣</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ SESSION EXPIRED ═══════════════ -->
+<div>
+  <div class="section-label">Session Expired</div>
+  <div class="popup">
+    <div class="chat-header" style="background:#8B3A26;">
+      <div class="chat-header-right">
+        <div class="chat-avatar" style="background:rgba(255,255,255,0.2);">ت</div>
+        <div class="chat-info">
+          <span class="chat-name">تسجيل المعتمرين</span>
+          <span class="chat-status">غير متصل</span>
+        </div>
+      </div>
+      <button class="chat-btn">⚙</button>
+    </div>
+    <div class="chat-body">
+      <div class="msg system">
+        <div class="bubble" style="border-right:3px solid #C1553D;">
+          <div class="msg-text" style="font-weight:600; color:#8B3A26;">انتهت الجلسة</div>
+          <div class="msg-text" style="margin-top:2px;">سجّل الدخول من جديد في منصة نسك للمتابعة.</div>
+          <div class="msg-action">
+            <button class="msg-btn primary" style="background:#C1553D;">تسجيل الدخول</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ MAIN QUEUE — PASSPORT RECORDS AS MESSAGES ═══════════════ -->
+<div>
+  <div class="section-label">Main Queue — passports as incoming messages</div>
+  <div class="popup">
+    <div class="chat-header">
+      <div class="chat-header-right">
+        <div class="chat-avatar">ت</div>
+        <div class="chat-info">
+          <span class="chat-name">تسجيل المعتمرين</span>
+          <span class="chat-status">متصل · مجموعة 1 — شعبان</span>
+        </div>
+      </div>
+      <button class="chat-btn">⚙</button>
+    </div>
+
+    <!-- Pinned context -->
+    <div class="pinned-ctx">
+      <div class="pinned-ctx-info">
+        <span class="pinned-dot active"></span>
+        <span>مؤسسة الإيمان · ينتهي 1446/09/15</span>
+      </div>
+      <div style="display:flex; gap:4px;">
+        <button class="pinned-ctx-btn">⇕</button>
+        <button class="pinned-ctx-btn">↻</button>
+      </div>
+    </div>
+
+    <div class="chat-body">
+      <!-- System message: status summary -->
+      <div class="msg notice">
+        <div class="bubble">3 جوازات معلقة · 1 مخفية</div>
+      </div>
+
+      <!-- Ready passport — incoming bubble -->
+      <div class="msg incoming">
+        <div class="bubble">
+          <div class="passport-card">
+            <div class="passport-avatar">
+              <svg viewBox="0 0 38 38" class="face-placeholder" style="width:100%;height:100%;"><rect width="38" height="38"/><circle cx="19" cy="14" r="7"/><ellipse cx="19" cy="34" rx="12" ry="10"/></svg>
+            </div>
+            <div class="passport-info">
+              <div class="passport-name">عبدالرحمن محمد الحارثي</div>
+              <div class="passport-num">A12345678</div>
+            </div>
+            <button class="passport-dismiss">×</button>
+          </div>
+          <span class="passport-status ready">● جاهز</span>
+          <div class="passport-actions">
+            <button class="msg-btn primary" style="flex:1;">رفع</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Processing passport -->
+      <div class="msg incoming">
+        <div class="bubble">
+          <div class="passport-card">
+            <div class="passport-avatar">
+              <svg viewBox="0 0 38 38" class="face-placeholder" style="width:100%;height:100%;"><rect width="38" height="38"/><circle cx="19" cy="14" r="7"/><ellipse cx="19" cy="34" rx="12" ry="10"/></svg>
+            </div>
+            <div class="passport-info">
+              <div class="passport-name">فاطمة أحمد الزبيدي</div>
+              <div class="passport-num">B98765432</div>
+            </div>
+            <button class="passport-dismiss">×</button>
+          </div>
+          <span class="passport-status processing">◌ قيد المعالجة</span>
+        </div>
+      </div>
+
+      <!-- Failed passport -->
+      <div class="msg incoming">
+        <div class="bubble" style="border-right:3px solid #C1553D;">
+          <div class="passport-card">
+            <div class="passport-avatar" style="background:rgba(193,85,61,0.1);">
+              <svg viewBox="0 0 38 38" style="width:100%;height:100%;"><rect width="38" height="38" fill="#F8E8E4"/><circle cx="19" cy="14" r="7" fill="#E4C4BC"/><ellipse cx="19" cy="34" rx="12" ry="10" fill="#E4C4BC"/></svg>
+            </div>
+            <div class="passport-info">
+              <div class="passport-name">خالد سعيد المقطري</div>
+              <div class="passport-num">C55443322</div>
+            </div>
+            <button class="passport-dismiss">×</button>
+          </div>
+          <span class="passport-status failed">✕ فشل</span>
+          <div style="font-size:10px; color:#C1553D; margin-top:2px;">فشل رفع البيانات (403)</div>
+          <div class="passport-actions">
+            <button class="msg-btn primary" style="flex:1;">إعادة الرفع</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick replies: submit all -->
+    <div class="quick-replies">
+      <button class="msg-btn primary" style="width:100%;">رفع الكل (2)</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ ACTIVE SUBMISSION ═══════════════ -->
+<div>
+  <div class="section-label">Active Submission — as system status messages</div>
+  <div class="popup">
+    <div class="chat-header">
+      <div class="chat-header-right">
+        <div class="chat-avatar">ت</div>
+        <div class="chat-info">
+          <span class="chat-name">تسجيل المعتمرين</span>
+          <span class="chat-status" style="color:#90E8B0;">جارٍ الرفع…</span>
+        </div>
+      </div>
+    </div>
+    <div class="pinned-ctx">
+      <div class="pinned-ctx-info">
+        <span class="pinned-dot active"></span>
+        <span>مؤسسة الإيمان · مجموعة 1</span>
+      </div>
+    </div>
+    <div class="chat-body">
+      <!-- Submitting -->
+      <div class="msg incoming">
+        <div class="bubble" style="border-right:3px solid #2D6B4A;">
+          <div class="passport-card">
+            <div class="passport-avatar">
+              <svg viewBox="0 0 38 38" class="face-placeholder" style="width:100%;height:100%;"><rect width="38" height="38"/><circle cx="19" cy="14" r="7"/><ellipse cx="19" cy="34" rx="12" ry="10"/></svg>
+            </div>
+            <div class="passport-info">
+              <div class="passport-name">عبدالرحمن محمد الحارثي</div>
+              <div class="passport-num">A12345678</div>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span class="spinner-ring"></span>
+            <span style="font-size:11px; color:#2D6B4A; font-weight:500;">جارٍ الرفع… (الخطوة 3 من 6)</span>
+          </div>
+          <div style="height:3px; background:#D4E8D8; border-radius:2px; overflow:hidden; margin-top:6px;">
+            <div style="width:50%; height:100%; background:#2D6B4A; border-radius:2px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Queued — faded -->
+      <div class="msg incoming" style="opacity:0.5;">
+        <div class="bubble">
+          <div class="passport-card">
+            <div class="passport-avatar">
+              <svg viewBox="0 0 38 38" class="face-placeholder" style="width:100%;height:100%;"><rect width="38" height="38"/><circle cx="19" cy="14" r="7"/><ellipse cx="19" cy="34" rx="12" ry="10"/></svg>
+            </div>
+            <div class="passport-info">
+              <div class="passport-name">خالد سعيد المقطري</div>
+              <div class="passport-num">C55443322</div>
+            </div>
+          </div>
+          <span class="passport-status ready" style="opacity:0.7;">● في الانتظار</span>
+        </div>
+      </div>
+    </div>
+    <div class="quick-replies">
+      <button class="msg-btn secondary" style="width:100%;" disabled>جارٍ الرفع…</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ EMPTY STATE ═══════════════ -->
+<div>
+  <div class="section-label">Empty State — assistant message</div>
+  <div class="popup">
+    <div class="chat-header">
+      <div class="chat-header-right">
+        <div class="chat-avatar">ت</div>
+        <div class="chat-info">
+          <span class="chat-name">تسجيل المعتمرين</span>
+          <span class="chat-status">متصل · مجموعة 1</span>
+        </div>
+      </div>
+      <button class="chat-btn">⚙</button>
+    </div>
+    <div class="pinned-ctx">
+      <div class="pinned-ctx-info">
+        <span class="pinned-dot active"></span>
+        <span>مؤسسة الإيمان</span>
+      </div>
+      <button class="pinned-ctx-btn">↻</button>
+    </div>
+    <div class="chat-body" style="min-height:120px;">
+      <div class="msg system" style="margin-top:20px;">
+        <div class="bubble">
+          <div class="msg-text" style="text-align:center;">
+            <div style="font-size:24px; margin-bottom:6px; opacity:0.4;">📄</div>
+            <div style="font-weight:600;">لا توجد جوازات معلقة</div>
+            <div style="font-size:11px; color:#8A9A80; margin-top:4px;">أرسل صور الجوازات عبر تيليجرام وستظهر هنا</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ CONTRACT EXPIRED ═══════════════ -->
+<div>
+  <div class="section-label">Contract Expired</div>
+  <div class="popup">
+    <div class="chat-header" style="background:#8B3A26;">
+      <div class="chat-header-right">
+        <div class="chat-avatar" style="background:rgba(255,255,255,0.2);">ت</div>
+        <div class="chat-info">
+          <span class="chat-name">تسجيل المعتمرين</span>
+          <span class="chat-status">العقد منتهٍ</span>
+        </div>
+      </div>
+      <button class="chat-btn">⚙</button>
+    </div>
+    <div class="pinned-ctx">
+      <div class="pinned-ctx-info">
+        <span class="pinned-dot expired"></span>
+        <span style="color:#C1553D;">مؤسسة الإيمان · <b>العقد منتهٍ</b></span>
+      </div>
+    </div>
+    <div class="chat-body">
+      <div class="msg system">
+        <div class="bubble" style="border-right:3px solid #C1553D;">
+          <div class="msg-text" style="font-weight:600; color:#8B3A26;">انتهى العقد</div>
+          <div class="msg-text" style="margin-top:2px;">لن تُقبل أي تسجيلات جديدة. تواصل مع الجهة المعنية لتجديد العقد.</div>
+        </div>
+      </div>
+      <!-- Grayed out records -->
+      <div class="msg incoming" style="opacity:0.3; pointer-events:none;">
+        <div class="bubble">
+          <div class="passport-card">
+            <div class="passport-avatar">
+              <svg viewBox="0 0 38 38" class="face-placeholder" style="width:100%;height:100%;"><rect width="38" height="38"/><circle cx="19" cy="14" r="7"/><ellipse cx="19" cy="34" rx="12" ry="10"/></svg>
+            </div>
+            <div class="passport-info">
+              <div class="passport-name">عبدالرحمن محمد الحارثي</div>
+              <div class="passport-num">A12345678</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ CONTEXT CHANGE ═══════════════ -->
+<div>
+  <div class="section-label">Context Change — as a system question</div>
+  <div class="popup">
+    <div class="chat-header" style="background:#B07008;">
+      <div class="chat-header-right">
+        <div class="chat-avatar" style="background:rgba(255,255,255,0.2);">!</div>
+        <div class="chat-info">
+          <span class="chat-name">تسجيل المعتمرين</span>
+          <span class="chat-status">يحتاج قرارك</span>
+        </div>
+      </div>
+    </div>
+    <div class="chat-body">
+      <div class="msg system">
+        <div class="bubble" style="border-right:3px solid #E8A020;">
+          <div class="msg-text" style="font-weight:600; color:#7A5C00;">تم تغيير الحساب أو العقد</div>
+          <div class="msg-text" style="margin-top:4px;">تم اكتشاف حساب أو عقد مختلف في منصة نسك. هل تريد التبديل إليه؟</div>
+          <div style="font-size:10px; color:#A89A88; margin-top:6px;">لن يتم رفع أي جوازات حتى يتم الاختيار.</div>
+        </div>
+      </div>
+    </div>
+    <!-- Quick reply buttons for context change -->
+    <div class="quick-replies">
+      <div class="quick-reply-row">
+        <button class="msg-btn primary" style="background:#2D6B4A;">نعم، بدّل</button>
+        <button class="msg-btn secondary">لاحقًا</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ SETTINGS ═══════════════ -->
+<div>
+  <div class="section-label">Settings</div>
+  <div class="popup">
+    <div class="chat-header light">
+      <div class="chat-header-right">
+        <button class="chat-btn" style="background:#F0F3EC; color:#5A7050; font-size:14px;">→</button>
+        <span style="font-size:14px; font-weight:700; color:#2C3642;">الإعدادات</span>
+      </div>
+    </div>
+    <div class="chat-body" style="background:#FAFCF8; background-image:none;">
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <div style="display:flex; flex-direction:column; gap:4px;">
+          <label class="form-label">البريد الإلكتروني</label>
+          <input class="msg-input" type="email" placeholder="agency@example.com" style="direction:ltr;text-align:right;">
+        </div>
+        <div style="display:flex; flex-direction:column; gap:4px;">
+          <label class="form-label">رقم الجوال</label>
+          <div class="phone-row">
+            <input class="msg-input cc" type="text" placeholder="966" style="direction:ltr;text-align:center;" value="966">
+            <input class="msg-input num" type="tel" placeholder="5XXXXXXXX" style="direction:ltr;text-align:right;">
+          </div>
+        </div>
+        <button class="msg-btn primary" style="width:100%;">حفظ</button>
+        <hr style="border:none; border-top:1px solid #E4E8E0;">
+        <div style="display:flex; justify-content:space-between;">
+          <button class="msg-btn danger">إعادة ربط الحساب</button>
+          <button class="msg-btn secondary" style="border:none; font-size:11px;">مساعدة</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ ERROR ═══════════════ -->
+<div>
+  <div class="section-label">Error Fallback</div>
+  <div class="popup">
+    <div class="chat-header">
+      <div class="chat-header-right">
+        <div class="chat-avatar">ت</div>
+        <div class="chat-info">
+          <span class="chat-name">تسجيل المعتمرين</span>
+          <span class="chat-status">خطأ في الاتصال</span>
+        </div>
+      </div>
+      <button class="chat-btn">⚙</button>
+    </div>
+    <div class="chat-body">
+      <div class="msg system">
+        <div class="bubble" style="border-right:3px solid #C1553D;">
+          <div class="msg-text" style="font-weight:600; color:#8B3A26;">خطأ</div>
+          <div class="msg-text" style="margin-top:2px;">تعذر تحميل القائمة. تأكد من اتصالك بالإنترنت وحاول مجددًا.</div>
+          <div class="msg-action">
+            <button class="msg-btn secondary">إعادة المحاولة</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,43 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "scanned",
+    "layout": "single_page",
+    "image_quality": "good",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.40.23.jpeg",
+    "reasoning": "Passport data page is clearly visible and aligned."
+  },
+  "PassportNumber": "15680745",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMALASHAARI<<AHMED<SAEED<AMER<MOHAMMED<<<",
+  "MrzLine2": "15680745<4YEM7004133M3201266<<<<<<<<<<<<<<02",
+  "SurnameAr": "الأشعري",
+  "GivenNameTokensAr": [
+    "أحمد",
+    "سعيد",
+    "عامر",
+    "محمد"
+  ],
+  "SurnameEn": "AL-ASHAARI",
+  "GivenNameTokensEn": [
+    "AHMED",
+    "SAEED",
+    "AMER",
+    "MOHAMMED"
+  ],
+  "DateOfBirth": "13/04/1970",
+  "PlaceOfBirthAr": "اليمن - ارخبيل سقطره",
+  "PlaceOfBirthEn": "SUQATRA - YEM",
+  "BirthCityAr": "ارخبيل سقطره",
+  "BirthCityEn": "SUQATRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "M",
+  "DateOfIssue": "26/01/2026",
+  "DateOfExpiry": "26/01/2032",
+  "ProfessionAr": "عمل خاص",
+  "ProfessionEn": "PRIVATE JOB",
+  "IssuingAuthorityAr": "سقطرى",
+  "IssuingAuthorityEn": "Socotra"
+}

@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "scanned",
+    "layout": "single_page",
+    "image_quality": "good",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.39.24 (1).jpeg",
+    "reasoning": "Clean single data page scan. All identity fields and MRZ are readable. Issuing authority is MAHARAH / المهرة, which is distinct from the birthplace fields. Birthplace uses the longer Suqatra locality form printed on the document."
+  },
+  "PassportNumber": "09135444",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMSAAD<<MENNA<AHMED<NOOH<<<<<<<<<<<<<<<<<",
+  "MrzLine2": "09135444<8YEM7401019F2701183<<<<<<<<<<<<<<02",
+  "SurnameAr": "سعد",
+  "GivenNameTokensAr": [
+    "منه",
+    "أحمد",
+    "نوح"
+  ],
+  "SurnameEn": "SAAD",
+  "GivenNameTokensEn": [
+    "MENNA",
+    "AHMED",
+    "NOOH"
+  ],
+  "DateOfBirth": "01/01/1974",
+  "PlaceOfBirthAr": "اليمن - أرخبيل سقطره",
+  "PlaceOfBirthEn": "SUQATRA - YEM",
+  "BirthCityAr": "أرخبيل سقطره",
+  "BirthCityEn": "SUQATRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "F",
+  "DateOfIssue": "18/01/2021",
+  "DateOfExpiry": "18/01/2027",
+  "ProfessionAr": "ربة بيت",
+  "ProfessionEn": "HOUSE WIFE",
+  "IssuingAuthorityAr": "المهرة",
+  "IssuingAuthorityEn": "MAHARAH"
+}

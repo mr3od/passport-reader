@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from datetime import UTC
 
-from passport_core import PassportWorkflowResult
 from passport_platform import (
     IssuedTempToken,
     MonthlyUsageReport,
     QuotaDecision,
     RecentUploadRecord,
+    TrackedProcessingResult,
     UserUsageReport,
 )
 from passport_platform.models.user import User
@@ -19,7 +19,7 @@ SUPPORT_CONTACT_TEXT = "للاستفسارات أو طلب تغيير الخطة
 def welcome_text() -> str:
     return (
         "أهلًا بك في بوت رفع وتدقيق الجوازات.\n\n"
-        "أرسل صورة جواز واحدة أو عدة صور، وسأقوم بالتحقق من الجواز، قص صورة الوجه، "
+        "أرسل صورة جواز واحدة أو عدة صور، وسأقوم بالتحقق من الجواز "
         "واستخراج البيانات لكل صورة بشكل مستقل.\n\n"
         "أوامر المستخدم:\n"
         "/account - عرض الخطة والاستخدام الحالي\n"
@@ -37,7 +37,7 @@ def help_text() -> str:
         "1. أرسل صورة الجواز كصورة أو كملف.\n"
         "2. تأكد من أن الصورة واضحة وتُظهر كامل صفحة الجواز.\n"
         "3. يمكنك إرسال أكثر من صورة في دفعة واحدة.\n"
-        "4. ستصلك النتيجة لكل صورة بشكل مستقل، مع صورة الوجه والبيانات المستخرجة.\n\n"
+        "4. ستصلك النتيجة لكل صورة بشكل مستقل، مع البيانات المستخرجة.\n\n"
         "أوامر المستخدم:\n"
         "/account - عرض الخطة والاستخدام الحالي\n"
         "/usage - عرض تفاصيل الاستخدام الشهري\n"
@@ -74,47 +74,41 @@ def batch_limit_exceeded_text(*, total: int, limit: int) -> str:
     )
 
 
-def format_failure_text(result: PassportWorkflowResult, *, position: int, total: int) -> str:
+def format_failure_text(result: TrackedProcessingResult, *, position: int, total: int) -> str:
     prefix = f"الصورة {position} من {total}\n" if total > 1 else ""
 
-    if not result.validation.is_passport:
+    if not result.is_passport:
         return (
             prefix + "تعذر التحقق من أن الصورة تخص جوازًا صالحًا للمعالجة. "
             "تأكد من وضوح الصورة وإظهار كامل صفحة الجواز."
         )
 
-    if not result.has_face_crop:
-        return (
-            prefix + "تم التحقق من الجواز، لكن تعذر استخراج صورة الوجه. "
-            "يُفضّل إعادة الإرسال بصورة أوضح وأعلى دقة."
-        )
-
     return prefix + "تعذر إكمال معالجة الصورة الحالية. يُرجى إعادة المحاولة بصورة أوضح."
 
 
-def format_success_text(result: PassportWorkflowResult, *, position: int, total: int) -> str:
+def format_success_text(result: TrackedProcessingResult, *, position: int, total: int) -> str:
     prefix = f"الصورة {position} من {total}\n" if total > 1 else ""
-    data = result.data
+    data = result.extracted_data
     if data is None:
         return prefix + "تعذر استخراج البيانات من الصورة الحالية."
 
-    full_name_ar = _join_values(data.GivenNamesAr, data.SurnameAr)
-    full_name_en = _join_values(data.GivenNamesEn, data.SurnameEn)
-
     lines = [
         prefix + "تمت معالجة الجواز بنجاح.",
+        f"حالة المراجعة: {_code(_review_status_label(result.review_status))}",
+        f"مستوى الثقة: {_code(_confidence_label(result.confidence_overall))}",
+        f"ملاحظات التحقق: {_code(_warnings_label(len(result.warnings)))}",
         "نسخ سريع:",
-        f"الاسم الكامل بالعربية: {_code(full_name_ar)}",
-        f"الاسم الكامل بالإنجليزية: {_code(full_name_en)}",
-        f"رقم الجواز: {_code(data.PassportNumber)}",
-        f"الجنسية: {_code(data.CountryCode)}",
-        f"تاريخ الميلاد: {_code(data.DateOfBirth)}",
-        f"الجنس: {_code(data.Sex)}",
-        f"مكان الميلاد: {_code(_first_value(data.PlaceOfBirthAr, data.PlaceOfBirthEn))}",
-        f"المهنة: {_code(_first_value(data.ProfessionAr, data.ProfessionEn))}",
-        f"جهة الإصدار: {_code(_first_value(data.IssuingAuthorityAr, data.IssuingAuthorityEn))}",
-        f"تاريخ الإصدار: {_code(data.DateOfIssue)}",
-        f"تاريخ الانتهاء: {_code(data.DateOfExpiry)}",
+        f"الاسم الكامل بالعربية: {_code(data.full_name_ar)}",
+        f"الاسم الكامل بالإنجليزية: {_code(data.full_name_en)}",
+        f"رقم الجواز: {_code(data.passport_number)}",
+        f"الجنسية: {_code(data.country_code)}",
+        f"تاريخ الميلاد: {_code(data.date_of_birth)}",
+        f"الجنس: {_code(data.sex)}",
+        f"مكان الميلاد: {_code(_first_value(data.place_of_birth_ar, data.place_of_birth_en))}",
+        f"المهنة: {_code(_first_value(data.profession_ar, data.profession_en))}",
+        f"جهة الإصدار: {_code(_first_value(data.issuing_authority_ar, data.issuing_authority_en))}",
+        f"تاريخ الإصدار: {_code(data.date_of_issue)}",
+        f"تاريخ الانتهاء: {_code(data.date_of_expiry)}",
     ]
     return "\n".join(line for line in lines if line.strip())
 
@@ -273,3 +267,26 @@ def _join_values(*values: str | None, separator: str = " ") -> str:
 
 def _user_label(user: User) -> str:
     return user.display_name or user.external_user_id
+
+
+def _review_status_label(value: str) -> str:
+    labels = {
+        "auto": "جاهزة للرفع",
+        "reviewed": "تمت المراجعة",
+        "needs_review": "تحتاج مراجعة قبل الرفع",
+    }
+    return labels.get(value, "تحتاج مراجعة قبل الرفع")
+
+
+def _confidence_label(value: float | None) -> str:
+    if value is None:
+        return "غير متوفر"
+    return f"{round(value * 100)}%"
+
+
+def _warnings_label(count: int) -> str:
+    if count <= 0:
+        return "لا توجد ملاحظات"
+    if count == 1:
+        return "يوجد تنبيه واحد ويحتاج مراجعة"
+    return f"توجد {count} تنبيهات وتحتاج مراجعة"

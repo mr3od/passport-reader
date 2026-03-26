@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "scanned",
+    "layout": "single_page",
+    "image_quality": "good",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.40.14.jpeg",
+    "reasoning": "This is a standard, high-quality scan of a republic of yemen passport data page."
+  },
+  "PassportNumber": "14323681",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMSALEM<<SAEED<SAAD<EISSA<<<<<<<<<<<<<<<<",
+  "MrzLine2": "14323681<0YEM6305017M3101230<<<<<<<<<<<<<<08",
+  "SurnameAr": "سالم",
+  "GivenNameTokensAr": [
+    "سعيد",
+    "سعد",
+    "عيسى"
+  ],
+  "SurnameEn": "SALEM",
+  "GivenNameTokensEn": [
+    "SAEED",
+    "SAAD",
+    "EISSA"
+  ],
+  "DateOfBirth": "01/05/1963",
+  "PlaceOfBirthAr": "اليمن - أرخبيل سقطرى",
+  "PlaceOfBirthEn": "SOCOTRA - YEM",
+  "BirthCityAr": "أرخبيل سقطرى",
+  "BirthCityEn": "SOCOTRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "M",
+  "DateOfIssue": "23/01/2025",
+  "DateOfExpiry": "23/01/2031",
+  "ProfessionAr": "عمل خاص",
+  "ProfessionEn": "PRIVATE JOB",
+  "IssuingAuthorityAr": "سقطرى",
+  "IssuingAuthorityEn": "Socotra"
+}

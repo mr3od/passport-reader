@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "is_passport": true,
+    "orientation": "normal",
+    "image_type": "scanned",
+    "layout": "single_page",
+    "image_quality": "good",
+    "original_filename": "WhatsApp Image 2026-03-15 at 00.40.31 (1).jpeg",
+    "reasoning": "Standard high-quality scan of a yemeni passport data page."
+  },
+  "PassportNumber": "14323768",
+  "CountryCode": "YEM",
+  "MrzLine1": "P<YEMMAQDAM<<SEMH<AMER<QADWA<<<<<<<<<<<<<<<<",
+  "MrzLine2": "14323768<8YEM6401012F3101296<<<<<<<<<<<<<<00",
+  "SurnameAr": "مقدم",
+  "GivenNameTokensAr": [
+    "سمه",
+    "عامر",
+    "قدوه"
+  ],
+  "SurnameEn": "MAQDAM",
+  "GivenNameTokensEn": [
+    "SEMH",
+    "AMER",
+    "QADWA"
+  ],
+  "DateOfBirth": "01/01/1964",
+  "PlaceOfBirthAr": "اليمن - أرخبيل سقطره",
+  "PlaceOfBirthEn": "SUQATRA - YEM",
+  "BirthCityAr": "أرخبيل سقطره",
+  "BirthCityEn": "SUQATRA",
+  "BirthCountryAr": "اليمن",
+  "BirthCountryEn": "YEM",
+  "Sex": "F",
+  "DateOfIssue": "29/01/2025",
+  "DateOfExpiry": "29/01/2031",
+  "ProfessionAr": "ربة بيت",
+  "ProfessionEn": "HOUSE WIFE",
+  "IssuingAuthorityAr": "سقطرى",
+  "IssuingAuthorityEn": "Socotra"
+}
