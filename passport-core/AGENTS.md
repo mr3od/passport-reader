@@ -10,7 +10,7 @@
 
 - `extraction/` — v2 pipeline. `PassportExtractor.extract()` is the entry point.
 - `mrz/` — MRZ parsing, check digits, line building. Self-contained, no LLM dependency.
-- `workflow.py`, `llm.py`, `models.py` — deprecated v1. Do not extend; migrate callers to `extraction/`.
+- `vision.py` + `vision_models.py` — passport validation and face-detection support for the image-processing pipeline.
 
 ## Key conventions
 
@@ -24,7 +24,7 @@
 
 - Non-obvious functions must have a Python docstring explaining what they do.
 - Deprecated modules must emit `DeprecationWarning` at import time and carry a `.. deprecated::` directive in their module docstring pointing to the replacement.
-- Do not extend deprecated modules (`workflow.py`, `llm.py`, `models.py`). New work goes in `extraction/` or `mrz/`.
+- New extraction work goes in `extraction/` or `mrz/`. Do not recreate the removed v1 API.
 
 ## Testing
 

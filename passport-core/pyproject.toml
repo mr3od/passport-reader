@@ -1,6 +1,6 @@
 [project]
 name = "passport-core"
-version = "0.2.0"
+version = "0.3.0"
 description = "Core passport processing services for Yemeni travel agencies"
 readme = "README.md"
 requires-python = ">=3.12"

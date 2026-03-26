@@ -39,11 +39,11 @@ Status
 - `passport-telegram` depends only on `passport-platform`.
 
 **Current problem**
-- `passport-telegram` still imports `passport_core` types/builders directly.
+- `passport-telegram` previously imported `passport_core` types/builders directly.
 
 **Required work**
 - remove `passport-core` from `passport-telegram/pyproject.toml`
-- stop importing `PassportWorkflow`, `CoreSettings`, and `PassportWorkflowResult` from Telegram code
+- keep Telegram on `passport-platform` builders and extraction views only
 - move all processing/runtime construction behind `passport-platform` builders
 - expose adapter-safe processing result views from `passport-platform`
 

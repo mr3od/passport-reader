@@ -30,10 +30,10 @@ uv sync --all-packages
 uv run pytest passport-core/tests passport-platform/tests passport-api/tests passport-telegram/tests passport-benchmark/tests -q
 
 # Run a single test file
-uv run pytest passport-core/tests/test_workflow.py
+uv run pytest passport-core/tests/test_vision.py
 
 # Run a single test
-uv run pytest passport-core/tests/test_workflow.py::test_name
+uv run pytest passport-core/tests/test_vision.py::test_name
 
 # Lint + format
 uv run ruff check passport-core/src passport-platform/src passport-api/src passport-telegram/src passport-benchmark/src
@@ -61,7 +61,7 @@ V2 extraction is a single extractor call that returns `ExtractionResult`, includ
 - validation warnings (`warnings`)
 - usage and trace payloads (`usage`, `message_history_json`)
 
-`workflow.py`, `llm.py`, and v1 workflow models are deprecated compatibility modules. Do not extend them for new behavior.
+The removed v1 workflow API (`workflow.py`, `llm.py`, old extraction models) must not be reintroduced.
 
 Config via `Settings` (prefix `PASSPORT_`). Runtime extraction requires Requesty credentials/model env vars (for example `PASSPORT_REQUESTY_API_KEY`, `PASSPORT_LLM_MODEL`, `PASSPORT_REQUESTY_BASE_URL`).
 

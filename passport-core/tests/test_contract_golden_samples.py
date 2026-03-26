@@ -6,7 +6,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-from passport_core.models import PassportData
+from passport_core.extraction.models import PassportFields
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 GROUND_TRUTH_CSV = FIXTURES_DIR / "ground_truth.csv"
@@ -36,18 +36,18 @@ def _image_bytes(path: Path) -> bytes:
 
 
 class _GoldenExtractorStub:
-    def __init__(self, expected_by_hash: dict[str, PassportData]) -> None:
+    def __init__(self, expected_by_hash: dict[str, PassportFields]) -> None:
         self._expected_by_hash = expected_by_hash
 
-    def extract(self, image_bytes: bytes, mime_type: str = "image/jpeg") -> PassportData:
+    def extract(self, image_bytes: bytes, mime_type: str = "image/jpeg") -> PassportFields:
         del mime_type
         key = hashlib.sha256(image_bytes).hexdigest()
         return self._expected_by_hash[key]
 
 
-def _passport_data_from_row(row: dict[str, str]) -> PassportData:
+def _passport_data_from_row(row: dict[str, str]) -> PassportFields:
     payload = {k: (v if v != "" else None) for k, v in row.items() if k != "image"}
-    return PassportData.model_validate(payload)
+    return PassportFields.model_validate(payload)
 
 
 def test_golden_fixtures_are_loadable_and_well_formed() -> None:
@@ -69,7 +69,7 @@ def test_golden_fixtures_are_loadable_and_well_formed() -> None:
 def test_golden_extractor_contract_fields_match_expected() -> None:
     rows = _load_ground_truth()
 
-    expected_by_hash: dict[str, PassportData] = {}
+    expected_by_hash: dict[str, PassportFields] = {}
     for row in rows:
         image_path = _resolve_image_path(row["image"])
         data = _image_bytes(image_path)

@@ -9,7 +9,7 @@ from numpy.typing import NDArray
 
 from passport_core.config import Settings
 from passport_core.io import encode_jpeg
-from passport_core.models import (
+from passport_core.vision_models import (
     BoundingBox,
     FaceCropResult,
     FaceDetectionResult,

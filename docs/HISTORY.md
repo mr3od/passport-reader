@@ -2,6 +2,13 @@
 
 Agent-maintained log of significant changes. Each entry records what was done and who did it.
 
+## 2026-03-27 — passport-core v1 API removal [codex]
+
+- Removed the legacy `passport_core.workflow`, `passport_core.llm`, and `passport_core.models` modules from `passport-core`
+- Promoted the still-supported vision datamodels into `passport_core.vision_models`
+- Updated `passport-core` docs and package exports to reflect the v2-only extraction API
+- Bumped `passport-core` to `0.3.0`
+
 ## 2026-03-27 — ingress deployment hardening [codex]
 
 - Disabled FastAPI debug mode before public exposure through the API Ingress

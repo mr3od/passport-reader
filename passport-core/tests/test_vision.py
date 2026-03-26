@@ -4,13 +4,13 @@ from unittest.mock import MagicMock
 
 import numpy as np
 from passport_core.config import Settings
-from passport_core.models import BoundingBox
 from passport_core.vision import (
     PassportFaceCropper,
     PassportFaceDetector,
     PassportFeatureValidator,
     RetinaFacePriorConfig,
 )
+from passport_core.vision_models import BoundingBox
 
 
 def test_validator_accepts_same_image(reference_template_path, sample_bgr_image):

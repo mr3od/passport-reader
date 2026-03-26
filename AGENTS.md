@@ -100,7 +100,7 @@ Adding a column requires all of the following to be updated together — a parti
 ## Extraction pipeline (passport-core 0.2.0+)
 
 - The v2 extraction entry point is `passport_core.extraction.PassportExtractor`.
-- `workflow.py`, `llm.py`, `models.py` in passport-core are deprecated v1 — do not extend them.
+- `workflow.py`, `llm.py`, and the old v1 extraction models have been removed from `passport-core`.
 - Confidence is programmatic (image metadata + cross-validation warnings), never LLM self-reported.
 - `passport-benchmark` is for scoring only — extraction logic lives in `passport-core`.
 
