@@ -26,9 +26,12 @@ It does not own:
 ## Setup
 
 ```bash
+# from the repository root
 cp .env.example .env
 uv sync --all-packages
 ```
+
+Use the root `.env.example` and copy it to the repository root `.env`.
 
 ## Environment
 
@@ -38,6 +41,7 @@ uv sync --all-packages
 ## Development
 
 ```bash
-uv run --package passport-platform pytest passport-platform/tests -q
-uv run ruff check passport-platform/src/
+uv run pytest passport-platform/tests -q
+uv run ruff check passport-platform/src passport-platform/tests
+uv run ty check passport-platform/src
 ```

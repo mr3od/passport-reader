@@ -11,8 +11,6 @@ from passport_platform import (
     build_processing_runtime,
 )
 
-from passport_api.config import ApiSettings
-
 
 @dataclass(slots=True)
 class ApiServices:
@@ -22,16 +20,10 @@ class ApiServices:
     processing: ProcessingService | None = field(default=None)
 
 
-def build_services(settings: ApiSettings) -> ApiServices:
-    platform_runtime = build_platform_runtime(
-        platform_env_file=settings.platform_env_file,
-        platform_root_dir=settings.platform_root_dir,
-    )
-    processing_runtime = build_processing_runtime(
-        platform_runtime=platform_runtime,
-        core_env_file=getattr(settings, "core_env_file", None),
-        core_root_dir=getattr(settings, "core_root_dir", None),
-    )
+def build_services() -> ApiServices:
+    """Build the shared API service container from the root workspace environment."""
+    platform_runtime = build_platform_runtime()
+    processing_runtime = build_processing_runtime(platform_runtime=platform_runtime)
     auth = platform_runtime.auth
     records = platform_runtime.records
     users = platform_runtime.users

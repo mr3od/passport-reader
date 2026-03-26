@@ -23,3 +23,12 @@ Scoring and evaluation only. Extraction logic lives in `passport-core`.
 - Never modify `cases/labeled/` programmatically — ground truth is human-verified.
 - Run results go under `runs/<run-id>/`, never mixed with case directories.
 - `manifest.csv` tracks case metadata and must stay in sync with `cases/labeled/`.
+
+## Workspace workflow
+
+- Run from the repository root with `uv`.
+- Read extractor configuration from the root `.env`.
+- Use the root workspace tooling for verification:
+  - `uv run pytest passport-benchmark/tests -q`
+  - `uv run ruff check passport-benchmark/src passport-benchmark/tests`
+  - `uv run ty check passport-benchmark/src`

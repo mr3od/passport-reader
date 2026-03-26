@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 import pytest
-
 from passport_platform.db import Database
 from passport_platform.enums import ExternalProvider, UserStatus
 from passport_platform.errors import (

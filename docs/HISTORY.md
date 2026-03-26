@@ -44,6 +44,10 @@ Agent-maintained log of significant changes. Each entry records what was done an
 - Added direct `passport-core` MRZ tests for missing check digits and malformed line lengths
 - Removed stale `passport-benchmark` tests that still imported deleted compatibility modules
 
+- Consolidated on the root `.env` / `.env.production` contract and removed adapter env-file indirection from API, Telegram, and shared runtime builders
+- Updated root and package docs to describe the workspace-first `uv` workflow, root `pyproject.toml`, root tooling (`ruff`, `pytest`, `ty`), and MicroK8s `k8s/` deployment path
+- Tightened test fixtures and workspace `ty` configuration so `uv run ty check` passes while excluding the experimental `browser-session` package
+
 ## 2026-03-24 — upstream runtime boundary cleanup [codex]
 
 - Added shared `passport-platform` runtime builders for adapters

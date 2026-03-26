@@ -29,7 +29,11 @@
 ## Testing
 
 ```bash
-uv run pytest -q
+uv run pytest passport-core/tests -q
+uv run ruff check passport-core/src passport-core/tests
+uv run ty check passport-core/src
 ```
+
+Run commands from the repository root. Local configuration comes from the root `.env`.
 
 Benchmarking lives in `passport-benchmark/`, not here.

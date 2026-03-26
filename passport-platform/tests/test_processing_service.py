@@ -7,9 +7,8 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from passport_core.extraction.models import Confidence, ExtractionResult, PassportFields
+from passport_core.extraction.models import Confidence, ExtractionResult, ImageMeta, PassportFields
 from passport_core.io import encode_jpeg
-
 from passport_platform.db import Database
 from passport_platform.enums import (
     ChannelName,
@@ -339,13 +338,13 @@ def make_extraction_result(*, complete: bool) -> ExtractionResult:
     if complete:
         return ExtractionResult(
             data=PassportFields(PassportNumber="12345678"),
-            meta={"is_passport": True},
+            meta=ImageMeta(is_passport=True),
             confidence=Confidence(overall=0.97),
             warnings=[],
         )
     return ExtractionResult(
         data=PassportFields(),
-        meta={"is_passport": False},
+        meta=ImageMeta(is_passport=False),
         confidence=Confidence(overall=0.2),
         warnings=["Not passport"],
     )

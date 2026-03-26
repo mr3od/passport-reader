@@ -4,7 +4,6 @@ from typing import Any, cast
 from unittest.mock import MagicMock
 
 import numpy as np
-
 from passport_core.config import Settings
 from passport_core.io import LoadedImage
 from passport_core.models import (

@@ -56,18 +56,21 @@ result = workflow.process_bytes(image_bytes, filename="p.jpg", mime_type="image/
 ## Installation
 
 ```bash
+# from the repository root
 cp .env.example .env
 uv sync --all-packages
 ```
 
+Use the root `.env.example` and copy it to the repository root `.env`.
 Set `PASSPORT_REQUESTY_API_KEY` in the root `.env`.
 
 ## Development
 
 ```bash
-uv run --package passport-core pytest passport-core/tests -q
-uv run ruff check passport-core/src/
-uv run ruff format passport-core/src/
+uv run pytest passport-core/tests -q
+uv run ruff check passport-core/src passport-core/tests
+uv run ruff format passport-core/src passport-core/tests
+uv run ty check passport-core/src
 ```
 
 ## Benchmarking

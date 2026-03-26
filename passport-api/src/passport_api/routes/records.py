@@ -30,7 +30,7 @@ def upload_record(
     if services.processing is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="OCR pipeline not configured (missing passport-core .env)",
+            detail="OCR pipeline not configured",
         )
     payload = file.file.read()
     result = services.processing.process_bytes(

@@ -7,7 +7,6 @@ from passport_core.extraction.models import (
     ExtractionResult,
     PassportFields,
 )
-
 from passport_platform.enums import (
     ChannelName,
     ExternalProvider,
@@ -65,6 +64,8 @@ def make_tracked_result(
     *,
     review_status: str = "auto",
 ) -> TrackedProcessingResult:
+    confidence = extraction_result.confidence
+    assert confidence is not None
     user = User(
         id=1,
         external_provider=ExternalProvider.TELEGRAM,
@@ -96,7 +97,7 @@ def make_tracked_result(
         reviewed_at=None,
         passport_number=extraction_result.data.PassportNumber,
         passport_image_uri="/tmp/original.jpg",
-        confidence_overall=extraction_result.confidence.overall,
+        confidence_overall=confidence.overall,
         extraction_result_json=extraction_result.model_dump_json(),
         error_code=None,
         completed_at=datetime(2026, 3, 13, 10, 1, tzinfo=UTC),

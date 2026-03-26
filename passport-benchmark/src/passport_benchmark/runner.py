@@ -45,22 +45,15 @@ def _resolve(root: Path, value: Path) -> Path:
 
 
 def _load_core_settings():
+    """Load extractor settings from the shared workspace environment."""
     from passport_core.config import Settings
 
-    repo_root = Path(__file__).resolve().parents[3]
-    core_root_dir = repo_root / "passport-core"
-    core_env_file = core_root_dir / ".env"
-
-    env_file = core_env_file if core_env_file.exists() else None
-    settings = cast(Any, Settings)(**({"_env_file": env_file} if env_file else {}))
-    settings.assets_dir = _resolve(core_root_dir, settings.assets_dir)
-    settings.template_path = _resolve(core_root_dir, settings.template_path)
-    settings.face_model_path = _resolve(core_root_dir, settings.face_model_path)
+    settings = cast(Any, Settings)()
 
     if settings.requesty_api_key is None:
         raise RuntimeError(
             "Missing PASSPORT_REQUESTY_API_KEY. "
-            f"Expected it in {core_env_file} or the current environment."
+            "Set it in the root .env or in the current environment."
         )
 
     return settings

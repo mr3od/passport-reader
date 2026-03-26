@@ -22,7 +22,7 @@ def get_settings() -> ApiSettings:
 
 @lru_cache
 def get_services() -> ApiServices:
-    return build_services(get_settings())
+    return build_services()
 
 
 def get_api_services() -> ApiServices:

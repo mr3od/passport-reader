@@ -13,9 +13,12 @@ Successful results are returned as a single photo message (the original upload) 
 ## Setup
 
 ```bash
+# from the repository root
 cp .env.example .env
 uv sync --all-packages
 ```
+
+Use the root `.env.example` and copy it to the repository root `.env`.
 
 Then set at least:
 
@@ -47,6 +50,7 @@ Production uses the root `Dockerfile`, root `.env.production`, and the versioned
 ## Development
 
 ```bash
-uv run --package passport-telegram pytest passport-telegram/tests -q
-uv run ruff check passport-telegram/src/
+uv run pytest passport-telegram/tests -q
+uv run ruff check passport-telegram/src passport-telegram/tests
+uv run ty check passport-telegram/src
 ```

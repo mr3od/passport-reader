@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from types import SimpleNamespace
 
+from passport_core.extraction.models import Confidence, ExtractionResult, PassportFields
 from passport_platform import (
     IssuedTempToken,
     MonthlyUsageReport,
@@ -13,9 +13,9 @@ from passport_platform import (
     UserUsageReport,
 )
 from passport_platform.enums import ChannelName, ExternalProvider, UploadStatus, UserStatus
+from passport_platform.models.auth import TempToken
 from passport_platform.models.upload import ProcessingResult, Upload
 from passport_platform.models.user import User
-
 from passport_telegram.messages import (
     admin_help_text,
     admin_only_text,
@@ -124,14 +124,16 @@ def test_admin_texts_cover_commands_and_restrictions():
 
 
 def test_reporting_messages_include_summary_fields():
+    period_start = datetime(2026, 3, 1, 0, 0, tzinfo=UTC)
+    period_end = datetime(2026, 3, 31, 23, 59, tzinfo=UTC)
     user = User(
         id=1,
-        external_provider="telegram",  # type: ignore[arg-type]
+        external_provider=ExternalProvider.TELEGRAM,
         external_user_id="12345",
         display_name="Agency A",
         plan=PlanName.BASIC,
         status=UserStatus.ACTIVE,
-        created_at=None,  # type: ignore[arg-type]
+        created_at=period_start,
     )
     usage_text = format_user_usage_report(
         UserUsageReport(
@@ -147,8 +149,8 @@ def test_reporting_messages_include_summary_fields():
                 remaining_successes=299,
                 max_batch_size=10,
             ),
-            period_start=None,  # type: ignore[arg-type]
-            period_end=None,  # type: ignore[arg-type]
+            period_start=period_start,
+            period_end=period_end,
             upload_count=2,
             success_count=1,
             failure_count=1,
@@ -156,8 +158,8 @@ def test_reporting_messages_include_summary_fields():
     )
     monthly_text = format_monthly_usage_report(
         MonthlyUsageReport(
-            period_start=None,  # type: ignore[arg-type]
-            period_end=None,  # type: ignore[arg-type]
+            period_start=period_start,
+            period_end=period_end,
             total_users=2,
             active_users=1,
             blocked_users=1,
@@ -181,7 +183,7 @@ def test_reporting_messages_include_summary_fields():
                 upload_status=UploadStatus.PROCESSED,
                 passport_number="A123",
                 error_code=None,
-                created_at=None,  # type: ignore[arg-type]
+                created_at=period_start,
                 completed_at=None,
             )
         ]
@@ -195,12 +197,12 @@ def test_reporting_messages_include_summary_fields():
 def test_admin_user_update_texts_include_identifier():
     user = User(
         id=1,
-        external_provider="telegram",  # type: ignore[arg-type]
+        external_provider=ExternalProvider.TELEGRAM,
         external_user_id="12345",
         display_name=None,
         plan=PlanName.PRO,
         status=UserStatus.BLOCKED,
-        created_at=None,  # type: ignore[arg-type]
+        created_at=datetime(2026, 3, 13, 10, 0, tzinfo=UTC),
     )
 
     assert "12345" in user_plan_updated_text(user)
@@ -211,12 +213,12 @@ def test_admin_user_update_texts_include_identifier():
 def test_format_user_plan_text_includes_plan_and_status():
     user = User(
         id=1,
-        external_provider="telegram",  # type: ignore[arg-type]
+        external_provider=ExternalProvider.TELEGRAM,
         external_user_id="12345",
         display_name="Agency A",
         plan=PlanName.PRO,
         status=UserStatus.ACTIVE,
-        created_at=None,  # type: ignore[arg-type]
+        created_at=datetime(2026, 3, 13, 10, 0, tzinfo=UTC),
     )
 
     text = format_user_plan_text(user)
@@ -231,7 +233,14 @@ def test_temp_token_text_includes_token_and_expiry():
         IssuedTempToken(
             token="abc123",
             expires_at=datetime(2026, 3, 13, 12, 0, tzinfo=UTC),
-            record=None,  # type: ignore[arg-type]
+            record=TempToken(
+                id=1,
+                user_id=1,
+                token_hash="hash",
+                expires_at=datetime(2026, 3, 13, 12, 0, tzinfo=UTC),
+                used_at=None,
+                created_at=datetime(2026, 3, 13, 11, 0, tzinfo=UTC),
+            ),
         )
     )
 
@@ -247,6 +256,7 @@ def make_tracked_result(
     review_status: str = "auto",
     confidence_overall: float | None = 0.91,
 ) -> TrackedProcessingResult:
+    passport_number = _passport_number(extracted_data)
     user = User(
         id=1,
         external_provider=ExternalProvider.TELEGRAM,
@@ -276,9 +286,7 @@ def make_tracked_result(
         review_status=review_status,
         reviewed_by_user_id=None,
         reviewed_at=None,
-        passport_number=(
-            extracted_data.get("PassportNumber") if isinstance(extracted_data, dict) else None
-        ),
+        passport_number=passport_number,
         passport_image_uri="/tmp/original.jpg",
         confidence_overall=confidence_overall,
         extraction_result_json=None,
@@ -286,7 +294,13 @@ def make_tracked_result(
         completed_at=datetime(2026, 3, 13, 10, 1, tzinfo=UTC),
     )
     extraction_result = (
-        SimpleNamespace(data=extracted_data, warnings=[]) if extracted_data is not None else None
+        ExtractionResult(
+            data=PassportFields.model_validate(extracted_data),
+            confidence=Confidence(overall=confidence_overall),
+            warnings=[],
+        )
+        if extracted_data is not None
+        else None
     )
     return TrackedProcessingResult(
         user=user,
@@ -305,3 +319,12 @@ def make_tracked_result(
         extraction_result=extraction_result,
         processing_result=processing_result,
     )
+
+
+def _passport_number(extracted_data: dict[str, object] | None) -> str | None:
+    if extracted_data is None:
+        return None
+    value = extracted_data.get("PassportNumber")
+    if not isinstance(value, str):
+        return None
+    return value

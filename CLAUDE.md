@@ -23,29 +23,26 @@ All Python packages use `uv` for dependency management and `hatchling` as build 
 Each package has its own virtual environment. Work from inside the package directory.
 
 ```bash
-# Install a package with dev dependencies
-cd passport-core
-uv sync --extra dev
+# From the repository root
+uv sync --all-packages
 
-# Run tests
-uv run pytest
+# Run all tests
+uv run pytest passport-core/tests passport-platform/tests passport-api/tests passport-telegram/tests passport-benchmark/tests -q
 
 # Run a single test file
-uv run pytest tests/test_workflow.py
+uv run pytest passport-core/tests/test_workflow.py
 
 # Run a single test
-uv run pytest tests/test_workflow.py::test_name
+uv run pytest passport-core/tests/test_workflow.py::test_name
 
 # Lint + format
-uv run ruff check src/
-uv run ruff format src/
+uv run ruff check passport-core/src passport-platform/src passport-api/src passport-telegram/src passport-benchmark/src
+uv run ruff format passport-core/src passport-platform/src passport-api/src passport-telegram/src passport-benchmark/src
 
 # Run the API server
-cd passport-api
 uv run passport-api
 
 # Run the Telegram bot
-cd passport-telegram
 uv run passport-telegram
 ```
 
@@ -136,23 +133,16 @@ When adding/changing result fields, update all linked layers together:
 
 ## Environment Files
 
-Each package has a `.env.example`. The platform and telegram packages point to each other via env file path settings:
-
-```
-PASSPORT_TELEGRAM_CORE_ENV_FILE=../passport-core/.env
-PASSPORT_TELEGRAM_PLATFORM_ENV_FILE=../passport-platform/.env
-PASSPORT_API_PLATFORM_ENV_FILE=../passport-platform/.env   # (ApiSettings.platform_env_file)
-```
+The workspace uses one root `.env.example` for local development and one root `.env.production.example`
+for production. Run adapters from the repository root so `passport-core`, `passport-platform`,
+`passport-api`, and `passport-telegram` all read the same env contract.
 
 ## Docker
 
 ```bash
-# Telegram bot image (production)
-docker build -f Dockerfile -t passport-telegram:latest .
-docker run --env-file .env.production -v passport-data:/data passport-telegram:latest
-
-# API image (separate, not in root Dockerfile)
-cd passport-api && docker build -t passport-api:latest .
+# Shared production image
+docker build -t passport-reader:latest .
 ```
 
-The root `Dockerfile` builds the Telegram bot. Data volume at `/data` must be persistent.
+The root `Dockerfile` builds the shared production image used by both API and Telegram workloads.
+Production deploys through the root `k8s/` manifests on MicroK8s.

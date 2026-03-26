@@ -3,10 +3,11 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime
 from types import SimpleNamespace
+from typing import cast
 
 from passport_platform import IssuedTempToken, PlanName, QuotaDecision
 from passport_platform.enums import UserStatus
-
+from passport_platform.models.auth import TempToken
 from passport_telegram.bot import (
     TelegramImageUpload,
     account_command,
@@ -15,6 +16,8 @@ from passport_telegram.bot import (
     token_command,
     usage_command,
 )
+from telegram import Update
+from telegram.ext import ContextTypes
 
 
 class FakeBot:
@@ -56,22 +59,35 @@ def test_token_command_issues_single_use_token_text():
             issue_temp_token=lambda user_id: IssuedTempToken(
                 token="tmp-token",
                 expires_at=datetime(2026, 3, 13, 12, 0, tzinfo=UTC),
-                record=None,  # type: ignore[arg-type]
+                record=TempToken(
+                    id=1,
+                    user_id=user_id,
+                    token_hash="hash",
+                    expires_at=datetime(2026, 3, 13, 12, 0, tzinfo=UTC),
+                    used_at=None,
+                    created_at=datetime(2026, 3, 13, 11, 0, tzinfo=UTC),
+                ),
             )
         ),
     )
-    context = SimpleNamespace(
+    context = cast(
+        ContextTypes.DEFAULT_TYPE,
+        SimpleNamespace(
         application=SimpleNamespace(
             bot_data={
                 "settings": SimpleNamespace(allowed_chat_id_set=set()),
                 "services": services,
             }
         )
+        ),
     )
-    update = SimpleNamespace(
+    update = cast(
+        Update,
+        SimpleNamespace(
         effective_chat=SimpleNamespace(id=1),
         effective_user=SimpleNamespace(id=12345, first_name="Agency", last_name="A", username=None),
         effective_message=reply,
+        ),
     )
 
     asyncio.run(token_command(update, context))
@@ -105,18 +121,24 @@ def test_account_command_returns_user_usage_summary():
         ),
         reporting=SimpleNamespace(get_user_usage_report=lambda user_id: report),
     )
-    context = SimpleNamespace(
+    context = cast(
+        ContextTypes.DEFAULT_TYPE,
+        SimpleNamespace(
         application=SimpleNamespace(
             bot_data={
                 "settings": SimpleNamespace(allowed_chat_id_set=set()),
                 "services": services,
             }
         )
+        ),
     )
-    update = SimpleNamespace(
+    update = cast(
+        Update,
+        SimpleNamespace(
         effective_chat=SimpleNamespace(id=1),
         effective_user=SimpleNamespace(id=12345, first_name="Agency", last_name="A", username=None),
         effective_message=reply,
+        ),
     )
 
     asyncio.run(account_command(update, context))
@@ -151,7 +173,9 @@ def test_usage_command_returns_self_usage_without_admin_args():
         ),
         reporting=SimpleNamespace(get_user_usage_report=lambda user_id: report),
     )
-    context = SimpleNamespace(
+    context = cast(
+        ContextTypes.DEFAULT_TYPE,
+        SimpleNamespace(
         args=[],
         application=SimpleNamespace(
             bot_data={
@@ -159,11 +183,15 @@ def test_usage_command_returns_self_usage_without_admin_args():
                 "services": services,
             }
         ),
+        ),
     )
-    update = SimpleNamespace(
+    update = cast(
+        Update,
+        SimpleNamespace(
         effective_chat=SimpleNamespace(id=1),
         effective_user=SimpleNamespace(id=12345, first_name="Agency", last_name="A", username=None),
         effective_message=reply,
+        ),
     )
 
     asyncio.run(usage_command(update, context))
@@ -186,18 +214,24 @@ def test_plan_command_returns_short_user_plan_summary():
             )
         )
     )
-    context = SimpleNamespace(
+    context = cast(
+        ContextTypes.DEFAULT_TYPE,
+        SimpleNamespace(
         application=SimpleNamespace(
             bot_data={
                 "settings": SimpleNamespace(allowed_chat_id_set=set()),
                 "services": services,
             }
         ),
+        ),
     )
-    update = SimpleNamespace(
+    update = cast(
+        Update,
+        SimpleNamespace(
         effective_chat=SimpleNamespace(id=1),
         effective_user=SimpleNamespace(id=12345, first_name="Agency", last_name="A", username=None),
         effective_message=reply,
+        ),
     )
 
     asyncio.run(plan_command(update, context))

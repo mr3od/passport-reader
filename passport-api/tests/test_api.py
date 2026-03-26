@@ -2,13 +2,21 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import cast
 
 from fastapi.testclient import TestClient
+from passport_api.app import create_app
+from passport_api.deps import get_api_services
+from passport_api.services import ApiServices, build_services
 from passport_platform import (
     ChannelName,
     Database,
     ExternalProvider,
+    PlanName,
+    UserStatus,
 )
+from passport_platform.models.auth import ExtensionSession
+from passport_platform.models.user import User
 from passport_platform.repositories import UploadsRepository, UsageRepository, UsersRepository
 from passport_platform.schemas.auth import AuthenticatedSession, IssuedExtensionSession
 from passport_platform.schemas.commands import (
@@ -16,32 +24,44 @@ from passport_platform.schemas.commands import (
     RecordProcessingResultCommand,
     RegisterUploadCommand,
 )
+from passport_platform.services.auth import AuthService
+from passport_platform.services.records import RecordsService
 from passport_platform.services.uploads import UploadService
 from passport_platform.services.users import UserService
 
-from passport_api.app import create_app
-from passport_api.deps import get_api_services
-from passport_api.services import ApiServices, build_services
-
 
 class FakeAuthService:
-    def exchange_temp_token(self, token: str):
+    def exchange_temp_token(self, token: str) -> IssuedExtensionSession:
         assert token == "temp-token"
         expires_at = datetime(2026, 3, 13, 12, 0, tzinfo=UTC)
         return IssuedExtensionSession(
             session_token="session-token",
             expires_at=expires_at,
             authenticated=AuthenticatedSession(
-                user=FakeUser(),
-                session=type("Session", (), {"expires_at": expires_at})(),
+                user=make_fake_user(),
+                session=ExtensionSession(
+                    id=1,
+                    user_id=1,
+                    session_token_hash="session-token-hash",
+                    expires_at=expires_at,
+                    revoked_at=None,
+                    created_at=datetime(2026, 3, 13, 11, 30, tzinfo=UTC),
+                ),
             ),
         )
 
-    def authenticate_session(self, token: str):
+    def authenticate_session(self, token: str) -> AuthenticatedSession:
         assert token == "session-token"
         return AuthenticatedSession(
-            user=FakeUser(),
-            session=type("Session", (), {"id": 1})(),
+            user=make_fake_user(),
+            session=ExtensionSession(
+                id=1,
+                user_id=1,
+                session_token_hash="session-token-hash",
+                expires_at=datetime(2026, 3, 13, 12, 0, tzinfo=UTC),
+                revoked_at=None,
+                created_at=datetime(2026, 3, 13, 11, 30, tzinfo=UTC),
+            ),
         )
 
 
@@ -76,21 +96,24 @@ class FakeRecordsService:
         ]
 
 
-class FakeUser:
-    id = 1
-    display_name = "Agency A"
-    external_provider = type("Provider", (), {"value": "telegram"})()
-    external_user_id = "12345"
-    plan = type("Plan", (), {"value": "free"})()
-    status = type("Status", (), {"value": "active"})()
+def make_fake_user() -> User:
+    return User(
+        id=1,
+        external_provider=ExternalProvider.TELEGRAM,
+        external_user_id="12345",
+        display_name="Agency A",
+        plan=PlanName.FREE,
+        status=UserStatus.ACTIVE,
+        created_at=datetime(2026, 3, 13, 10, 0, tzinfo=UTC),
+    )
 
 
 def test_exchange_me_and_records_endpoints():
     app = create_app()
     app.dependency_overrides[get_api_services] = lambda: ApiServices(
-        auth=FakeAuthService(),  # type: ignore[arg-type]
-        records=FakeRecordsService(),  # type: ignore[arg-type]
-        users=None,  # type: ignore[arg-type]
+        auth=cast(AuthService, FakeAuthService()),
+        records=cast(RecordsService, FakeRecordsService()),
+        users=cast(UserService, object()),
     )
     client = TestClient(app)
 
@@ -117,26 +140,12 @@ def test_health_endpoint_and_debug_mode():
     assert response.json() == {"status": "ok"}
 
 
-def test_end_to_end_exchange_me_and_records(tmp_path: Path):
-    platform_dir = tmp_path / "platform"
-    platform_dir.mkdir()
-    db_path = platform_dir / "platform.sqlite3"
-    env_path = platform_dir / ".env"
-    env_path.write_text(
-        f"PASSPORT_PLATFORM_DB_PATH={db_path.name}\n",
-        encoding="utf-8",
-    )
+def test_end_to_end_exchange_me_and_records(tmp_path: Path, monkeypatch):
+    db_path = tmp_path / "platform.sqlite3"
+    monkeypatch.setenv("PASSPORT_PLATFORM_DB_PATH", str(db_path))
+    monkeypatch.setenv("PASSPORT_PLATFORM_ARTIFACTS_DIR", str(tmp_path / "artifacts"))
 
-    services = build_services(
-        type(
-            "Settings",
-            (),
-            {
-                "platform_env_file": env_path,
-                "platform_root_dir": platform_dir,
-            },
-        )()
-    )
+    services = build_services()
     db = Database(db_path)
     users = UserService(UsersRepository(db))
     uploads = UploadService(UploadsRepository(db), UsageRepository(db))
@@ -190,26 +199,12 @@ def test_end_to_end_exchange_me_and_records(tmp_path: Path):
     assert records.json()[0]["passport_number"] == "12345678"
 
 
-def test_review_gate_before_masar_submit(tmp_path: Path):
-    platform_dir = tmp_path / "platform"
-    platform_dir.mkdir()
-    db_path = platform_dir / "platform.sqlite3"
-    env_path = platform_dir / ".env"
-    env_path.write_text(
-        f"PASSPORT_PLATFORM_DB_PATH={db_path.name}\n",
-        encoding="utf-8",
-    )
+def test_review_gate_before_masar_submit(tmp_path: Path, monkeypatch):
+    db_path = tmp_path / "platform.sqlite3"
+    monkeypatch.setenv("PASSPORT_PLATFORM_DB_PATH", str(db_path))
+    monkeypatch.setenv("PASSPORT_PLATFORM_ARTIFACTS_DIR", str(tmp_path / "artifacts"))
 
-    services = build_services(
-        type(
-            "Settings",
-            (),
-            {
-                "platform_env_file": env_path,
-                "platform_root_dir": platform_dir,
-            },
-        )()
-    )
+    services = build_services()
     db = Database(db_path)
     users = UserService(UsersRepository(db))
     uploads = UploadService(UploadsRepository(db), UsageRepository(db))

@@ -3,7 +3,6 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import numpy as np
-
 from passport_core.config import Settings
 from passport_core.models import BoundingBox
 from passport_core.vision import (

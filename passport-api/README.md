@@ -11,9 +11,12 @@ It currently exposes:
 ## Setup
 
 ```bash
+# from the repository root
 cp .env.example .env
 uv sync --all-packages
 ```
+
+Use the root `.env.example` and copy it to the repository root `.env`.
 
 ## Run
 
@@ -24,6 +27,7 @@ uv run passport-api
 ## Development
 
 ```bash
-uv run --package passport-api pytest passport-api/tests -q
-uv run ruff check passport-api/src/
+uv run pytest passport-api/tests -q
+uv run ruff check passport-api/src passport-api/tests
+uv run ty check passport-api/src
 ```

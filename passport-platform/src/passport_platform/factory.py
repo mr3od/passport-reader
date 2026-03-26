@@ -50,15 +50,13 @@ class ProcessingRuntime:
 
 def build_platform_runtime(
     *,
-    platform_env_file: Path,
-    platform_root_dir: Path,
+    settings: PlatformSettings | None = None,
 ) -> PlatformRuntime:
     """Build the shared platform runtime used by transport adapters."""
-    resolved_platform_env_file = platform_env_file.expanduser().resolve()
-    resolved_platform_root_dir = platform_root_dir.expanduser().resolve()
-    settings = cast(Any, PlatformSettings)(_env_file=resolved_platform_env_file)
-    settings.db_path = _resolve(resolved_platform_root_dir, settings.db_path)
-    settings.artifacts_dir = _resolve(resolved_platform_root_dir, settings.artifacts_dir)
+    settings = settings or cast(Any, PlatformSettings)()
+    resolved_root_dir = Path.cwd()
+    settings.db_path = _resolve(resolved_root_dir, settings.db_path)
+    settings.artifacts_dir = _resolve(resolved_root_dir, settings.artifacts_dir)
 
     db = Database(settings.db_path)
     db.initialize()
@@ -68,28 +66,17 @@ def build_platform_runtime(
 def build_processing_runtime(
     *,
     platform_runtime: PlatformRuntime,
-    core_env_file: Path | None,
-    core_root_dir: Path | None,
+    core_settings: Any | None = None,
 ) -> ProcessingRuntime:
     """Build the OCR processing runtime on top of an existing platform runtime."""
-    if core_env_file is None:
-        return ProcessingRuntime(platform=platform_runtime, processing=None)
-
-    resolved_core_env_file = core_env_file.expanduser().resolve()
-    del core_root_dir
-
-    if not resolved_core_env_file.exists():
-        log.info(
-            "passport-core .env not found at %s — OCR pipeline disabled",
-            resolved_core_env_file,
-        )
-        return ProcessingRuntime(platform=platform_runtime, processing=None)
-
     try:
         from passport_core.config import Settings as CoreSettings
         from passport_core.extraction import PassportExtractor
 
-        core_settings = cast(Any, CoreSettings)(_env_file=resolved_core_env_file)
+        core_settings = core_settings or cast(Any, CoreSettings)()
+        if core_settings.requesty_api_key is None:
+            log.info("passport-core runtime is not configured — OCR pipeline disabled")
+            return ProcessingRuntime(platform=platform_runtime, processing=None)
         extractor = PassportExtractor(
             api_key=core_settings.requesty_api_key.get_secret_value(),
             model=core_settings.llm_model,
@@ -111,8 +98,7 @@ def build_processing_runtime(
 
 def build_processing_service(
     *,
-    core_env_file: Path,
-    core_root_dir: Path,
+    core_settings: Any,
     platform_settings: PlatformSettings,
     db: Database,
 ) -> ProcessingService | None:
@@ -120,8 +106,7 @@ def build_processing_service(
     platform_runtime = _build_platform_runtime(settings=platform_settings, db=db)
     runtime = build_processing_runtime(
         platform_runtime=platform_runtime,
-        core_env_file=core_env_file,
-        core_root_dir=core_root_dir,
+        core_settings=core_settings,
     )
     return runtime.processing
 

@@ -501,15 +501,8 @@ async def telegram_error_handler(
 
 
 def _build_bot_services(settings: TelegramSettings) -> BotServices:
-    platform_runtime = build_platform_runtime(
-        platform_env_file=settings.platform_env_file,
-        platform_root_dir=settings.platform_root_dir,
-    )
-    processing_runtime = build_processing_runtime(
-        platform_runtime=platform_runtime,
-        core_env_file=settings.core_env_file,
-        core_root_dir=settings.core_root_dir,
-    )
+    platform_runtime = build_platform_runtime()
+    processing_runtime = build_processing_runtime(platform_runtime=platform_runtime)
     processing = processing_runtime.processing
     if processing is None:
         raise RuntimeError("passport-core runtime is not configured for passport-telegram")

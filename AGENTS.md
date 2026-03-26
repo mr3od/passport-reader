@@ -40,6 +40,21 @@ All user-facing strings go through these files — no inline literals in routes,
 
 These rules are intentionally small and strict. If a change conflicts with them, the change is probably wrong.
 
+## Workspace Workflow
+
+- The maintained Python workspace is defined by the root `pyproject.toml`.
+- Use `uv` from the repository root for installs, commands, and builds.
+- Use the root `.env` for local development and the root `.env.production` contract for production.
+- Do not reintroduce package-local `.env` workflows for `passport-core`, `passport-platform`, `passport-api`, or `passport-telegram`.
+- Shared tooling is configured at the root workspace level:
+  - `ruff`
+  - `pytest`
+  - `ty`
+- Production deployment is Kubernetes-first:
+  - versioned manifests under `k8s/`
+  - MicroK8s in production
+  - CI applies manifests and rollout checks from the root workspace
+
 ## Package boundaries
 
 ### `passport-core`
@@ -97,13 +112,14 @@ Adding a column requires all of the following to be updated together — a parti
 ## Pre-commit checklist (all agents)
 
 Before committing:
-1. Run `uv run ruff check src/` and `uv run ruff format src/` — must pass.
-2. Run `uv run ty check src` — must pass.
-3. Verify non-obvious functions have Python docstrings.
-4. If changes are large or structural, update the package's `AGENTS.md` and `README.md`.
-5. Bump the version in `pyproject.toml` and `__version__` if the public API changed.
-6. After commit, append to `docs/HISTORY.md` what was done and which agent authored the commit.
-7. Include the agent name in the commit message (e.g. `[claude]`, `[codex]`, `[kiro]`, `[antigravity]`).
+1. Run `uv run ruff check ...` and `uv run ruff format ...` for the touched Python packages from the repository root — must pass.
+2. Run `uv run ty check ...` for the touched Python packages from the repository root — must pass.
+3. Run `uv run pytest ...` for the affected package tests from the repository root — must pass.
+4. Verify non-obvious functions have Python docstrings.
+5. If changes are large or structural, update the package's `AGENTS.md` and `README.md`.
+6. Bump the version in `pyproject.toml` and `__version__` if the public API changed.
+7. After commit, append to `docs/HISTORY.md` what was done and which agent authored the commit.
+8. Include the agent name in the commit message (e.g. `[claude]`, `[codex]`, `[kiro]`, `[antigravity]`).
 
 ## Simplicity rule
 

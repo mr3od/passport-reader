@@ -6,7 +6,6 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-
 from passport_core.models import PassportData
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"

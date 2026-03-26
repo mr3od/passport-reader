@@ -41,3 +41,6 @@ testpaths = [
   "passport-telegram/tests",
   "passport-benchmark/tests",
 ]
+
+[tool.ty.src]
+exclude = ["browser-session/**"]

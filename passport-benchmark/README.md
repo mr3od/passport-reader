@@ -25,8 +25,18 @@ uv run benchmark-draft-unlabeled cases/
 ## Installation
 
 ```bash
+# from the repository root
 cp .env.example .env
 uv sync --all-packages
 ```
 
+Use the root `.env.example` and copy it to the repository root `.env`.
 Requires `PASSPORT_REQUESTY_API_KEY` in the root `.env` for `--extract` mode.
+
+## Development
+
+```bash
+uv run pytest passport-benchmark/tests -q
+uv run ruff check passport-benchmark/src passport-benchmark/tests
+uv run ty check passport-benchmark/src
+```

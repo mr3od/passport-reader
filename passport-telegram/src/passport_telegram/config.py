@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -14,22 +12,12 @@ class TelegramSettings(BaseSettings):
     )
 
     bot_token: SecretStr
-    core_env_file: Path = Path(".env")
-    platform_env_file: Path = Path(".env")
     allowed_chat_ids: str = ""
     admin_user_ids: str = "552002791,743379791"
     admin_usernames: str = "mr3od,naaokun"
     album_collection_window_seconds: float = 1.5
     max_images_per_batch: int = 10
     log_level: str = "INFO"
-
-    @property
-    def core_root_dir(self) -> Path:
-        return self.core_env_file.expanduser().resolve().parent
-
-    @property
-    def platform_root_dir(self) -> Path:
-        return self.platform_env_file.expanduser().resolve().parent
 
     @property
     def allowed_chat_id_set(self) -> set[int]:
