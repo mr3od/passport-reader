@@ -49,16 +49,24 @@ function sendMsg(msg) {
 // ─── Name helpers ─────────────────────────────────────────────────────────────
 
 function buildDisplayName(record) {
-  const d = record.core_result?.data;
+  const d = record.extraction_result?.data;
   if (d) {
-    const parts = [d.GivenNamesEn, d.SurnameEn].filter(Boolean);
+    const givenTokens = Array.isArray(d.GivenNameTokensEn) ? d.GivenNameTokensEn : [];
+    const given = givenTokens.join(" ");
+    const parts = [given, d.SurnameEn].filter(Boolean);
     if (parts.length) return parts.join(" — ");
   }
   return record.passport_number || S.RECORD_FALLBACK(record.upload_id);
 }
 
 function buildNationality(record) {
-  return record.core_result?.data?.CountryCode || "";
+  return record.extraction_result?.data?.CountryCode || "";
+}
+
+function reviewLabel(record) {
+  if (record.review_status === "needs_review") return S.REVIEW_REQUIRED;
+  if (record.review_status === "reviewed") return S.REVIEW_DONE;
+  return S.REVIEW_AUTO;
 }
 
 // ─── Context panel ────────────────────────────────────────────────────────────
@@ -146,10 +154,13 @@ function renderQueue() {
     const name = buildDisplayName(record);
     const nat = buildNationality(record);
     const passNum = record.passport_number || "";
+    const reviewText = reviewLabel(record);
+    const reviewClass = record.review_status === "needs_review" ? "needs-review" : "ok";
 
     item.innerHTML = `
       <div class="record-name">${name}</div>
       <div class="record-meta">${nat}${nat && passNum ? " · " : ""}${passNum ? "#" + passNum : ""}</div>
+      <div class="record-review ${reviewClass}">${reviewText}</div>
       <div class="record-actions">
         <button class="btn-submit">${S.BTN_SUBMIT}</button>
         <button class="btn-skip secondary">${S.BTN_SKIP}</button>
@@ -171,6 +182,19 @@ async function submitRecord(record, item) {
   const btnSubmit = item.querySelector(".btn-submit");
   const btnSkip = item.querySelector(".btn-skip");
   const statusEl = item.querySelector(".status-msg");
+
+  if (record.review_status === "needs_review") {
+    const confirmed = window.confirm(S.REVIEW_CONFIRM);
+    if (!confirmed) return;
+    const reviewRes = await sendMsg({ type: "MARK_REVIEWED", uploadId: record.upload_id });
+    if (!reviewRes || !reviewRes.ok) {
+      statusEl.className = "status-msg error";
+      statusEl.classList.remove("hidden");
+      statusEl.textContent = S.REVIEW_UPDATE_FAILED(reviewRes?.status || reviewRes?.error || "?");
+      return;
+    }
+    record.review_status = "reviewed";
+  }
 
   btnSubmit.disabled = true;
   btnSkip.disabled = true;

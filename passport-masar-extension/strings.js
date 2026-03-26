@@ -22,6 +22,11 @@ const S = {
   BTN_SKIP:          "تخطي",
   SUBMITTING:        "جارٍ الرفع…",
   SUBMIT_SUCCESS:    "تم الرفع بنجاح",
+  REVIEW_REQUIRED:   "تحتاج مراجعة قبل الرفع",
+  REVIEW_AUTO:       "جاهزة للرفع",
+  REVIEW_DONE:       "تمت المراجعة",
+  REVIEW_CONFIRM:    "هذه البيانات تحتاج مراجعة قبل الرفع. هل تؤكد المتابعة؟",
+  REVIEW_UPDATE_FAILED: (d) => `تعذر تحديث حالة المراجعة (${d})`,
   ERR_SESSION:       "انتهت الجلسة — افتح منصة نسك وأعد المحاولة",
   ERR_GENERIC:       (msg) => `خطأ: ${msg}`,
 
