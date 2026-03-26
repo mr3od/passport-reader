@@ -2,11 +2,13 @@
 
 `passport-telegram` is the agency-facing Telegram adapter for `passport-platform`.
 
-It receives passport images from Telegram users, downloads the image bytes, and hands the request to `passport-platform`. Telegram does not construct or import `passport-core` directly; `passport-platform` owns the shared runtime builders and processing orchestration. Successful results are returned as one media group that contains:
+It receives passport images from Telegram users, downloads the image bytes, and hands the request to `passport-platform`. Telegram does not construct or import `passport-core` directly; `passport-platform` owns the shared runtime builders and processing orchestration.
 
-- the original passport image
-- the cropped face image
-- an Arabic-first caption with the extracted passport fields formatted for easy copying in Telegram
+Successful results are returned as a single photo message (the original upload) with an Arabic-first caption that includes:
+
+- extracted passport fields formatted for easy copying
+- review status summary
+- confidence summary and warning count
 
 ## Setup
 
@@ -69,10 +71,11 @@ Notes:
 - accepts image documents such as `.jpg`, `.jpeg`, `.png`, `.webp`, `.tif`, `.tiff`
 - supports media groups by collecting images briefly, then processing them as one batch
 - replies in Arabic
-- returns each successful result as one two-image media group with an Arabic-first caption
+- returns each successful result as one single-photo response (original image only) with an Arabic-first caption
 - depends on `passport-platform` only at the Python package boundary
 - formats extracted values in the caption for easier copying into منصة نسك forms
-- returns partial failure messages when the image is not a passport or when face crop fails
+- shows confidence/review summaries from v2 extraction output
+- returns partial failure messages when the image is not a passport or extraction is incomplete
 - directs agencies to `@mr3od` or `@naaokun` for clarifications or plan changes
 - supports admin commands for usage, recent activity, plan changes, and block/unblock flows
 

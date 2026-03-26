@@ -19,7 +19,7 @@ SUPPORT_CONTACT_TEXT = "للاستفسارات أو طلب تغيير الخطة
 def welcome_text() -> str:
     return (
         "أهلًا بك في بوت رفع وتدقيق الجوازات.\n\n"
-        "أرسل صورة جواز واحدة أو عدة صور، وسأقوم بالتحقق من الجواز، قص صورة الوجه، "
+        "أرسل صورة جواز واحدة أو عدة صور، وسأقوم بالتحقق من الجواز "
         "واستخراج البيانات لكل صورة بشكل مستقل.\n\n"
         "أوامر المستخدم:\n"
         "/account - عرض الخطة والاستخدام الحالي\n"
@@ -37,7 +37,7 @@ def help_text() -> str:
         "1. أرسل صورة الجواز كصورة أو كملف.\n"
         "2. تأكد من أن الصورة واضحة وتُظهر كامل صفحة الجواز.\n"
         "3. يمكنك إرسال أكثر من صورة في دفعة واحدة.\n"
-        "4. ستصلك النتيجة لكل صورة بشكل مستقل، مع صورة الوجه والبيانات المستخرجة.\n\n"
+        "4. ستصلك النتيجة لكل صورة بشكل مستقل، مع البيانات المستخرجة.\n\n"
         "أوامر المستخدم:\n"
         "/account - عرض الخطة والاستخدام الحالي\n"
         "/usage - عرض تفاصيل الاستخدام الشهري\n"
@@ -83,12 +83,6 @@ def format_failure_text(result: TrackedProcessingResult, *, position: int, total
             "تأكد من وضوح الصورة وإظهار كامل صفحة الجواز."
         )
 
-    if not result.has_face_crop:
-        return (
-            prefix + "تم التحقق من الجواز، لكن تعذر استخراج صورة الوجه. "
-            "يُفضّل إعادة الإرسال بصورة أوضح وأعلى دقة."
-        )
-
     return prefix + "تعذر إكمال معالجة الصورة الحالية. يُرجى إعادة المحاولة بصورة أوضح."
 
 
@@ -100,6 +94,9 @@ def format_success_text(result: TrackedProcessingResult, *, position: int, total
 
     lines = [
         prefix + "تمت معالجة الجواز بنجاح.",
+        f"حالة المراجعة: {_code(_review_status_label(result.review_status))}",
+        f"مستوى الثقة: {_code(_confidence_label(result.confidence_overall))}",
+        f"ملاحظات التحقق: {_code(_warnings_label(len(result.warnings)))}",
         "نسخ سريع:",
         f"الاسم الكامل بالعربية: {_code(data.full_name_ar)}",
         f"الاسم الكامل بالإنجليزية: {_code(data.full_name_en)}",
@@ -270,3 +267,26 @@ def _join_values(*values: str | None, separator: str = " ") -> str:
 
 def _user_label(user: User) -> str:
     return user.display_name or user.external_user_id
+
+
+def _review_status_label(value: str) -> str:
+    labels = {
+        "auto": "جاهزة للرفع",
+        "reviewed": "تمت المراجعة",
+        "needs_review": "تحتاج مراجعة قبل الرفع",
+    }
+    return labels.get(value, "تحتاج مراجعة قبل الرفع")
+
+
+def _confidence_label(value: float | None) -> str:
+    if value is None:
+        return "غير متوفر"
+    return f"{round(value * 100)}%"
+
+
+def _warnings_label(count: int) -> str:
+    if count <= 0:
+        return "لا توجد ملاحظات"
+    if count == 1:
+        return "يوجد تنبيه واحد ويحتاج مراجعة"
+    return f"توجد {count} تنبيهات وتحتاج مراجعة"

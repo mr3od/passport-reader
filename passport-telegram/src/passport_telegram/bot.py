@@ -4,7 +4,6 @@ import asyncio
 import logging
 import mimetypes
 from dataclasses import dataclass, field
-from io import BytesIO
 from pathlib import Path
 from typing import Any, cast
 
@@ -27,7 +26,7 @@ from passport_platform import (
     build_processing_runtime,
 )
 from passport_platform.schemas.commands import EnsureUserCommand
-from telegram import Document, InputMediaPhoto, Message, PhotoSize, Update
+from telegram import Document, Message, PhotoSize, Update
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -286,7 +285,7 @@ async def usage_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 external_user_id=_external_user_id(update),
                 display_name=_display_name(update),
             ),
-    )
+        )
         report = await asyncio.to_thread(services.reporting.get_user_usage_report, user.id)
         await _reply_text(update, format_user_usage_report(report))
         return
@@ -486,12 +485,11 @@ async def process_upload_batch(
             )
             continue
 
-        await context.bot.send_media_group(
+        await context.bot.send_photo(
             chat_id=chat_id,
-            media=_build_success_media_group(
-                result=tracked,
-                caption=format_success_text(tracked, position=index, total=len(batch)),
-            ),
+            photo=payload,
+            caption=format_success_text(tracked, position=index, total=len(batch)),
+            parse_mode="Markdown",
         )
 
 
@@ -655,22 +653,3 @@ async def _reply_text(update: Update, text: str) -> None:
     if update.effective_message is None:
         return
     await update.effective_message.reply_text(text)
-
-
-def _build_success_media_group(*, result, caption: str) -> list[InputMediaPhoto]:
-    passport_image = BytesIO(result.image_bytes)
-    passport_image.name = result.filename
-
-    face_crop = BytesIO(result.face_crop_bytes or b"")
-    face_crop.name = f"{Path(result.filename).stem}_face.jpg"
-
-    return [
-        InputMediaPhoto(
-            media=passport_image,
-            caption=caption,
-            parse_mode="Markdown",
-        ),
-        InputMediaPhoto(
-            media=face_crop,
-        ),
-    ]

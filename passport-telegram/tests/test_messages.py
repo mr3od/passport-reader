@@ -38,7 +38,7 @@ from passport_telegram.messages import (
 
 
 def test_format_failure_for_non_passport():
-    result = make_tracked_result(is_passport=False, has_face=False, extracted_data=None)
+    result = make_tracked_result(is_passport=False, extracted_data=None)
 
     text = format_failure_text(result, position=1, total=1)
 
@@ -48,7 +48,6 @@ def test_format_failure_for_non_passport():
 def test_format_success_includes_key_fields():
     result = make_tracked_result(
         is_passport=True,
-        has_face=True,
         extracted_data={
             "PassportNumber": "A123",
             "SurnameAr": "الهاشمي",
@@ -244,8 +243,9 @@ def test_temp_token_text_includes_token_and_expiry():
 def make_tracked_result(
     *,
     is_passport: bool,
-    has_face: bool,
     extracted_data: dict[str, object] | None,
+    review_status: str = "auto",
+    confidence_overall: float | None = 0.91,
 ) -> TrackedProcessingResult:
     user = User(
         id=1,
@@ -272,24 +272,21 @@ def make_tracked_result(
         id=1,
         upload_id=upload.id,
         is_passport=is_passport,
-        has_face=has_face,
-        is_complete=is_passport and has_face and extracted_data is not None,
+        is_complete=is_passport and extracted_data is not None,
+        review_status=review_status,
+        reviewed_by_user_id=None,
+        reviewed_at=None,
         passport_number=(
             extracted_data.get("PassportNumber") if isinstance(extracted_data, dict) else None
         ),
         passport_image_uri="/tmp/original.jpg",
-        face_crop_uri="/tmp/face.jpg" if has_face else None,
-        core_result_json=None,
+        confidence_overall=confidence_overall,
+        extraction_result_json=None,
         error_code=None,
         completed_at=datetime(2026, 3, 13, 10, 1, tzinfo=UTC),
-        masar_status=None,
-        masar_mutamer_id=None,
-        masar_scan_result_json=None,
     )
-    workflow_result = SimpleNamespace(
-        image_bytes=b"raw",
-        face_crop_bytes=b"face" if has_face else None,
-        data=extracted_data,
+    extraction_result = (
+        SimpleNamespace(data=extracted_data, warnings=[]) if extracted_data is not None else None
     )
     return TrackedProcessingResult(
         user=user,
@@ -305,6 +302,6 @@ def make_tracked_result(
             remaining_successes=300,
             max_batch_size=10,
         ),
-        workflow_result=workflow_result,
+        extraction_result=extraction_result,
         processing_result=processing_result,
     )
