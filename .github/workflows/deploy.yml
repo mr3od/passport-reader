@@ -67,13 +67,14 @@ jobs:
               exit 1
             fi
 
-            if microk8s status >/dev/null 2>&1; then
-              kctl() { microk8s kubectl \"\$@\"; }
-              mctr() { microk8s ctr \"\$@\"; }
-            else
-              kctl() { sudo microk8s kubectl \"\$@\"; }
-              mctr() { sudo microk8s ctr \"\$@\"; }
+            if ! microk8s status >/dev/null 2>&1; then
+              echo 'microk8s is not accessible for this deploy user (no sudo fallback in CI).' >&2
+              echo 'Fix on server: add deploy user to microk8s group and re-login.' >&2
+              echo '  sudo usermod -a -G microk8s '"$SERVER_USER" >&2
+              exit 1
             fi
+            kctl() { microk8s kubectl \"\$@\"; }
+            mctr() { microk8s ctr \"\$@\"; }
 
             resolve_deploy() {
               local label=\"\$1\"
@@ -147,11 +148,11 @@ jobs:
           ssh $SERVER_USER@$SERVER_HOST "
             set -euo pipefail
             cd $DEPLOY_PATH
-            if microk8s status >/dev/null 2>&1; then
-              kctl() { microk8s kubectl \"\$@\"; }
-            else
-              kctl() { sudo microk8s kubectl \"\$@\"; }
+            if ! microk8s status >/dev/null 2>&1; then
+              echo 'microk8s is not accessible for this deploy user.' >&2
+              exit 1
             fi
+            kctl() { microk8s kubectl \"\$@\"; }
             kctl -n ${K8S_NAMESPACE} get deploy,pods
             TELEGRAM_DEPLOY=\$(kctl -n ${K8S_NAMESPACE} get deploy -l ${TELEGRAM_LABEL} -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
             API_DEPLOY=\$(kctl -n ${K8S_NAMESPACE} get deploy -l ${API_LABEL} -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
