@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any, cast
 
 from dotenv import load_dotenv
@@ -12,8 +13,9 @@ from passport_telegram.config import TelegramSettings
 def main() -> int:
     load_dotenv()
     settings = cast(Any, TelegramSettings)()
-    load_dotenv(settings.core_env_file, override=False)
-    load_dotenv(settings.platform_env_file, override=False)
+    for env_file in (settings.core_env_file, settings.platform_env_file):
+        if env_file != Path(".env"):
+            load_dotenv(env_file, override=False)
 
     logging.basicConfig(
         level=getattr(logging, settings.log_level.upper(), logging.INFO),

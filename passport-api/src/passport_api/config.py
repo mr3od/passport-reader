@@ -15,8 +15,8 @@ class ApiSettings(BaseSettings):
     host: str = "127.0.0.1"
     port: int = 8000
     log_level: str = "INFO"
-    platform_env_file: Path = Path("../passport-platform/.env")
-    core_env_file: Path = Path("../passport-core/.env")
+    platform_env_file: Path = Path(".env")
+    core_env_file: Path = Path(".env")
     dev_token_secret: str | None = None
 
     @property

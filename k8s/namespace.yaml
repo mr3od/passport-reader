@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: passport-reader
+  labels:
+    app.kubernetes.io/name: passport-reader
+    app.kubernetes.io/part-of: passport-reader

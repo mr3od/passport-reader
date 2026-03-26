@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from passport_telegram.config import TelegramSettings
 
 
@@ -37,17 +39,17 @@ def test_core_root_dir_resolves_from_env_file():
     settings = TelegramSettings(
         _env_file=None,
         bot_token="token",
-        core_env_file="../passport-core/.env",
+        core_env_file=".env",
     )
 
-    assert settings.core_root_dir.name == "passport-core"
+    assert settings.core_root_dir == Path(".env").resolve().parent
 
 
 def test_platform_root_dir_resolves_from_env_file():
     settings = TelegramSettings(
         _env_file=None,
         bot_token="token",
-        platform_env_file="../passport-platform/.env",
+        platform_env_file=".env",
     )
 
-    assert settings.platform_root_dir.name == "passport-platform"
+    assert settings.platform_root_dir == Path(".env").resolve().parent

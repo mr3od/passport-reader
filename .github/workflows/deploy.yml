@@ -15,23 +15,21 @@ jobs:
     runs-on: ubuntu-latest
     env:
       K8S_NAMESPACE: passport-reader
-      TELEGRAM_LABEL: app=passport-telegram
-      API_LABEL: app=passport-api
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Setup SSH
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-      
+
       - name: Add server to known hosts
         run: |
           mkdir -p ~/.ssh
           ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
-      
+
       - name: Sync code to server
         env:
           SERVER_HOST: ${{ secrets.SERVER_HOST }}
@@ -46,16 +44,13 @@ jobs:
             --exclude='.venv/' \
             --exclude='*.pyc' \
             ./ $SERVER_USER@$SERVER_HOST:$DEPLOY_PATH/
-          ssh $SERVER_USER@$SERVER_HOST "chmod +x $DEPLOY_PATH/deploy.sh"
-      
-      - name: Build and deploy on MicroK8s
+
+      - name: Build and apply manifests on MicroK8s
         env:
           SERVER_HOST: ${{ secrets.SERVER_HOST }}
           SERVER_USER: ${{ secrets.SERVER_USER }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
           K8S_NAMESPACE: ${{ env.K8S_NAMESPACE }}
-          TELEGRAM_LABEL: ${{ env.TELEGRAM_LABEL }}
-          API_LABEL: ${{ env.API_LABEL }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
           ssh $SERVER_USER@$SERVER_HOST "
@@ -67,84 +62,38 @@ jobs:
               exit 1
             fi
 
-            echo "Deploy SSH user: $(whoami)"
-            id
-
             if ! id -nG | tr ' ' '\n' | grep -qx microk8s; then
               echo 'Deploy user is not in microk8s group.' >&2
-              echo 'Fix on server: sudo usermod -a -G microk8s $(whoami)' >&2
               exit 1
             fi
 
             if ! microk8s status >/dev/null 2>&1; then
-              echo 'microk8s is not accessible for this deploy user (no sudo fallback in CI).' >&2
-              echo 'Fix on server: add deploy user to microk8s group and re-login.' >&2
-              echo '  sudo usermod -a -G microk8s '"$SERVER_USER" >&2
+              echo 'microk8s is not accessible for this deploy user.' >&2
               exit 1
             fi
+
             kctl() { microk8s kubectl \"\$@\"; }
 
-            resolve_deploy() {
-              local label=\"\$1\"
-              local prefix=\"\$2\"
-              local by_label
-              by_label=\$(kctl -n ${K8S_NAMESPACE} get deploy -l \"\$label\" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
-              if [ -n \"\$by_label\" ]; then
-                printf '%s\n' \"\$by_label\"
-                return
-              fi
-              kctl -n ${K8S_NAMESPACE} get deploy -o jsonpath='{range .items[*]}{.metadata.name}{\"\\n\"}{end}' \
-                | grep -E \"^\${prefix}\" | head -n1 || true
-            }
-
             IMAGE='passport-reader:${IMAGE_TAG}'
-            echo \"Building image \$IMAGE\"
             docker build -t \"\$IMAGE\" .
-
-            echo 'Importing image into MicroK8s node runtime'
             docker save \"\$IMAGE\" | microk8s images import
 
-            echo 'Upserting unified runtime env secret'
+            kctl apply -f k8s/namespace.yaml
             kctl -n ${K8S_NAMESPACE} create secret generic passport-reader-env \
               --from-env-file=.env.production \
               --dry-run=client -o yaml | kctl apply -f -
+            kctl apply -f k8s/pvc.yaml
+            kctl apply -f k8s/api-deployment.yaml
+            kctl apply -f k8s/api-service.yaml
+            kctl apply -f k8s/telegram-deployment.yaml
 
-            TELEGRAM_DEPLOY=\$(resolve_deploy '${TELEGRAM_LABEL}' 'passport-telegram')
-            API_DEPLOY=\$(resolve_deploy '${API_LABEL}' 'passport-api')
+            kctl -n ${K8S_NAMESPACE} set image deploy/passport-api passport-api=\"\$IMAGE\"
+            kctl -n ${K8S_NAMESPACE} set image deploy/passport-telegram passport-telegram=\"\$IMAGE\"
 
-            if [ -z \"\$TELEGRAM_DEPLOY\" ]; then
-              echo 'Telegram deployment not found by label ${TELEGRAM_LABEL}' >&2
-              exit 1
-            fi
-
-            echo \"Using telegram deployment: \$TELEGRAM_DEPLOY\"
-            if [ -n \"\$API_DEPLOY\" ]; then
-              echo \"Using api deployment: \$API_DEPLOY\"
-            else
-              echo 'API deployment not found by label ${API_LABEL}; continuing with telegram only'
-            fi
-
-            kctl -n ${K8S_NAMESPACE} set env deploy/\"\$TELEGRAM_DEPLOY\" --from=secret/passport-reader-env
-            if [ -n \"\$API_DEPLOY\" ]; then
-              kctl -n ${K8S_NAMESPACE} set env deploy/\"\$API_DEPLOY\" --from=secret/passport-reader-env
-            fi
-
-            TELEGRAM_CONTAINER=\$(kctl -n ${K8S_NAMESPACE} get deploy \"\$TELEGRAM_DEPLOY\" -o jsonpath='{.spec.template.spec.containers[0].name}')
-            kctl -n ${K8S_NAMESPACE} set image deploy/\"\$TELEGRAM_DEPLOY\" \"\$TELEGRAM_CONTAINER\"=\"\$IMAGE\"
-            kctl -n ${K8S_NAMESPACE} patch deploy \"\$TELEGRAM_DEPLOY\" --type='strategic' -p \"{\\\"spec\\\":{\\\"template\\\":{\\\"spec\\\":{\\\"containers\\\":[{\\\"name\\\":\\\"\$TELEGRAM_CONTAINER\\\",\\\"image\\\":\\\"\$IMAGE\\\",\\\"command\\\":[\\\"python\\\",\\\"-m\\\",\\\"passport_telegram.cli\\\"]}]}}}}\"
-
-            if [ -n \"\$API_DEPLOY\" ]; then
-              API_CONTAINER=\$(kctl -n ${K8S_NAMESPACE} get deploy \"\$API_DEPLOY\" -o jsonpath='{.spec.template.spec.containers[0].name}')
-              kctl -n ${K8S_NAMESPACE} set image deploy/\"\$API_DEPLOY\" \"\$API_CONTAINER\"=\"\$IMAGE\"
-              kctl -n ${K8S_NAMESPACE} patch deploy \"\$API_DEPLOY\" --type='strategic' -p \"{\\\"spec\\\":{\\\"template\\\":{\\\"spec\\\":{\\\"containers\\\":[{\\\"name\\\":\\\"\$API_CONTAINER\\\",\\\"image\\\":\\\"\$IMAGE\\\",\\\"command\\\":[\\\"python\\\",\\\"-m\\\",\\\"passport_api.cli\\\"]}]}}}}\"
-            fi
-
-            kctl -n ${K8S_NAMESPACE} rollout status deploy/\"\$TELEGRAM_DEPLOY\" --timeout=180s
-            if [ -n \"\$API_DEPLOY\" ]; then
-              kctl -n ${K8S_NAMESPACE} rollout status deploy/\"\$API_DEPLOY\" --timeout=180s
-            fi
+            kctl -n ${K8S_NAMESPACE} rollout status deploy/passport-api --timeout=180s
+            kctl -n ${K8S_NAMESPACE} rollout status deploy/passport-telegram --timeout=180s
           "
-      
+
       - name: Verify deployment
         if: always()
         env:
@@ -152,24 +101,12 @@ jobs:
           SERVER_USER: ${{ secrets.SERVER_USER }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
           K8S_NAMESPACE: ${{ env.K8S_NAMESPACE }}
-          TELEGRAM_LABEL: ${{ env.TELEGRAM_LABEL }}
-          API_LABEL: ${{ env.API_LABEL }}
         run: |
           ssh $SERVER_USER@$SERVER_HOST "
             set -euo pipefail
             cd $DEPLOY_PATH
-            if ! microk8s status >/dev/null 2>&1; then
-              echo 'microk8s is not accessible for this deploy user.' >&2
-              exit 1
-            fi
             kctl() { microk8s kubectl \"\$@\"; }
-            kctl -n ${K8S_NAMESPACE} get deploy,pods
-            TELEGRAM_DEPLOY=\$(kctl -n ${K8S_NAMESPACE} get deploy -l ${TELEGRAM_LABEL} -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
-            API_DEPLOY=\$(kctl -n ${K8S_NAMESPACE} get deploy -l ${API_LABEL} -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
-            if [ -n \"\$TELEGRAM_DEPLOY\" ]; then
-              kctl -n ${K8S_NAMESPACE} logs deploy/\"\$TELEGRAM_DEPLOY\" --tail=80 || true
-            fi
-            if [ -n \"\$API_DEPLOY\" ]; then
-              kctl -n ${K8S_NAMESPACE} logs deploy/\"\$API_DEPLOY\" --tail=80 || true
-            fi
+            kctl -n ${K8S_NAMESPACE} get deploy,pods,svc,pvc
+            kctl -n ${K8S_NAMESPACE} logs deploy/passport-api --tail=80 || true
+            kctl -n ${K8S_NAMESPACE} logs deploy/passport-telegram --tail=80 || true
           "

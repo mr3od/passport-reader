@@ -2,6 +2,15 @@
 
 Agent-maintained log of significant changes. Each entry records what was done and who did it.
 
+## 2026-03-27 — runtime contract consolidation for MicroK8s [codex]
+
+- Added one root `.env.example` for local development and removed duplicate package env examples
+- Switched API and Telegram env-file defaults to the root `.env` contract
+- Added versioned production manifests under `k8s/` for namespace, PVC, API, and Telegram deployments
+- Consolidated to one root Docker build path and removed local Compose plus the Telegram-specific Dockerfile
+- Simplified deployment to a declarative-first GitHub Actions MicroK8s flow based on applying `k8s/` manifests
+- Updated package READMEs to document host-based `uv run ...` development from the workspace root
+
 ## 2026-03-27 — cross-package pytest collection fix [codex]
 
 - Renamed the Telegram config test module to avoid duplicate `test_config.py` collection collisions in root workspace pytest runs

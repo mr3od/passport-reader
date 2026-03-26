@@ -11,10 +11,8 @@ It currently exposes:
 ## Setup
 
 ```bash
+cp .env.example .env
 uv sync --all-packages
-cp passport-platform/.env.example passport-platform/.env
-cp passport-core/.env.example passport-core/.env
-cp passport-api/.env.example passport-api/.env
 ```
 
 ## Run

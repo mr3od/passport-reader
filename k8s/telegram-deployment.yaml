@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: passport-telegram
+  namespace: passport-reader
+  labels:
+    app.kubernetes.io/name: passport-telegram
+    app.kubernetes.io/component: bot
+    app.kubernetes.io/part-of: passport-reader
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: passport-telegram
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: passport-telegram
+        app.kubernetes.io/component: bot
+        app.kubernetes.io/part-of: passport-reader
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: passport-telegram
+          image: passport-reader:latest
+          command: ["python", "-m", "passport_telegram.cli"]
+          envFrom:
+            - secretRef:
+                name: passport-reader-env
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: passport-reader-data

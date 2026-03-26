@@ -14,8 +14,8 @@ class TelegramSettings(BaseSettings):
     )
 
     bot_token: SecretStr
-    core_env_file: Path = Path("../passport-core/.env")
-    platform_env_file: Path = Path("../passport-platform/.env")
+    core_env_file: Path = Path(".env")
+    platform_env_file: Path = Path(".env")
     allowed_chat_ids: str = ""
     admin_user_ids: str = "552002791,743379791"
     admin_usernames: str = "mr3od,naaokun"
