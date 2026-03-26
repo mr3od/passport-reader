@@ -13,6 +13,10 @@ jobs:
   deploy:
     name: Deploy to MicroK8s
     runs-on: ubuntu-latest
+    env:
+      K8S_NAMESPACE: passport-reader
+      TELEGRAM_LABEL: app=passport-telegram
+      API_LABEL: app=passport-api
     
     steps:
       - name: Checkout code
@@ -36,6 +40,7 @@ jobs:
         run: |
           rsync -avz --delete \
             --exclude='.git' \
+            --exclude='.env.production' \
             --exclude='data/' \
             --exclude='__pycache__/' \
             --exclude='.venv/' \
@@ -43,13 +48,91 @@ jobs:
             ./ $SERVER_USER@$SERVER_HOST:$DEPLOY_PATH/
           ssh $SERVER_USER@$SERVER_HOST "chmod +x $DEPLOY_PATH/deploy.sh"
       
-      - name: Deploy
+      - name: Build and deploy on MicroK8s
         env:
           SERVER_HOST: ${{ secrets.SERVER_HOST }}
           SERVER_USER: ${{ secrets.SERVER_USER }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          K8S_NAMESPACE: ${{ env.K8S_NAMESPACE }}
+          TELEGRAM_LABEL: ${{ env.TELEGRAM_LABEL }}
+          API_LABEL: ${{ env.API_LABEL }}
+          IMAGE_TAG: ${{ github.sha }}
         run: |
-          ssh $SERVER_USER@$SERVER_HOST "cd $DEPLOY_PATH && ./deploy.sh build latest && ./deploy.sh push latest && ./deploy.sh restart"
+          ssh $SERVER_USER@$SERVER_HOST "
+            set -euo pipefail
+            cd $DEPLOY_PATH
+
+            if [ ! -f .env.production ]; then
+              echo 'Missing .env.production on server' >&2
+              exit 1
+            fi
+
+            if microk8s status >/dev/null 2>&1; then
+              kctl() { microk8s kubectl \"\$@\"; }
+              mctr() { microk8s ctr \"\$@\"; }
+            else
+              kctl() { sudo microk8s kubectl \"\$@\"; }
+              mctr() { sudo microk8s ctr \"\$@\"; }
+            fi
+
+            resolve_deploy() {
+              local label=\"\$1\"
+              local prefix=\"\$2\"
+              local by_label
+              by_label=\$(kctl -n ${K8S_NAMESPACE} get deploy -l \"\$label\" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+              if [ -n \"\$by_label\" ]; then
+                printf '%s\n' \"\$by_label\"
+                return
+              fi
+              kctl -n ${K8S_NAMESPACE} get deploy -o jsonpath='{range .items[*]}{.metadata.name}{\"\\n\"}{end}' \
+                | grep -E \"^\${prefix}\" | head -n1 || true
+            }
+
+            IMAGE='passport-reader:${IMAGE_TAG}'
+            echo \"Building image \$IMAGE\"
+            docker build -t \"\$IMAGE\" .
+
+            echo 'Importing image into MicroK8s containerd'
+            docker save \"\$IMAGE\" | mctr image import -
+
+            echo 'Upserting unified runtime env secret'
+            kctl -n ${K8S_NAMESPACE} create secret generic passport-reader-env \
+              --from-env-file=.env.production \
+              --dry-run=client -o yaml | kctl apply -f -
+
+            TELEGRAM_DEPLOY=\$(resolve_deploy '${TELEGRAM_LABEL}' 'passport-telegram')
+            API_DEPLOY=\$(resolve_deploy '${API_LABEL}' 'passport-api')
+
+            if [ -z \"\$TELEGRAM_DEPLOY\" ]; then
+              echo 'Telegram deployment not found by label ${TELEGRAM_LABEL}' >&2
+              exit 1
+            fi
+
+            echo \"Using telegram deployment: \$TELEGRAM_DEPLOY\"
+            if [ -n \"\$API_DEPLOY\" ]; then
+              echo \"Using api deployment: \$API_DEPLOY\"
+            else
+              echo 'API deployment not found by label ${API_LABEL}; continuing with telegram only'
+            fi
+
+            kctl -n ${K8S_NAMESPACE} set env deploy/\"\$TELEGRAM_DEPLOY\" --from=secret/passport-reader-env
+            if [ -n \"\$API_DEPLOY\" ]; then
+              kctl -n ${K8S_NAMESPACE} set env deploy/\"\$API_DEPLOY\" --from=secret/passport-reader-env
+            fi
+
+            TELEGRAM_CONTAINER=\$(kctl -n ${K8S_NAMESPACE} get deploy \"\$TELEGRAM_DEPLOY\" -o jsonpath='{.spec.template.spec.containers[0].name}')
+            kctl -n ${K8S_NAMESPACE} set image deploy/\"\$TELEGRAM_DEPLOY\" \"\$TELEGRAM_CONTAINER\"=\"\$IMAGE\"
+
+            if [ -n \"\$API_DEPLOY\" ]; then
+              API_CONTAINER=\$(kctl -n ${K8S_NAMESPACE} get deploy \"\$API_DEPLOY\" -o jsonpath='{.spec.template.spec.containers[0].name}')
+              kctl -n ${K8S_NAMESPACE} set image deploy/\"\$API_DEPLOY\" \"\$API_CONTAINER\"=\"\$IMAGE\"
+            fi
+
+            kctl -n ${K8S_NAMESPACE} rollout status deploy/\"\$TELEGRAM_DEPLOY\" --timeout=180s
+            if [ -n \"\$API_DEPLOY\" ]; then
+              kctl -n ${K8S_NAMESPACE} rollout status deploy/\"\$API_DEPLOY\" --timeout=180s
+            fi
+          "
       
       - name: Verify deployment
         if: always()
@@ -57,5 +140,25 @@ jobs:
           SERVER_HOST: ${{ secrets.SERVER_HOST }}
           SERVER_USER: ${{ secrets.SERVER_USER }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          K8S_NAMESPACE: ${{ env.K8S_NAMESPACE }}
+          TELEGRAM_LABEL: ${{ env.TELEGRAM_LABEL }}
+          API_LABEL: ${{ env.API_LABEL }}
         run: |
-          ssh $SERVER_USER@$SERVER_HOST "cd $DEPLOY_PATH && ./deploy.sh status && ./deploy.sh logs 50"
+          ssh $SERVER_USER@$SERVER_HOST "
+            set -euo pipefail
+            cd $DEPLOY_PATH
+            if microk8s status >/dev/null 2>&1; then
+              kctl() { microk8s kubectl \"\$@\"; }
+            else
+              kctl() { sudo microk8s kubectl \"\$@\"; }
+            fi
+            kctl -n ${K8S_NAMESPACE} get deploy,pods
+            TELEGRAM_DEPLOY=\$(kctl -n ${K8S_NAMESPACE} get deploy -l ${TELEGRAM_LABEL} -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+            API_DEPLOY=\$(kctl -n ${K8S_NAMESPACE} get deploy -l ${API_LABEL} -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+            if [ -n \"\$TELEGRAM_DEPLOY\" ]; then
+              kctl -n ${K8S_NAMESPACE} logs deploy/\"\$TELEGRAM_DEPLOY\" --tail=80 || true
+            fi
+            if [ -n \"\$API_DEPLOY\" ]; then
+              kctl -n ${K8S_NAMESPACE} logs deploy/\"\$API_DEPLOY\" --tail=80 || true
+            fi
+          "
