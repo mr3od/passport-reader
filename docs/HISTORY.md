@@ -2,6 +2,11 @@
 
 Agent-maintained log of significant changes. Each entry records what was done and who did it.
 
+## 2026-03-27 — cross-package pytest collection fix [codex]
+
+- Renamed the Telegram config test module to avoid duplicate `test_config.py` collection collisions in root workspace pytest runs
+- Verified combined pytest collection now passes without requiring `--import-mode=importlib`
+
 ## 2026-03-27 — root workspace packaging and env cleanup [codex]
 
 - Added a root-managed `uv` workspace with a shared lockfile, shared tooling config, and shared dev dependency group
