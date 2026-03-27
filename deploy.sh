@@ -9,9 +9,9 @@ LATEST="${REGISTRY}/passport-reader:latest"
 echo "==> Building ${IMAGE}"
 docker build -t "${IMAGE}" -t "${LATEST}" .
 
-echo "==> Pushing to registry"
-docker push "${IMAGE}"
-docker push "${LATEST}"
+echo "==> Pushing to registry (sequential to avoid timeout on large layers)"
+docker push --max-concurrent-uploads 1 "${IMAGE}"
+docker push --max-concurrent-uploads 1 "${LATEST}"
 
 echo "==> Deploying to MicroK8s"
 microk8s kubectl -n passport-reader set image deploy/passport-api passport-api="${IMAGE}"
