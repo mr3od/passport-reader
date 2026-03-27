@@ -19,6 +19,8 @@ spec:
         app.kubernetes.io/component: bot
         app.kubernetes.io/part-of: passport-reader
     spec:
+      imagePullSecrets:
+        - name: regcred
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
