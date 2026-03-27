@@ -22,7 +22,8 @@ COPY passport-api/src /build/passport-api/src
 COPY passport-telegram/src /build/passport-telegram/src
 COPY passport-benchmark/src /build/passport-benchmark/src
 
-RUN uv sync --all-packages --locked --no-dev
+RUN uv sync --all-packages --locked --no-dev --no-editable && \
+    /build/.venv/bin/python -c "import passport_api.cli, passport_platform, passport_telegram.cli"
 
 FROM python:3.12-slim AS runtime
 

@@ -84,6 +84,7 @@ jobs:
             IMAGE='passport-reader:${IMAGE_TAG}'
             docker build -t \"\$IMAGE\" .
             docker save \"\$IMAGE\" | microk8s images import
+            microk8s ctr -n k8s.io images ls | grep -F \"\$IMAGE\"
 
             kctl apply -f k8s/namespace.yaml
             kctl apply -f k8s/cluster-issuer.yaml
@@ -95,6 +96,7 @@ jobs:
             kctl apply -f k8s/api-service.yaml
             kctl apply -f k8s/api-ingress.yaml
             kctl apply -f k8s/telegram-deployment.yaml
+            kctl -n ${K8S_NAMESPACE} delete deploy passport-telegram-bot --ignore-not-found
 
             kctl -n ${K8S_NAMESPACE} set image deploy/passport-api passport-api=\"\$IMAGE\"
             kctl -n ${K8S_NAMESPACE} set image deploy/passport-telegram passport-telegram=\"\$IMAGE\"
