@@ -13,7 +13,14 @@ echo "==> Pushing to registry"
 docker push "${IMAGE}"
 docker push "${LATEST}"
 
-echo "==> Deploying to MicroK8s"
+echo "==> Applying manifests"
+microk8s kubectl apply -f k8s/namespace.yaml
+microk8s kubectl apply -f k8s/pvc.yaml
+microk8s kubectl apply -f k8s/api-service.yaml
+microk8s kubectl apply -f k8s/api-deployment.yaml
+microk8s kubectl apply -f k8s/telegram-deployment.yaml
+
+echo "==> Updating image to immutable tag"
 microk8s kubectl -n passport-reader set image deploy/passport-api passport-api="${IMAGE}"
 microk8s kubectl -n passport-reader set image deploy/passport-telegram passport-telegram="${IMAGE}"
 
