@@ -27,8 +27,8 @@ spec:
           type: RuntimeDefault
       containers:
         - name: passport-telegram
-          image: passport-reader:deploy
-          imagePullPolicy: Never
+          image: registry.mohammed-alkebsi.dev/mohammed/passport-reader:latest
+          imagePullPolicy: Always
           command: ["python", "-m", "passport_telegram.cli"]
           envFrom:
             - secretRef:

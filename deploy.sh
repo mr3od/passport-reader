@@ -1,37 +1,25 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-IMAGE="passport-reader:deploy"
-TAR="/tmp/passport-reader-deploy.tar"
+REGISTRY="registry.mohammed-alkebsi.dev/mohammed"
+SHA=$(git rev-parse --short HEAD)
+IMAGE="${REGISTRY}/passport-reader:${SHA}"
+LATEST="${REGISTRY}/passport-reader:latest"
 
-echo "==> Building $IMAGE"
-docker build -t "$IMAGE" .
+echo "==> Building ${IMAGE}"
+docker build -t "${IMAGE}" -t "${LATEST}" .
 
-echo "==> Saving image"
-docker save "$IMAGE" -o "$TAR"
+echo "==> Pushing to registry"
+docker push "${IMAGE}"
+docker push "${LATEST}"
 
-echo "==> Importing into MicroK8s containerd"
-sudo /snap/microk8s/current/bin/ctr -n k8s.io images import "$TAR"
-
-echo "==> Verifying image"
-sudo /snap/microk8s/current/bin/ctr -n k8s.io images ls | grep "passport-reader:deploy"
-
-echo "==> Applying k8s manifests"
-microk8s kubectl apply -f k8s/namespace.yaml
-microk8s kubectl apply -f k8s/pvc.yaml
-microk8s kubectl apply -f k8s/api-service.yaml
-microk8s kubectl apply -f k8s/api-deployment.yaml
-microk8s kubectl apply -f k8s/telegram-deployment.yaml
-
-echo "==> Rolling restart"
-microk8s kubectl -n passport-reader rollout restart deploy/passport-api deploy/passport-telegram
+echo "==> Deploying to MicroK8s"
+microk8s kubectl -n passport-reader set image deploy/passport-api passport-api="${IMAGE}"
+microk8s kubectl -n passport-reader set image deploy/passport-telegram passport-telegram="${IMAGE}"
 
 echo "==> Waiting for rollout"
-microk8s kubectl -n passport-reader rollout status deploy/passport-api
-microk8s kubectl -n passport-reader rollout status deploy/passport-telegram
-
-echo "==> Cleaning up tar"
-rm -f "$TAR"
+microk8s kubectl -n passport-reader rollout status deploy/passport-api --timeout=120s
+microk8s kubectl -n passport-reader rollout status deploy/passport-telegram --timeout=120s
 
 echo "==> Done"
 microk8s kubectl get pods -n passport-reader
