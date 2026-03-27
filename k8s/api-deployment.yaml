@@ -28,6 +28,7 @@ spec:
       containers:
         - name: passport-api
           image: passport-reader:latest
+          imagePullPolicy: Never
           command: ["python", "-m", "passport_api.cli"]
           ports:
             - containerPort: 8000

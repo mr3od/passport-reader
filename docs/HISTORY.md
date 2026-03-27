@@ -7,6 +7,7 @@ Agent-maintained log of significant changes. Each entry records what was done an
 - Changed the production image build to install workspace packages as non-editable so runtime containers do not depend on source trees copied from the builder stage
 - Added an image import verification step in the MicroK8s deploy workflow after `microk8s images import`
 - Added cleanup of the stale `passport-telegram-bot` deployment during rollout
+- Set Kubernetes `imagePullPolicy: Never` for API and Telegram so MicroK8s uses the locally imported image instead of attempting a registry pull
 
 ## 2026-03-27 — passport-core v1 API removal [codex]
 
