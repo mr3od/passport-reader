@@ -31,7 +31,8 @@ def process(src: Path, dst: Path, blur_boxes: list[tuple[int, int, int, int]]) -
         # Pillow opens Retina screenshots at full 2x pixel dimensions.
         # If the image is exactly 2x the expected display size, scale boxes.
         w, h = img.size
-        scale = 2 if w > 2000 else 1
+        dpi = img.info.get("dpi", (72, 72))
+        scale = 2 if dpi[0] >= 144 else 1
         for box in blur_boxes:
             scaled = tuple(v * scale for v in box)
             blur_region(img, scaled)
