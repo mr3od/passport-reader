@@ -74,6 +74,10 @@ Status
 
 ### P3. Split admin functionality into `passport-admin-bot`
 
+Status
+- Completed by `codex`
+- Agency Telegram commands are now self-service only and admin commands live in the new `passport-admin-bot` package
+
 **Goal**
 - separate agency bot from admin/operator bot
 
@@ -259,6 +263,10 @@ Deferred. The interface contract depends on queueing design. Define this when Q1
 ## Documentation Work
 
 ### D2. Update package READMEs after the split
+
+Status
+- Completed by `codex`
+- `passport-telegram/README.md` is agency-only, `passport-admin-bot/README.md` documents admin-only behavior, and `passport-platform/README.md` describes the orchestration boundary
 
 **Required**
 - `passport-telegram/README.md` becomes agency-only
