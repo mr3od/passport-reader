@@ -30,6 +30,23 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
 
+      - name: Log in to Docker Registry
+        env:
+          REGISTRY_USER: ${{ secrets.REGISTRY_USERNAME }}
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+        run: |
+          if [ -z "$REGISTRY_USER" ]; then
+            echo "Missing REGISTRY_USERNAME secret." >&2
+            exit 1
+          fi
+
+          if [ -z "$REGISTRY_PASSWORD" ]; then
+            echo "Missing REGISTRY_PASSWORD secret." >&2
+            exit 1
+          fi
+
+          echo "$REGISTRY_PASSWORD" | docker login registry.mohammed-alkebsi.dev -u "$REGISTRY_USER" --password-stdin
+
       - name: Sync code to server
         env:
           SERVER_HOST: ${{ secrets.SERVER_HOST }}
@@ -45,13 +62,29 @@ jobs:
             --exclude='*.pyc' \
             ./ $SERVER_USER@$SERVER_HOST:$DEPLOY_PATH/
 
-      - name: Build and apply manifests on MicroK8s
+      - name: Build and push Docker image
+        id: image
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          IMAGE_BASE="registry.mohammed-alkebsi.dev/mohammed/passport-reader"
+          IMMUTABLE_IMAGE="${IMAGE_BASE}:${IMAGE_TAG}"
+
+          docker build -t passport-reader:build .
+          docker tag passport-reader:build "$IMMUTABLE_IMAGE"
+          docker push "$IMMUTABLE_IMAGE"
+          docker tag passport-reader:build "${IMAGE_BASE}:latest"
+          docker push "${IMAGE_BASE}:latest"
+
+          echo "immutable_image=$IMMUTABLE_IMAGE" >> $GITHUB_OUTPUT
+
+      - name: Apply manifests on MicroK8s
         env:
           SERVER_HOST: ${{ secrets.SERVER_HOST }}
           SERVER_USER: ${{ secrets.SERVER_USER }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
           K8S_NAMESPACE: ${{ env.K8S_NAMESPACE }}
-          IMAGE_TAG: ${{ github.sha }}
+          IMMUTABLE_IMAGE: ${{ steps.image.outputs.immutable_image }}
         run: |
           ssh $SERVER_USER@$SERVER_HOST "
             set -euo pipefail
@@ -81,11 +114,6 @@ jobs:
             kctl -n cert-manager rollout status deploy/cert-manager-cainjector --timeout=180s
             kctl -n cert-manager rollout status deploy/cert-manager-webhook --timeout=180s
 
-            IMAGE='passport-reader:${IMAGE_TAG}'
-            docker build -t \"\$IMAGE\" .
-            docker save \"\$IMAGE\" | microk8s images import
-            microk8s ctr -n k8s.io images ls | grep -F \"\$IMAGE\"
-
             kctl apply -f k8s/namespace.yaml
             kctl apply -f k8s/cluster-issuer.yaml
             kctl -n ${K8S_NAMESPACE} create secret generic passport-reader-env \
@@ -99,9 +127,9 @@ jobs:
             kctl apply -f k8s/admin-bot-deployment.yaml
             kctl -n ${K8S_NAMESPACE} delete deploy passport-telegram-bot --ignore-not-found
 
-            kctl -n ${K8S_NAMESPACE} set image deploy/passport-api passport-api=\"\$IMAGE\"
-            kctl -n ${K8S_NAMESPACE} set image deploy/passport-telegram passport-telegram=\"\$IMAGE\"
-            kctl -n ${K8S_NAMESPACE} set image deploy/passport-admin-bot passport-admin-bot=\"\$IMAGE\"
+            kctl -n ${K8S_NAMESPACE} set image deploy/passport-api passport-api=\"\$IMMUTABLE_IMAGE\"
+            kctl -n ${K8S_NAMESPACE} set image deploy/passport-telegram passport-telegram=\"\$IMMUTABLE_IMAGE\"
+            kctl -n ${K8S_NAMESPACE} set image deploy/passport-admin-bot passport-admin-bot=\"\$IMMUTABLE_IMAGE\"
 
             kctl -n ${K8S_NAMESPACE} rollout status deploy/passport-api --timeout=180s
             kctl -n ${K8S_NAMESPACE} rollout status deploy/passport-telegram --timeout=180s

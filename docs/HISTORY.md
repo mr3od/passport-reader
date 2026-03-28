@@ -2,6 +2,14 @@
 
 Agent-maintained log of significant changes. Each entry records what was done and who did it.
 
+## 2026-03-28 — switch deploys to immutable registry images [codex]
+
+- Updated the deploy workflow to build and push immutable registry-tagged images in CI instead of building and importing images on the MicroK8s server
+- Applied manifests with the registry-backed `latest` image and then rolled API, Telegram, and admin-bot deployments to the exact immutable image tag for the current deploy
+- Removed the temporary server-side local-image rendering workaround in favor of the registry-based rollout model
+- Updated the workflow to read registry credentials from the configured `REGISTRY_USERNAME` and `REGISTRY_PASSWORD` repository secrets and to fail with an explicit message when they are missing
+- Moved SSH setup ahead of registry login so the deployment verification step can still connect to the server after an earlier workflow failure
+
 ## 2026-03-28 — switch extension API endpoint to production [codex]
 
 - Updated `passport-masar-extension/config.js` to use `https://passport-api.mr3od.dev` as the active API base URL
