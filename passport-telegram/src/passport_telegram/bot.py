@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import io
 import logging
 import mimetypes
 from dataclasses import dataclass, field
@@ -35,9 +36,15 @@ from telegram.ext import (
 )
 
 from passport_telegram.config import TelegramSettings
+from passport_telegram.extension import ExtensionFetchError, fetch_extension_zip
 from passport_telegram.messages import (
     batch_limit_exceeded_text,
     batch_started_text,
+    extension_fetch_error_text,
+    extension_installing_text,
+    extension_step1_caption,
+    extension_step2_caption,
+    extension_step3_caption,
     format_failure_text,
     format_masar_status_text,
     format_success_text,
@@ -54,6 +61,13 @@ from passport_telegram.messages import (
 )
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".tif", ".tiff"}
+
+_EXTENSION_ASSETS_DIR = Path(__file__).parent / "assets" / "extension"
+_EXTENSION_STEPS = [
+    (_EXTENSION_ASSETS_DIR / "step1.png", extension_step1_caption),
+    (_EXTENSION_ASSETS_DIR / "step2.png", extension_step2_caption),
+    (_EXTENSION_ASSETS_DIR / "step3.png", extension_step3_caption),
+]
 
 
 @dataclass(slots=True)
@@ -134,6 +148,7 @@ def build_application(settings: TelegramSettings) -> Application:
     application.add_handler(CommandHandler("plan", plan_command))
     application.add_handler(CommandHandler("token", token_command))
     application.add_handler(CommandHandler("masar", masar_command))
+    application.add_handler(CommandHandler("extension", extension_command))
     application.add_handler(
         MessageHandler(filters.PHOTO | filters.Document.ALL, image_message_handler)
     )
@@ -179,6 +194,38 @@ async def masar_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         return
     records = await asyncio.to_thread(services.records.get_masar_pending, user.id)
     await _reply_text(update, format_masar_status_text(records))
+
+
+async def extension_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    services: BotServices = context.application.bot_data["services"]
+    user = await _get_or_create_user(update, services)
+    if user.status is UserStatus.BLOCKED:
+        return
+
+    cfg: TelegramSettings = context.application.bot_data["settings"]
+    if not cfg.github_release_read_token or not cfg.github_repo:
+        await _reply_text(update, extension_fetch_error_text())
+        return
+
+    await _reply_text(update, extension_installing_text())
+
+    try:
+        zip_bytes = await fetch_extension_zip(
+            token=cfg.github_release_read_token.get_secret_value(),
+            repo=cfg.github_repo,
+        )
+    except ExtensionFetchError:
+        await _reply_text(update, extension_fetch_error_text())
+        return
+
+    for step_path, caption_fn in _EXTENSION_STEPS:
+        with step_path.open("rb") as f:
+            await update.message.reply_photo(photo=f, caption=caption_fn())
+
+    await update.message.reply_document(
+        document=io.BytesIO(zip_bytes),
+        filename="passport-masar-extension.zip",
+    )
 
 
 async def usage_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
