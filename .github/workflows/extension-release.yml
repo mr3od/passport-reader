@@ -1,0 +1,41 @@
+name: Extension Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "passport-masar-extension/**"
+      - "scripts/build-extension.sh"
+
+jobs:
+  release-extension:
+    name: Build and Publish Extension to extension-latest
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build extension
+        run: bash scripts/build-extension.sh
+
+      - name: Create or update extension-latest release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: extension-latest
+          name: "Extension (latest)"
+          prerelease: true
+          make_latest: false
+          overwrite: true
+          body: |
+            Auto-built from commit ${{ github.sha }}.
+            Install in Chrome via Developer Mode → Load unpacked.
+          files: passport-masar-extension/dist/extension.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
