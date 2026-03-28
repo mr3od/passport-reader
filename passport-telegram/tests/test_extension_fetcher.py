@@ -73,30 +73,23 @@ def test_fetch_caches_result():
     assert mock_client.get.call_count == 2
 
 
-def test_cache_expires_after_ttl(monkeypatch):
-    call_count = 0
-    time_values = [0.0, 0.0, 301.0, 301.0]
+def test_cache_expires_after_ttl():
+    import time
 
-    def fake_monotonic():
-        nonlocal call_count
-        val = time_values[min(call_count, len(time_values) - 1)]
-        call_count += 1
-        return val
+    import passport_telegram.extension as ext
 
-    monkeypatch.setattr("passport_telegram.extension.time.monotonic", fake_monotonic)
+    release_resp = _make_mock_response(200, _RELEASE_METADATA)
+    download_resp = _make_mock_response(200, content=FAKE_ZIP)
+    mock_client = _make_mock_client([release_resp, download_resp])
 
-    release_resp1 = _make_mock_response(200, _RELEASE_METADATA)
-    download_resp1 = _make_mock_response(200, content=FAKE_ZIP)
-    release_resp2 = _make_mock_response(200, _RELEASE_METADATA)
-    download_resp2 = _make_mock_response(200, content=FAKE_ZIP)
-    mock_client = _make_mock_client([release_resp1, download_resp1, release_resp2, download_resp2])
+    # Seed the cache with a timestamp that is already expired (400 s ago)
+    ext._zip_cache = (time.monotonic() - 400.0, b"stale data")
 
     with patch("passport_telegram.extension.httpx.AsyncClient", return_value=mock_client):
-        asyncio.run(fetch_extension_zip(token=FAKE_TOKEN, repo=FAKE_REPO))
-        asyncio.run(fetch_extension_zip(token=FAKE_TOKEN, repo=FAKE_REPO))
+        result = asyncio.run(fetch_extension_zip(token=FAKE_TOKEN, repo=FAKE_REPO))
 
-    # Both fetches should have hit the network (4 get calls total: 2 per fetch)
-    assert mock_client.get.call_count == 4
+    assert result == FAKE_ZIP
+    assert mock_client.get.call_count == 2  # fresh network fetch was made
 
 
 def test_fetch_raises_on_release_not_found():
@@ -125,4 +118,14 @@ def test_fetch_raises_on_zip_too_large():
     patcher = patch("passport_telegram.extension.httpx.AsyncClient", return_value=mock_client)
 
     with patcher, pytest.raises(ExtensionFetchError, match="Extension ZIP too large"):
+        asyncio.run(fetch_extension_zip(token=FAKE_TOKEN, repo=FAKE_REPO))
+
+
+def test_fetch_raises_on_download_failure():
+    release_resp = _make_mock_response(200, _RELEASE_METADATA)
+    download_resp = _make_mock_response(403)
+    mock_client = _make_mock_client([release_resp, download_resp])
+    patcher = patch("passport_telegram.extension.httpx.AsyncClient", return_value=mock_client)
+
+    with patcher, pytest.raises(ExtensionFetchError, match="Extension asset download failed"):
         asyncio.run(fetch_extension_zip(token=FAKE_TOKEN, repo=FAKE_REPO))
