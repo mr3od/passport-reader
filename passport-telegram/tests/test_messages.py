@@ -15,6 +15,11 @@ from passport_platform.models.auth import TempToken
 from passport_platform.models.upload import ProcessingResult, Upload
 from passport_platform.models.user import User
 from passport_telegram.messages import (
+    extension_fetch_error_text,
+    extension_installing_text,
+    extension_step1_caption,
+    extension_step2_caption,
+    extension_step3_caption,
     format_failure_text,
     format_success_text,
     format_user_plan_text,
@@ -194,6 +199,32 @@ def test_temp_token_text_includes_token_and_expiry():
     assert "abc123" in text
     assert "2026-03-13 12:00 UTC" in text
     assert "مرة واحدة" in text
+
+
+def test_extension_installing_text_is_arabic():
+    text = extension_installing_text()
+    assert "جارٍ" in text
+
+
+def test_extension_step_captions_exist():
+    assert "1" in extension_step1_caption() or "١" in extension_step1_caption()
+    assert "2" in extension_step2_caption() or "٢" in extension_step2_caption()
+    assert "3" in extension_step3_caption() or "٣" in extension_step3_caption()
+
+
+def test_extension_fetch_error_text_is_arabic():
+    text = extension_fetch_error_text()
+    assert len(text) > 0
+    # Contains Arabic content
+    assert any(ord(c) > 0x0600 for c in text)
+
+
+def test_welcome_text_includes_extension():
+    assert "/extension" in welcome_text()
+
+
+def test_help_text_includes_extension():
+    assert "/extension" in help_text()
 
 
 def make_tracked_result(

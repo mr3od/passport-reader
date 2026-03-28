@@ -24,7 +24,8 @@ def welcome_text() -> str:
         "/usage - عرض تفاصيل الاستخدام الشهري\n"
         "/plan - عرض الخطة الحالية وحالة الحساب\n"
         "/token - إصدار رمز مؤقت لتسجيل الدخول في الإضافة\n"
-        "/masar - عرض الجوازات المعلقة أو الفاشلة في مسار\n\n"
+        "/masar - عرض الجوازات المعلقة أو الفاشلة في مسار\n"
+        "/extension - تحميل إضافة Chrome وتعليمات التثبيت\n\n"
         f"{SUPPORT_CONTACT_TEXT}"
     )
 
@@ -41,10 +42,42 @@ def help_text() -> str:
         "/usage - عرض تفاصيل الاستخدام الشهري\n"
         "/plan - عرض الخطة الحالية وحالة الحساب\n"
         "/token - إصدار رمز مؤقت لتسجيل الدخول في الإضافة\n"
-        "/masar - عرض الجوازات المعلقة أو الفاشلة في مسار\n\n"
+        "/masar - عرض الجوازات المعلقة أو الفاشلة في مسار\n"
+        "/extension - تحميل إضافة Chrome وتعليمات التثبيت\n\n"
         "الملفات المدعومة: JPG, JPEG, PNG, WEBP, TIF, TIFF\n\n"
         f"{SUPPORT_CONTACT_TEXT}"
     )
+
+
+def extension_installing_text() -> str:
+    """Sent immediately while the ZIP is being fetched."""
+    return "⏳ جارٍ تجهيز الإضافة، لحظة من فضلك..."
+
+
+def extension_step1_caption() -> str:
+    """Caption for the chrome://extensions screenshot."""
+    return (
+        "الخطوة 1️⃣: افتح Chrome وانتقل إلى chrome://extensions\n"
+        "فعّل وضع المطور (Developer Mode) من الزاوية العلوية اليمنى."
+    )
+
+
+def extension_step2_caption() -> str:
+    """Caption for the Load unpacked screenshot."""
+    return (
+        "الخطوة 2️⃣: انقر على «Load unpacked»\n"
+        "ثم اختر المجلد الذي فككت فيه ضغط الملف."
+    )
+
+
+def extension_step3_caption() -> str:
+    """Caption for the installed extension screenshot."""
+    return "الخطوة 3️⃣: تأكد من ظهور الإضافة في القائمة ✅"
+
+
+def extension_fetch_error_text() -> str:
+    """Sent when the ZIP cannot be fetched from GitHub."""
+    return "⚠️ تعذّر تحميل الإضافة في الوقت الحالي. يرجى المحاولة لاحقًا أو التواصل مع الدعم."
 
 
 def batch_started_text(total: int) -> str:
