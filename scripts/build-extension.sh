@@ -42,5 +42,5 @@ cp -r "$EXTENSION_DIR/icons"      "$BUILD_DIR/"
 mkdir -p "$DIST_DIR"
 (cd "$BUILD_DIR" && zip -r - .) > "$DIST_DIR/extension.zip"
 
-SIZE=$(wc -c < "$DIST_DIR/extension.zip")
+SIZE=$(wc -c < "$DIST_DIR/extension.zip" | xargs)
 echo "Built: $DIST_DIR/extension.zip ($SIZE bytes)"
