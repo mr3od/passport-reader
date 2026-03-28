@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import AliasChoices, Field, SecretStr
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -15,11 +15,14 @@ class TelegramSettings(BaseSettings):
     album_collection_window_seconds: float = 1.5
     max_images_per_batch: int = 10
     log_level: str = "INFO"
+    # These two fields intentionally bypass the PASSPORT_TELEGRAM_ prefix so that
+    # the same GitHub credentials can be shared across multiple adapters without
+    # duplicating per-adapter env vars.
     github_release_read_token: SecretStr | None = Field(
         default=None,
-        validation_alias=AliasChoices("PASSPORT_GITHUB_RELEASE_READ_TOKEN"),
+        validation_alias="PASSPORT_GITHUB_RELEASE_READ_TOKEN",
     )
     github_repo: str | None = Field(
         default=None,
-        validation_alias=AliasChoices("PASSPORT_GITHUB_REPO"),
+        validation_alias="PASSPORT_GITHUB_REPO",
     )
