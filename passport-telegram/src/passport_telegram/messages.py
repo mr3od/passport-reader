@@ -58,7 +58,7 @@ def extension_step1_caption() -> str:
     """Caption for the chrome://extensions screenshot."""
     return (
         "الخطوة 1️⃣: افتح Chrome وانتقل إلى chrome://extensions\n"
-        "فعّل وضع المطور (Developer Mode) من الزاوية العلوية اليمنى."
+        "فعّل وضع المطور (Developer Mode) من أعلى الصفحة."
     )
 
 

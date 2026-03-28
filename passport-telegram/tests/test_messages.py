@@ -203,20 +203,24 @@ def test_temp_token_text_includes_token_and_expiry():
 
 def test_extension_installing_text_is_arabic():
     text = extension_installing_text()
-    assert "جارٍ" in text
+    assert "الإضافة" in text  # mentions "the extension"
+    assert "⏳" in text  # loading indicator present
 
 
 def test_extension_step_captions_exist():
-    assert "1" in extension_step1_caption() or "١" in extension_step1_caption()
-    assert "2" in extension_step2_caption() or "٢" in extension_step2_caption()
-    assert "3" in extension_step3_caption() or "٣" in extension_step3_caption()
+    s1 = extension_step1_caption()
+    s2 = extension_step2_caption()
+    s3 = extension_step3_caption()
+    assert "chrome://extensions" in s1
+    assert "Developer Mode" in s1
+    assert "Load unpacked" in s2
+    assert "✅" in s3
 
 
 def test_extension_fetch_error_text_is_arabic():
     text = extension_fetch_error_text()
-    assert len(text) > 0
-    # Contains Arabic content
-    assert any(ord(c) > 0x0600 for c in text)
+    assert "تعذّر" in text  # "failed" in Arabic
+    assert "⚠️" in text
 
 
 def test_welcome_text_includes_extension():
