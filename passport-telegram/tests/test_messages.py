@@ -5,10 +5,8 @@ from datetime import UTC, datetime
 from passport_core.extraction.models import Confidence, ExtractionResult, PassportFields
 from passport_platform import (
     IssuedTempToken,
-    MonthlyUsageReport,
     PlanName,
     QuotaDecision,
-    RecentUploadRecord,
     TrackedProcessingResult,
     UserUsageReport,
 )
@@ -17,11 +15,7 @@ from passport_platform.models.auth import TempToken
 from passport_platform.models.upload import ProcessingResult, Upload
 from passport_platform.models.user import User
 from passport_telegram.messages import (
-    admin_help_text,
-    admin_only_text,
     format_failure_text,
-    format_monthly_usage_report,
-    format_recent_uploads,
     format_success_text,
     format_user_plan_text,
     format_user_usage_report,
@@ -29,10 +23,8 @@ from passport_telegram.messages import (
     processing_error_text,
     quota_exceeded_text,
     temp_token_text,
+    usage_help_text,
     user_blocked_text,
-    user_not_found_text,
-    user_plan_updated_text,
-    user_status_updated_text,
     welcome_text,
 )
 
@@ -102,6 +94,8 @@ def test_help_and_welcome_texts_include_support_contacts():
     assert "/usage" in help_text()
     assert "/plan" in help_text()
     assert "/token" in help_text()
+    assert "/stats" not in help_text()
+    assert "/setplan" not in help_text()
     assert "@mr3od" in help_text()
     assert "@naaokun" in help_text()
     assert "/account" in welcome_text()
@@ -118,12 +112,14 @@ def test_processing_error_text_includes_support_contacts():
     assert "@naaokun" in text
 
 
-def test_admin_texts_cover_commands_and_restrictions():
-    assert "/stats" in admin_help_text()
-    assert "مخصص للمسؤول" in admin_only_text()
+def test_usage_help_text_is_self_service_only():
+    text = usage_help_text()
+
+    assert text == "الاستخدام: /usage"
+    assert "<telegram_user_id>" not in text
 
 
-def test_reporting_messages_include_summary_fields():
+def test_usage_message_includes_summary_fields():
     period_start = datetime(2026, 3, 1, 0, 0, tzinfo=UTC)
     period_end = datetime(2026, 3, 31, 23, 59, tzinfo=UTC)
     user = User(
@@ -156,58 +152,9 @@ def test_reporting_messages_include_summary_fields():
             failure_count=1,
         )
     )
-    monthly_text = format_monthly_usage_report(
-        MonthlyUsageReport(
-            period_start=period_start,
-            period_end=period_end,
-            total_users=2,
-            active_users=1,
-            blocked_users=1,
-            total_uploads=3,
-            total_successes=2,
-            total_failures=1,
-        )
-    )
-    recent_text = format_recent_uploads(
-        [
-            RecentUploadRecord(
-                upload_id=1,
-                user_id=1,
-                external_provider="telegram",
-                external_user_id="12345",
-                display_name="Agency A",
-                plan=PlanName.BASIC,
-                user_status=UserStatus.ACTIVE,
-                filename="passport.jpg",
-                source_ref="telegram://1",
-                upload_status=UploadStatus.PROCESSED,
-                passport_number="A123",
-                error_code=None,
-                created_at=period_start,
-                completed_at=None,
-            )
-        ]
-    )
 
     assert "Agency A" in usage_text
-    assert "إجمالي المستخدمين: 2" in monthly_text
-    assert "passport.jpg" in recent_text
-
-
-def test_admin_user_update_texts_include_identifier():
-    user = User(
-        id=1,
-        external_provider=ExternalProvider.TELEGRAM,
-        external_user_id="12345",
-        display_name=None,
-        plan=PlanName.PRO,
-        status=UserStatus.BLOCKED,
-        created_at=datetime(2026, 3, 13, 10, 0, tzinfo=UTC),
-    )
-
-    assert "12345" in user_plan_updated_text(user)
-    assert "12345" in user_status_updated_text(user)
-    assert "999" in user_not_found_text("999")
+    assert "عدد الصور هذا الشهر: 2" in usage_text
 
 
 def test_format_user_plan_text_includes_plan_and_status():

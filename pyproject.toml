@@ -4,6 +4,7 @@ default-groups = ["dev"]
 
 [tool.uv.workspace]
 members = [
+  "passport-admin-bot",
   "passport-api",
   "passport-benchmark",
   "passport-core",
@@ -12,6 +13,7 @@ members = [
 ]
 
 [tool.uv.sources]
+passport-admin-bot = { workspace = true }
 passport-core = { workspace = true }
 passport-platform = { workspace = true }
 passport-api = { workspace = true }
@@ -35,6 +37,7 @@ select = ["E", "F", "I", "B", "UP", "N", "A", "SIM", "RET", "PTH"]
 
 [tool.pytest.ini_options]
 testpaths = [
+  "passport-admin-bot/tests",
   "passport-core/tests",
   "passport-platform/tests",
   "passport-api/tests",

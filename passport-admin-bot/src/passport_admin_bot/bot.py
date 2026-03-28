@@ -1,0 +1,226 @@
+from __future__ import annotations
+
+import asyncio
+import logging
+from dataclasses import dataclass
+
+from passport_platform import (
+    ExternalProvider,
+    PlanName,
+    ReportingService,
+    UserService,
+    UserStatus,
+    build_platform_runtime,
+)
+from telegram import Update
+from telegram.ext import Application, CommandHandler, ContextTypes
+
+from passport_admin_bot.config import AdminBotSettings
+from passport_admin_bot.messages import (
+    admin_only_text,
+    format_monthly_usage_report,
+    format_recent_uploads,
+    format_user_usage_report,
+    help_text,
+    setplan_help_text,
+    status_help_text,
+    usage_help_text,
+    user_not_found_text,
+    user_plan_updated_text,
+    user_status_updated_text,
+    welcome_text,
+)
+
+
+@dataclass(slots=True)
+class BotServices:
+    users: UserService
+    reporting: ReportingService
+
+    def close(self) -> None:
+        return None
+
+
+def build_application(settings: AdminBotSettings) -> Application:
+    services = _build_bot_services()
+    application = Application.builder().token(settings.bot_token.get_secret_value()).build()
+    application.bot_data["settings"] = settings
+    application.bot_data["services"] = services
+
+    application.add_handler(CommandHandler("start", start_command))
+    application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("admin", admin_command))
+    application.add_handler(CommandHandler("stats", stats_command))
+    application.add_handler(CommandHandler("recent", recent_command))
+    application.add_handler(CommandHandler("usage", usage_command))
+    application.add_handler(CommandHandler("setplan", setplan_command))
+    application.add_handler(CommandHandler("block", block_command))
+    application.add_handler(CommandHandler("unblock", unblock_command))
+    return application
+
+
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _require_admin(update, context):
+        return
+    await _reply_text(update, welcome_text())
+
+
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _require_admin(update, context):
+        return
+    await _reply_text(update, help_text())
+
+
+async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _require_admin(update, context):
+        return
+    await _reply_text(update, help_text())
+
+
+async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _require_admin(update, context):
+        return
+    services: BotServices = context.application.bot_data["services"]
+    report = await asyncio.to_thread(services.reporting.get_monthly_usage_report)
+    await _reply_text(update, format_monthly_usage_report(report))
+
+
+async def recent_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _require_admin(update, context):
+        return
+    limit = 10
+    if context.args:
+        limit = _safe_positive_int(context.args[0], default=10, maximum=20)
+    services: BotServices = context.application.bot_data["services"]
+    records = await asyncio.to_thread(services.reporting.list_recent_uploads, limit=limit)
+    await _reply_text(update, format_recent_uploads(records))
+
+
+async def usage_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _require_admin(update, context):
+        return
+    args = context.args or []
+    if len(args) != 1:
+        await _reply_text(update, usage_help_text())
+        return
+
+    services: BotServices = context.application.bot_data["services"]
+    user = services.users.get_by_external_identity(ExternalProvider.TELEGRAM, args[0])
+    if user is None:
+        await _reply_text(update, user_not_found_text(args[0]))
+        return
+
+    report = await asyncio.to_thread(services.reporting.get_user_usage_report, user.id)
+    await _reply_text(update, format_user_usage_report(report))
+
+
+async def setplan_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _require_admin(update, context):
+        return
+    args = context.args or []
+    if len(args) != 2:
+        await _reply_text(update, setplan_help_text())
+        return
+
+    services: BotServices = context.application.bot_data["services"]
+    user = services.users.get_by_external_identity(ExternalProvider.TELEGRAM, args[0])
+    if user is None:
+        await _reply_text(update, user_not_found_text(args[0]))
+        return
+
+    plan = _parse_plan(args[1])
+    if plan is None:
+        await _reply_text(update, setplan_help_text())
+        return
+
+    updated = services.users.change_plan(user.id, plan)
+    await _reply_text(update, user_plan_updated_text(updated))
+
+
+async def block_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await _set_user_status(update, context, UserStatus.BLOCKED, "block")
+
+
+async def unblock_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await _set_user_status(update, context, UserStatus.ACTIVE, "unblock")
+
+
+async def telegram_error_handler(
+    update: object,
+    context: ContextTypes.DEFAULT_TYPE,
+) -> None:
+    logging.getLogger(__name__).exception("admin_bot_update_failed", exc_info=context.error)
+
+
+def _build_bot_services() -> BotServices:
+    platform_runtime = build_platform_runtime()
+    return BotServices(
+        users=platform_runtime.users,
+        reporting=platform_runtime.reporting,
+    )
+
+
+def _is_admin_user(context: ContextTypes.DEFAULT_TYPE, update: Update) -> bool:
+    settings: AdminBotSettings = context.application.bot_data["settings"]
+    user = update.effective_user
+    if user is None:
+        return False
+    if user.id in settings.admin_user_id_set:
+        return True
+    username = user.username
+    if not username:
+        return False
+    return username.lower() in settings.admin_username_set
+
+
+async def _require_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    if _is_admin_user(context, update):
+        return True
+    await _reply_text(update, admin_only_text())
+    return False
+
+
+async def _set_user_status(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    status: UserStatus,
+    command_name: str,
+) -> None:
+    if not await _require_admin(update, context):
+        return
+    args = context.args or []
+    if len(args) != 1:
+        await _reply_text(update, status_help_text(command_name))
+        return
+
+    services: BotServices = context.application.bot_data["services"]
+    user = services.users.get_by_external_identity(ExternalProvider.TELEGRAM, args[0])
+    if user is None:
+        await _reply_text(update, user_not_found_text(args[0]))
+        return
+
+    updated = services.users.change_status(user.id, status)
+    await _reply_text(update, user_status_updated_text(updated))
+
+
+def _safe_positive_int(value: str, *, default: int, maximum: int) -> int:
+    try:
+        parsed = int(value)
+    except ValueError:
+        return default
+    if parsed < 1:
+        return default
+    return min(parsed, maximum)
+
+
+def _parse_plan(value: str) -> PlanName | None:
+    try:
+        return PlanName(value.lower())
+    except ValueError:
+        return None
+
+
+async def _reply_text(update: Update, text: str) -> None:
+    if update.effective_message is None:
+        return
+    await update.effective_message.reply_text(text)

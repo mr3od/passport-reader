@@ -12,24 +12,6 @@ class TelegramSettings(BaseSettings):
     )
 
     bot_token: SecretStr
-    allowed_chat_ids: str = ""
-    admin_user_ids: str = "552002791,743379791"
-    admin_usernames: str = "mr3od,naaokun"
     album_collection_window_seconds: float = 1.5
     max_images_per_batch: int = 10
     log_level: str = "INFO"
-
-    @property
-    def allowed_chat_id_set(self) -> set[int]:
-        raw_values = [item.strip() for item in self.allowed_chat_ids.split(",") if item.strip()]
-        return {int(item) for item in raw_values}
-
-    @property
-    def admin_username_set(self) -> set[str]:
-        raw_values = [item.strip().lstrip("@") for item in self.admin_usernames.split(",")]
-        return {item.lower() for item in raw_values if item}
-
-    @property
-    def admin_user_id_set(self) -> set[int]:
-        raw_values = [item.strip() for item in self.admin_user_ids.split(",") if item.strip()]
-        return {int(item) for item in raw_values}

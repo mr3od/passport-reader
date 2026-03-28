@@ -8,6 +8,7 @@ resolution-markers = [
 
 [manifest]
 members = [
+    "passport-admin-bot",
     "passport-api",
     "passport-benchmark",
     "passport-core",
@@ -626,6 +627,25 @@ wheels = [
 ]
 
 [[package]]
+name = "passport-admin-bot"
+version = "0.1.0"
+source = { editable = "passport-admin-bot" }
+dependencies = [
+    { name = "passport-platform" },
+    { name = "pydantic-settings" },
+    { name = "python-dotenv" },
+    { name = "python-telegram-bot" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "passport-platform", editable = "passport-platform" },
+    { name = "pydantic-settings", specifier = ">=2.4.0" },
+    { name = "python-dotenv", specifier = ">=1.0.1" },
+    { name = "python-telegram-bot", specifier = ">=21.6" },
+]
+
+[[package]]
 name = "passport-api"
 version = "0.1.0"
 source = { editable = "passport-api" }
@@ -703,7 +723,7 @@ requires-dist = [
 
 [[package]]
 name = "passport-telegram"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "passport-telegram" }
 dependencies = [
     { name = "passport-platform" },

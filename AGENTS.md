@@ -31,10 +31,17 @@ Internal identifiers must describe what the code does, not which platform or pro
 
 | Runtime | File |
 |---|---|
-| Python | `passport-platform/src/passport_platform/strings.py` |
+| Python runtime/API | `passport-platform/src/passport_platform/strings.py` |
+| Agency Telegram bot | `passport-telegram/src/passport_telegram/messages.py` |
+| Admin Telegram bot | inside `passport-admin-bot/src/passport_admin_bot/` |
 | Extension | `passport-masar-extension/strings.js` |
 
 All user-facing strings go through these files — no inline literals in routes, services, or UI code.
+
+Telegram adapter exception:
+- agency bot-visible Arabic strings and formatting stay in `passport-telegram/src/passport_telegram/messages.py`
+- admin bot-visible strings and formatting stay inside `passport-admin-bot`
+- `passport-platform/src/passport_platform/strings.py` is for platform/runtime Python strings, not Telegram command/help copy
 
 # Architecture Rules
 
@@ -45,7 +52,7 @@ These rules are intentionally small and strict. If a change conflicts with them,
 - The maintained Python workspace is defined by the root `pyproject.toml`.
 - Use `uv` from the repository root for installs, commands, and builds.
 - Use the root `.env` for local development and the root `.env.production` contract for production.
-- Do not reintroduce package-local `.env` workflows for `passport-core`, `passport-platform`, `passport-api`, or `passport-telegram`.
+- Do not reintroduce package-local `.env` workflows for `passport-core`, `passport-platform`, `passport-api`, `passport-telegram`, or `passport-admin-bot`.
 - Shared tooling is configured at the root workspace level:
   - `ruff`
   - `pytest`
@@ -72,7 +79,7 @@ These rules are intentionally small and strict. If a change conflicts with them,
 
 ### Adapters
 
-- `passport-api`, `passport-telegram`, and future admin tools must interact with business logic only through `passport-platform`.
+- `passport-api`, `passport-telegram`, `passport-admin-bot`, and future admin tools must interact with business logic only through `passport-platform`.
 - Adapters must not import `passport-core`.
 - Adapters must not implement business rules that belong in `passport-platform`.
 

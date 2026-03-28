@@ -36,6 +36,29 @@ class FakeReplyMessage:
         self.replies.append(text)
 
 
+def _agency_context(*, services: object, args: list[str] | None = None):
+    return cast(
+        ContextTypes.DEFAULT_TYPE,
+        SimpleNamespace(
+            args=args or [],
+            application=SimpleNamespace(bot_data={"services": services}),
+        ),
+    )
+
+
+def _agency_update(reply: FakeReplyMessage) -> Update:
+    return cast(
+        Update,
+        SimpleNamespace(
+            effective_chat=SimpleNamespace(id=1),
+            effective_user=SimpleNamespace(
+                id=12345, first_name="Agency", last_name="A", username=None
+            ),
+            effective_message=reply,
+        ),
+    )
+
+
 class FakeProcessingService:
     def __init__(self) -> None:
         self.calls = 0
@@ -70,25 +93,8 @@ def test_token_command_issues_single_use_token_text():
             )
         ),
     )
-    context = cast(
-        ContextTypes.DEFAULT_TYPE,
-        SimpleNamespace(
-        application=SimpleNamespace(
-            bot_data={
-                "settings": SimpleNamespace(allowed_chat_id_set=set()),
-                "services": services,
-            }
-        )
-        ),
-    )
-    update = cast(
-        Update,
-        SimpleNamespace(
-        effective_chat=SimpleNamespace(id=1),
-        effective_user=SimpleNamespace(id=12345, first_name="Agency", last_name="A", username=None),
-        effective_message=reply,
-        ),
-    )
+    context = _agency_context(services=services)
+    update = _agency_update(reply)
 
     asyncio.run(token_command(update, context))
 
@@ -121,25 +127,8 @@ def test_account_command_returns_user_usage_summary():
         ),
         reporting=SimpleNamespace(get_user_usage_report=lambda user_id: report),
     )
-    context = cast(
-        ContextTypes.DEFAULT_TYPE,
-        SimpleNamespace(
-        application=SimpleNamespace(
-            bot_data={
-                "settings": SimpleNamespace(allowed_chat_id_set=set()),
-                "services": services,
-            }
-        )
-        ),
-    )
-    update = cast(
-        Update,
-        SimpleNamespace(
-        effective_chat=SimpleNamespace(id=1),
-        effective_user=SimpleNamespace(id=12345, first_name="Agency", last_name="A", username=None),
-        effective_message=reply,
-        ),
-    )
+    context = _agency_context(services=services)
+    update = _agency_update(reply)
 
     asyncio.run(account_command(update, context))
 
@@ -173,32 +162,36 @@ def test_usage_command_returns_self_usage_without_admin_args():
         ),
         reporting=SimpleNamespace(get_user_usage_report=lambda user_id: report),
     )
-    context = cast(
-        ContextTypes.DEFAULT_TYPE,
-        SimpleNamespace(
-        args=[],
-        application=SimpleNamespace(
-            bot_data={
-                "settings": SimpleNamespace(allowed_chat_id_set=set()),
-                "services": services,
-            }
-        ),
-        ),
-    )
-    update = cast(
-        Update,
-        SimpleNamespace(
-        effective_chat=SimpleNamespace(id=1),
-        effective_user=SimpleNamespace(id=12345, first_name="Agency", last_name="A", username=None),
-        effective_message=reply,
-        ),
-    )
+    context = _agency_context(services=services, args=[])
+    update = _agency_update(reply)
 
     asyncio.run(usage_command(update, context))
 
     assert len(reply.replies) == 1
     assert "Agency A" in reply.replies[0]
     assert "18" in reply.replies[0]
+
+
+def test_usage_command_with_args_returns_self_only_help_text():
+    reply = FakeReplyMessage()
+    services = SimpleNamespace(
+        users=SimpleNamespace(
+            get_or_create_user=lambda command: SimpleNamespace(
+                id=1,
+                external_user_id="12345",
+                status=UserStatus.ACTIVE,
+            )
+        ),
+        reporting=SimpleNamespace(get_user_usage_report=lambda user_id: None),
+    )
+    context = _agency_context(services=services, args=["999"])
+    update = _agency_update(reply)
+
+    asyncio.run(usage_command(update, context))
+
+    assert len(reply.replies) == 1
+    assert "/usage" in reply.replies[0]
+    assert "<telegram_user_id>" not in reply.replies[0]
 
 
 def test_plan_command_returns_short_user_plan_summary():
@@ -214,25 +207,8 @@ def test_plan_command_returns_short_user_plan_summary():
             )
         )
     )
-    context = cast(
-        ContextTypes.DEFAULT_TYPE,
-        SimpleNamespace(
-        application=SimpleNamespace(
-            bot_data={
-                "settings": SimpleNamespace(allowed_chat_id_set=set()),
-                "services": services,
-            }
-        ),
-        ),
-    )
-    update = cast(
-        Update,
-        SimpleNamespace(
-        effective_chat=SimpleNamespace(id=1),
-        effective_user=SimpleNamespace(id=12345, first_name="Agency", last_name="A", username=None),
-        effective_message=reply,
-        ),
-    )
+    context = _agency_context(services=services)
+    update = _agency_update(reply)
 
     asyncio.run(plan_command(update, context))
 

@@ -1,0 +1,36 @@
+from __future__ import annotations
+
+import logging
+from typing import Any, cast
+
+from dotenv import load_dotenv
+
+from passport_admin_bot.bot import build_application, telegram_error_handler
+from passport_admin_bot.config import AdminBotSettings
+
+
+def main() -> int:
+    load_dotenv()
+    settings = cast(Any, AdminBotSettings)()
+
+    logging.basicConfig(
+        level=getattr(logging, settings.log_level.upper(), logging.INFO),
+        format="%(levelname)s %(name)s %(message)s",
+    )
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
+
+    application = build_application(settings)
+    application.add_error_handler(telegram_error_handler)
+    services = application.bot_data["services"]
+
+    try:
+        application.run_polling(drop_pending_updates=True)
+    finally:
+        services.close()
+
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

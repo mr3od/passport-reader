@@ -96,13 +96,16 @@ jobs:
             kctl apply -f k8s/api-service.yaml
             kctl apply -f k8s/api-ingress.yaml
             kctl apply -f k8s/telegram-deployment.yaml
+            kctl apply -f k8s/admin-bot-deployment.yaml
             kctl -n ${K8S_NAMESPACE} delete deploy passport-telegram-bot --ignore-not-found
 
             kctl -n ${K8S_NAMESPACE} set image deploy/passport-api passport-api=\"\$IMAGE\"
             kctl -n ${K8S_NAMESPACE} set image deploy/passport-telegram passport-telegram=\"\$IMAGE\"
+            kctl -n ${K8S_NAMESPACE} set image deploy/passport-admin-bot passport-admin-bot=\"\$IMAGE\"
 
             kctl -n ${K8S_NAMESPACE} rollout status deploy/passport-api --timeout=180s
             kctl -n ${K8S_NAMESPACE} rollout status deploy/passport-telegram --timeout=180s
+            kctl -n ${K8S_NAMESPACE} rollout status deploy/passport-admin-bot --timeout=180s
           "
 
       - name: Verify deployment
@@ -122,4 +125,5 @@ jobs:
             kctl -n ${K8S_NAMESPACE} get certificate,certificaterequest,challenge,order || true
             kctl -n ${K8S_NAMESPACE} logs deploy/passport-api --tail=80 || true
             kctl -n ${K8S_NAMESPACE} logs deploy/passport-telegram --tail=80 || true
+            kctl -n ${K8S_NAMESPACE} logs deploy/passport-admin-bot --tail=80 || true
           "

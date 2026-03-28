@@ -7,7 +7,8 @@ Monorepo workspace for the passport processing system.
 - `passport-core`: extraction and image-processing engine
 - `passport-platform`: shared business logic, persistence, quotas, and orchestration
 - `passport-api`: FastAPI adapter
-- `passport-telegram`: Telegram adapter
+- `passport-telegram`: agency Telegram adapter
+- `passport-admin-bot`: admin Telegram adapter
 - `passport-benchmark`: evaluation and scoring tools
 
 ## Workspace contract
@@ -34,14 +35,15 @@ uv sync --all-packages
 ```bash
 uv run passport-api
 uv run passport-telegram
+uv run passport-admin-bot
 ```
 
 Run package tests from the root:
 
 ```bash
-uv run pytest passport-core/tests passport-platform/tests passport-api/tests passport-telegram/tests passport-benchmark/tests -q
-uv run ruff check passport-core/src passport-platform/src passport-api/src passport-telegram/src passport-benchmark/src
-uv run ty check passport-core/src passport-platform/src passport-api/src passport-telegram/src passport-benchmark/src
+uv run pytest passport-admin-bot/tests passport-core/tests passport-platform/tests passport-api/tests passport-telegram/tests passport-benchmark/tests -q
+uv run ruff check passport-admin-bot/src passport-core/src passport-platform/src passport-api/src passport-telegram/src passport-benchmark/src
+uv run ty check passport-admin-bot/src passport-core/src passport-platform/src passport-api/src passport-telegram/src passport-benchmark/src
 ```
 
 ## Production

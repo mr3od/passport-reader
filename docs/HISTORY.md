@@ -2,6 +2,14 @@
 
 Agent-maintained log of significant changes. Each entry records what was done and who did it.
 
+## 2026-03-28 — split admin Telegram functionality into `passport-admin-bot` [codex]
+
+- Added a new `passport-admin-bot` workspace package with admin-only Telegram commands, English operator-facing bot copy, package-local tests, README, and AGENTS guidance
+- Removed admin commands, admin config, and chat allowlist behavior from `passport-telegram` so the agency bot is strictly self-service only
+- Kept agency-visible Arabic Telegram copy local to `passport-telegram/messages.py` and documented the adapter-specific string ownership rules in the root and package AGENTS files
+- Added root env, Docker, Kubernetes, CI deploy, workspace, and lockfile wiring for the new admin bot deployment
+- Bumped `passport-telegram` to `0.2.0`
+
 ## 2026-03-27 — container packaging and deploy import fix [codex]
 
 - Changed the production image build to install workspace packages as non-editable so runtime containers do not depend on source trees copied from the builder stage

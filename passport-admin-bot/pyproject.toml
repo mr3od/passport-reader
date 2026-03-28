@@ -1,18 +1,18 @@
 [project]
-name = "passport-telegram"
-version = "0.2.0"
-description = "Telegram bot adapter for passport-platform"
+name = "passport-admin-bot"
+version = "0.1.0"
+description = "Admin Telegram bot adapter for passport-platform"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
   "passport-platform",
   "pydantic-settings>=2.4.0",
   "python-dotenv>=1.0.1",
-  "python-telegram-bot[job-queue]>=21.6",
+  "python-telegram-bot>=21.6",
 ]
 
 [project.scripts]
-passport-telegram = "passport_telegram.cli:main"
+passport-admin-bot = "passport_admin_bot.cli:main"
 
 [tool.uv.sources]
 passport-platform = { workspace = true }
@@ -22,4 +22,4 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/passport_telegram"]
+packages = ["src/passport_admin_bot"]
