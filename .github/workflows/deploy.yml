@@ -103,6 +103,7 @@ jobs:
           ssh $SERVER_USER@$SERVER_HOST "
             set -euo pipefail
             cd $DEPLOY_PATH
+            IMMUTABLE_IMAGE='${IMMUTABLE_IMAGE}'
 
             if [ ! -f .env.production ]; then
               echo 'Missing .env.production on server' >&2
