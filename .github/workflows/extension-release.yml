@@ -12,6 +12,8 @@ jobs:
   release-extension:
     name: Build and Publish Extension to extension-latest
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
@@ -35,7 +37,8 @@ jobs:
           overwrite: true
           body: |
             Auto-built from commit ${{ github.sha }}.
-            Install in Chrome via Developer Mode → Load unpacked.
+            Download `extension.zip`, unzip it, then load the folder in Chrome:
+            Developer Mode (top-right toggle) → Load unpacked → select the unzipped folder.
           files: passport-masar-extension/dist/extension.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
