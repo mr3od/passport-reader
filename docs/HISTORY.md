@@ -2,6 +2,17 @@
 
 Agent-maintained log of significant changes. Each entry records what was done and who did it.
 
+## 2026-03-28 — switch extension API endpoint to production [codex]
+
+- Updated `passport-masar-extension/config.js` to use `https://passport-api.mr3od.dev` as the active API base URL
+
+## 2026-03-28 — add import-linter boundary enforcement [codex]
+
+- Added root `import-linter` configuration for current package boundaries and allowed `passport-benchmark` to keep importing `passport-core`
+- Added a CI import-boundary check to the GitHub Actions checks workflow
+- Updated root docs and agent guidance to include `uv run lint-imports` in the shared workspace workflow
+- Updated backlog status for the import-linter tasks to reflect the current repo state
+
 ## 2026-03-28 — split admin Telegram functionality into `passport-admin-bot` [codex]
 
 - Added a new `passport-admin-bot` workspace package with admin-only Telegram commands, English operator-facing bot copy, package-local tests, README, and AGENTS guidance
