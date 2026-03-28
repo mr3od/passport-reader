@@ -9,7 +9,7 @@ Agent-maintained log of significant changes. Each entry records what was done an
 ## 2026-03-28 — add import-linter boundary enforcement [codex]
 
 - Added root `import-linter` configuration for current package boundaries and allowed `passport-benchmark` to keep importing `passport-core`
-- Added a CI import-boundary check to the GitHub Actions checks workflow
+- Added a CI import-boundary check to the GitHub Actions checks workflow and enforced the committed `uv.lock` during CI sync
 - Updated root docs and agent guidance to include `uv run lint-imports` in the shared workspace workflow
 - Updated backlog status for the import-linter tasks to reflect the current repo state
 

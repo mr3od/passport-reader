@@ -18,6 +18,7 @@ Monorepo workspace for the passport processing system.
 - Use the root `.env` for local development.
 - Use the root `.env.production` contract for production.
 - Shared tooling is configured at the root:
+  - `import-linter`
   - `ruff`
   - `pytest`
   - `ty`
@@ -42,6 +43,7 @@ Run package tests from the root:
 
 ```bash
 uv run pytest passport-admin-bot/tests passport-core/tests passport-platform/tests passport-api/tests passport-telegram/tests passport-benchmark/tests -q
+uv run lint-imports
 uv run ruff check passport-admin-bot/src passport-core/src passport-platform/src passport-api/src passport-telegram/src passport-benchmark/src
 uv run ty check passport-admin-bot/src passport-core/src passport-platform/src passport-api/src passport-telegram/src passport-benchmark/src
 ```

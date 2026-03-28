@@ -54,6 +54,7 @@ These rules are intentionally small and strict. If a change conflicts with them,
 - Use the root `.env` for local development and the root `.env.production` contract for production.
 - Do not reintroduce package-local `.env` workflows for `passport-core`, `passport-platform`, `passport-api`, `passport-telegram`, or `passport-admin-bot`.
 - Shared tooling is configured at the root workspace level:
+  - `import-linter`
   - `ruff`
   - `pytest`
   - `ty`
@@ -120,13 +121,14 @@ Adding a column requires all of the following to be updated together — a parti
 
 Before committing:
 1. Run `uv run ruff check ...` and `uv run ruff format ...` for the touched Python packages from the repository root — must pass.
-2. Run `uv run ty check ...` for the touched Python packages from the repository root — must pass.
-3. Run `uv run pytest ...` for the affected package tests from the repository root — must pass.
-4. Verify non-obvious functions have Python docstrings.
-5. If changes are large or structural, update the package's `AGENTS.md` and `README.md`.
-6. Bump the version in `pyproject.toml` and `__version__` if the public API changed.
-7. After commit, append to `docs/HISTORY.md` what was done and which agent authored the commit.
-8. Include the agent name in the commit message (e.g. `[claude]`, `[codex]`, `[kiro]`, `[antigravity]`).
+2. Run `uv run lint-imports` from the repository root when package boundaries or imports may be affected — must pass.
+3. Run `uv run ty check ...` for the touched Python packages from the repository root — must pass.
+4. Run `uv run pytest ...` for the affected package tests from the repository root — must pass.
+5. Verify non-obvious functions have Python docstrings.
+6. If changes are large or structural, update the package's `AGENTS.md` and `README.md`.
+7. Bump the version in `pyproject.toml` and `__version__` if the public API changed.
+8. After commit, append to `docs/HISTORY.md` what was done and which agent authored the commit.
+9. Include the agent name in the commit message (e.g. `[claude]`, `[codex]`, `[kiro]`, `[antigravity]`).
 
 ## Simplicity rule
 

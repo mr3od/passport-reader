@@ -4,30 +4,35 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Structure
 
-Monorepo of four Python packages and one Chrome extension, all built around processing passport images for Yemeni travel agencies.
+Monorepo of six Python packages and one Chrome extension, all built around processing passport images for Yemeni travel agencies.
 
 ```
 passport-core/          # OCR/ML engine (transport-agnostic)
 passport-platform/      # Shared app layer: DB, users, quotas, uploads
-passport-telegram/      # Telegram bot adapter
 passport-api/           # FastAPI HTTP adapter
+passport-telegram/      # Agency Telegram bot adapter
+passport-admin-bot/     # Admin/operator Telegram bot adapter
+passport-benchmark/     # Benchmarking and scoring tools
 passport-masar-extension/  # Chrome extension (MV3) — auto-submits records to masar.nusuk.sa
 ```
 
-**Dependency chain:** `passport-core` ← `passport-platform` ← `passport-telegram` / `passport-api`
+**Dependency chain:** `passport-core` ← `passport-platform` ← `passport-api` / `passport-telegram` / `passport-admin-bot`
 
 All Python packages use `uv` for dependency management and `hatchling` as build backend.
 
 ## Development Commands
 
-Each package has its own virtual environment. Work from inside the package directory.
+Use the root workspace. Do not rely on package-local virtualenv workflows.
 
 ```bash
 # From the repository root
 uv sync --all-packages
 
 # Run all tests
-uv run pytest passport-core/tests passport-platform/tests passport-api/tests passport-telegram/tests passport-benchmark/tests -q
+uv run pytest passport-admin-bot/tests passport-core/tests passport-platform/tests passport-api/tests passport-telegram/tests passport-benchmark/tests -q
+
+# Check architecture boundaries
+uv run lint-imports
 
 # Run a single test file
 uv run pytest passport-core/tests/test_vision.py
@@ -36,14 +41,17 @@ uv run pytest passport-core/tests/test_vision.py
 uv run pytest passport-core/tests/test_vision.py::test_name
 
 # Lint + format
-uv run ruff check passport-core/src passport-platform/src passport-api/src passport-telegram/src passport-benchmark/src
-uv run ruff format passport-core/src passport-platform/src passport-api/src passport-telegram/src passport-benchmark/src
+uv run ruff check passport-admin-bot/src passport-core/src passport-platform/src passport-api/src passport-telegram/src passport-benchmark/src
+uv run ruff format passport-admin-bot/src passport-core/src passport-platform/src passport-api/src passport-telegram/src passport-benchmark/src
 
 # Run the API server
 uv run passport-api
 
 # Run the Telegram bot
 uv run passport-telegram
+
+# Run the admin bot
+uv run passport-admin-bot
 ```
 
 **Ruff config** (same across all packages): `line-length = 100`, rules `E F I B UP N A SIM RET PTH`.
@@ -97,10 +105,16 @@ New routes go in `routes/`, registered in `app.py`. All routes use the `get_auth
 
 ### passport-telegram
 
-Single-file bot (`bot.py`). `MediaGroupCollector` batches photos sent as Telegram media groups (waits `album_collection_window_seconds` before processing). The bot loads both `passport-core` and `passport-platform` env files at startup via `python-dotenv`.
+Agency-facing self-service bot. `MediaGroupCollector` batches photos sent as Telegram media groups (waits `album_collection_window_seconds` before processing).
 
-Messages are Arabic-first; all user-facing strings are in `messages.py`.
+Messages are Arabic-first and stay in `messages.py`.
 Successful processing replies with a single photo (original upload) and caption (no face-crop media).
+
+### passport-admin-bot
+
+Admin/operator Telegram bot. It exposes reporting and account-management commands and must depend on `passport-platform` only.
+
+Messages are English and stay inside the package.
 
 ### passport-masar-extension (Chrome MV3)
 
@@ -135,7 +149,7 @@ When adding/changing result fields, update all linked layers together:
 
 The workspace uses one root `.env.example` for local development and one root `.env.production.example`
 for production. Run adapters from the repository root so `passport-core`, `passport-platform`,
-`passport-api`, and `passport-telegram` all read the same env contract.
+`passport-api`, `passport-telegram`, and `passport-admin-bot` all read the same env contract.
 
 ## Docker
 
@@ -144,5 +158,5 @@ for production. Run adapters from the repository root so `passport-core`, `passp
 docker build -t passport-reader:latest .
 ```
 
-The root `Dockerfile` builds the shared production image used by both API and Telegram workloads.
+The root `Dockerfile` builds the shared production image used by API, agency Telegram, and admin Telegram workloads.
 Production deploys through the root `k8s/` manifests on MicroK8s.

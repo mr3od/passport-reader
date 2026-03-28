@@ -1,0 +1,47 @@
+[importlinter]
+root_packages =
+    passport_admin_bot
+    passport_api
+    passport_benchmark
+    passport_core
+    passport_platform
+    passport_telegram
+
+[importlinter:contract:core_independent]
+name = passport-core must not import repo packages
+type = forbidden
+source_modules =
+    passport_core
+forbidden_modules =
+    passport_admin_bot
+    passport_api
+    passport_benchmark
+    passport_platform
+    passport_telegram
+
+[importlinter:contract:api_no_core]
+name = passport-api must not import passport-core
+type = forbidden
+allow_indirect_imports = True
+source_modules =
+    passport_api
+forbidden_modules =
+    passport_core
+
+[importlinter:contract:telegram_no_core]
+name = passport-telegram must not import passport-core
+type = forbidden
+allow_indirect_imports = True
+source_modules =
+    passport_telegram
+forbidden_modules =
+    passport_core
+
+[importlinter:contract:admin_bot_no_core]
+name = passport-admin-bot must not import passport-core
+type = forbidden
+allow_indirect_imports = True
+source_modules =
+    passport_admin_bot
+forbidden_modules =
+    passport_core

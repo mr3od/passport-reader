@@ -115,6 +115,10 @@ Status
 
 ### P4a. Add `import-linter` with currently-valid contracts
 
+Status
+- Completed by `codex`
+- Root import-linter contracts now enforce adapter/core boundaries in CI
+
 **Goal**
 - prevent new boundary violations from being introduced while cleanup is in progress
 
@@ -122,14 +126,14 @@ Status
 - `passport-core` is independent from all other repo packages
 - `passport-api` may not import `passport-core`
 
-**Skip for now**
-- `passport-telegram` → `passport-core` is a known violation being fixed in P1; exclude it until P1 lands
-
 **Acceptance**
 - CI fails on new invalid imports
-- known P1 violation is explicitly excluded in import-linter config until resolved
 
 ### P4b. Tighten import-linter contracts after P1
+
+Status
+- Completed by `codex`
+- Tightened contracts now cover both Telegram adapters while still allowing `passport-benchmark` to depend on `passport-core`
 
 **Goal**
 - enforce the full boundary contract once `passport-telegram` is clean
@@ -145,6 +149,10 @@ Status
 ## Backend and Domain Refactors
 
 ### B1. Add adapter-safe processing result accessors in `passport-platform`
+
+Status
+- Completed by `codex`
+- Adapter-safe extracted-data/result accessors now let upper layers format responses without importing `passport-core`
 
 **Goal**
 - upper layers should not need `passport-core` result types
@@ -241,6 +249,10 @@ Deferred. The interface contract depends on queueing design. Define this when Q1
 
 ### T1. Use `import-linter` for dependency boundaries
 
+Status
+- Completed by `codex`
+- Root `.importlinter` config and CI checks now enforce the current package boundary set
+
 **Why**
 - better fit than ad hoc scripts
 - better fit than `ty`
@@ -302,17 +314,10 @@ Work in this section is valid but should not be started until the triggers are m
 ## Suggested Execution Order
 
 1. Add `ARCHITECTURE.md` (D1 — prerequisite)
-2. Add `import-linter` with safe contracts only (P4a)
-3. Add `passport-platform` runtime builders (P2)
-4. Remove direct `passport-core` dependency from `passport-telegram` (P1)
-5. Tighten import-linter contracts (P4b)
-6. Add adapter-safe processing result accessors in `passport-platform` (B1)
-7. Refactor `passport-api` and `passport-telegram` to consume `passport-platform` only
-8. Split out `passport-admin-bot` (P3)
-9. Update package READMEs (D2)
-10. Add observability/analytics tooling (O1–O3)
-11. Introduce queueing only inside `passport-platform`, if still needed (Q1–Q2)
-12. Modernize persistence if triggers are met (B4)
+2. Audit adapters for direct persistence behavior and keep write-side ownership inside `passport-platform` (B2)
+3. Add observability/analytics tooling separation (O1–O3)
+4. Introduce queueing only inside `passport-platform`, if still needed (Q1–Q2)
+5. Modernize persistence if triggers are met (B4)
 
 ## Notes for Future Agents
 
