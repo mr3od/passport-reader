@@ -89,6 +89,11 @@ Agent-maintained log of significant changes. Each entry records what was done an
 - Updated root and package docs to describe the workspace-first `uv` workflow, root `pyproject.toml`, root tooling (`ruff`, `pytest`, `ty`), and MicroK8s `k8s/` deployment path
 - Tightened test fixtures and workspace `ty` configuration so `uv run ty check` passes while excluding the experimental `browser-session` package
 
+## 2026-03-29 — nodeport registry deploy tunnel [codex]
+
+- Updated CI deploys to push images through an SSH tunnel to the private MicroK8s `localhost:32000` registry NodePort
+- Removed the external registry login/push path from the deploy workflow so production deploys no longer depend on the Cloudflare-fronted registry hostname
+
 ## 2026-03-24 — upstream runtime boundary cleanup [codex]
 
 - Added shared `passport-platform` runtime builders for adapters

@@ -30,22 +30,26 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Log in to Docker Registry
-        env:
-          REGISTRY_USER: ${{ secrets.REGISTRY_USERNAME }}
-          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+      - name: Configure local registry access
         run: |
-          if [ -z "$REGISTRY_USER" ]; then
-            echo "Missing REGISTRY_USERNAME secret." >&2
-            exit 1
-          fi
+          sudo python3 - <<'PY'
+          import json
+          from pathlib import Path
 
-          if [ -z "$REGISTRY_PASSWORD" ]; then
-            echo "Missing REGISTRY_PASSWORD secret." >&2
-            exit 1
-          fi
+          path = Path("/etc/docker/daemon.json")
+          data = {}
+          if path.exists():
+              data = json.loads(path.read_text())
 
-          echo "$REGISTRY_PASSWORD" | docker login registry.mohammed-alkebsi.dev -u "$REGISTRY_USER" --password-stdin
+          registries = data.setdefault("insecure-registries", [])
+          if "localhost:32000" not in registries:
+              registries.append("localhost:32000")
+
+          path.write_text(json.dumps(data))
+          PY
+
+          sudo systemctl restart docker
+          docker info | grep -A5 'Insecure Registries'
 
       - name: Sync code to server
         env:
@@ -62,18 +66,28 @@ jobs:
             --exclude='*.pyc' \
             ./ $SERVER_USER@$SERVER_HOST:$DEPLOY_PATH/
 
+      - name: Open SSH tunnel to MicroK8s registry
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+        run: |
+          ssh -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -fNT \
+            -L 32000:127.0.0.1:32000 \
+            $SERVER_USER@$SERVER_HOST
+
+          curl -fsS http://localhost:32000/v2/
+
       - name: Build and push Docker image
         id: image
         env:
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          IMAGE_BASE="registry.mohammed-alkebsi.dev/mohammed/passport-reader"
+          IMAGE_BASE="localhost:32000/passport-reader"
           IMMUTABLE_IMAGE="${IMAGE_BASE}:${IMAGE_TAG}"
 
-          docker build -t passport-reader:build .
-          docker tag passport-reader:build "$IMMUTABLE_IMAGE"
+          docker build -t "$IMMUTABLE_IMAGE" .
           docker push "$IMMUTABLE_IMAGE"
-          docker tag passport-reader:build "${IMAGE_BASE}:latest"
+          docker tag "$IMMUTABLE_IMAGE" "${IMAGE_BASE}:latest"
           docker push "${IMAGE_BASE}:latest"
 
           echo "immutable_image=$IMMUTABLE_IMAGE" >> $GITHUB_OUTPUT
@@ -113,6 +127,11 @@ jobs:
             kctl -n cert-manager rollout status deploy/cert-manager --timeout=180s
             kctl -n cert-manager rollout status deploy/cert-manager-cainjector --timeout=180s
             kctl -n cert-manager rollout status deploy/cert-manager-webhook --timeout=180s
+
+            if ! curl -fsS http://localhost:32000/v2/ >/dev/null; then
+              echo 'MicroK8s registry is not reachable on localhost:32000.' >&2
+              exit 1
+            fi
 
             kctl apply -f k8s/namespace.yaml
             kctl apply -f k8s/cluster-issuer.yaml
