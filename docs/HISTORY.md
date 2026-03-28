@@ -95,6 +95,7 @@ Agent-maintained log of significant changes. Each entry records what was done an
 - Added a session-expired fallback in the popup when the stored extension session is no longer valid
 - Put the Telegram bot login token on its own line so it is easier to copy into the extension
 - Clarified the Telegram extension install steps to tell users to unzip the downloaded file before choosing `Load unpacked`
+- Loaded the extension API config into the popup so the new token exchange flow can resolve the production API base URL
 
 ## 2026-03-29 — manual extension workflow triggers [codex]
 
