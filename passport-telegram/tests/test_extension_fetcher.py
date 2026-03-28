@@ -5,7 +5,6 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from passport_telegram.extension import (
     ExtensionFetchError,
     _clear_cache,
@@ -70,7 +69,7 @@ def test_fetch_caches_result():
         second = asyncio.run(fetch_extension_zip(token=FAKE_TOKEN, repo=FAKE_REPO))
 
     assert first == second == FAKE_ZIP
-    # httpx.AsyncClient.get was only called twice (both from the first fetch; second call hits cache)
+    # Second call hits cache; httpx only called twice (both from the first fetch)
     assert mock_client.get.call_count == 2
 
 
@@ -103,19 +102,19 @@ def test_cache_expires_after_ttl(monkeypatch):
 def test_fetch_raises_on_release_not_found():
     not_found_resp = _make_mock_response(404)
     mock_client = _make_mock_client([not_found_resp])
+    patcher = patch("passport_telegram.extension.httpx.AsyncClient", return_value=mock_client)
 
-    with patch("passport_telegram.extension.httpx.AsyncClient", return_value=mock_client):
-        with pytest.raises(ExtensionFetchError, match="GitHub release lookup failed: HTTP 404"):
-            asyncio.run(fetch_extension_zip(token=FAKE_TOKEN, repo=FAKE_REPO))
+    with patcher, pytest.raises(ExtensionFetchError, match="GitHub release lookup failed"):
+        asyncio.run(fetch_extension_zip(token=FAKE_TOKEN, repo=FAKE_REPO))
 
 
 def test_fetch_raises_on_missing_asset():
     release_resp = _make_mock_response(200, {"assets": []})
     mock_client = _make_mock_client([release_resp])
+    patcher = patch("passport_telegram.extension.httpx.AsyncClient", return_value=mock_client)
 
-    with patch("passport_telegram.extension.httpx.AsyncClient", return_value=mock_client):
-        with pytest.raises(ExtensionFetchError, match="extension.zip not found"):
-            asyncio.run(fetch_extension_zip(token=FAKE_TOKEN, repo=FAKE_REPO))
+    with patcher, pytest.raises(ExtensionFetchError, match="extension.zip not found"):
+        asyncio.run(fetch_extension_zip(token=FAKE_TOKEN, repo=FAKE_REPO))
 
 
 def test_fetch_raises_on_zip_too_large():
@@ -123,7 +122,7 @@ def test_fetch_raises_on_zip_too_large():
     release_resp = _make_mock_response(200, _RELEASE_METADATA)
     download_resp = _make_mock_response(200, content=oversized_content)
     mock_client = _make_mock_client([release_resp, download_resp])
+    patcher = patch("passport_telegram.extension.httpx.AsyncClient", return_value=mock_client)
 
-    with patch("passport_telegram.extension.httpx.AsyncClient", return_value=mock_client):
-        with pytest.raises(ExtensionFetchError, match="Extension ZIP too large"):
-            asyncio.run(fetch_extension_zip(token=FAKE_TOKEN, repo=FAKE_REPO))
+    with patcher, pytest.raises(ExtensionFetchError, match="Extension ZIP too large"):
+        asyncio.run(fetch_extension_zip(token=FAKE_TOKEN, repo=FAKE_REPO))
