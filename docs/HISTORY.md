@@ -93,6 +93,7 @@ Agent-maintained log of significant changes. Each entry records what was done an
 
 - Passed the computed deploy image into the remote SSH shell so MicroK8s rollouts no longer fail on an unset `IMMUTABLE_IMAGE`
 - Switched the agency Telegram deployment to `Recreate` so rollout does not briefly run two polling bot pods against the same token
+- Switched the admin Telegram deployment to `Recreate` for the same single-poller rollout behavior
 
 ## 2026-03-29 — nodeport registry deploy tunnel [codex]
 
