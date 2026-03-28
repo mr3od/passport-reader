@@ -17,6 +17,13 @@ function showError(msg) {
   showScreen("error");
 }
 
+function showSetupError(msg) {
+  const el = $("setup-error");
+  if (!el) return;
+  el.textContent = msg || "";
+  el.classList.toggle("hidden", !msg);
+}
+
 function storageGet(keys) {
   return new Promise((resolve) => chrome.storage.local.get(keys, resolve));
 }
@@ -262,6 +269,7 @@ async function init() {
 
   // 1. No token → show setup
   if (!stored.api_token) {
+    showSetupError("");
     showScreen("setup");
     return;
   }
@@ -335,6 +343,10 @@ async function loadMainQueue() {
   const res = await sendMsg({ type: "FETCH_PENDING" });
 
   if (!res || !res.ok) {
+    if (res?.status === 401 || res?.status === 403) {
+      showScreen("session-expired");
+      return;
+    }
     $("queue-list").innerHTML = `<div class="status-msg error">${S.QUEUE_LOAD_FAILED(res?.status || res?.error || "?")}</div>`;
     return;
   }
@@ -348,9 +360,27 @@ async function loadMainQueue() {
 // Setup screen
 $("btn-save-token").addEventListener("click", async () => {
   const token = $("api-token-input").value.trim();
+  const btn = $("btn-save-token");
   if (!token) return;
-  await storageSet({ api_token: token });
-  init();
+  showSetupError("");
+  btn.disabled = true;
+  try {
+    const issued = await MasarAuth.exchangeTempToken({
+      apiBaseUrl: API_BASE_URL,
+      tempToken: token,
+      fetchImpl: fetch,
+    });
+    await storageSet({
+      api_token: issued.sessionToken,
+      api_token_expires_at: issued.expiresAt,
+    });
+    $("api-token-input").value = "";
+    await init();
+  } catch (err) {
+    showSetupError(S.SETUP_LOGIN_FAILED(err?.message || ""));
+  } finally {
+    btn.disabled = false;
+  }
 });
 
 // Activate screen
@@ -411,7 +441,8 @@ $("btn-refresh-context").addEventListener("click", async () => {
 });
 
 $("btn-reset-token").addEventListener("click", async () => {
-  await storageRemove(["api_token", "masar_group_id"]);
+  await storageRemove(["api_token", "api_token_expires_at", "masar_group_id"]);
+  showSetupError("");
   showScreen("setup");
 });
 

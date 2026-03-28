@@ -197,6 +197,7 @@ def test_temp_token_text_includes_token_and_expiry():
     )
 
     assert "abc123" in text
+    assert "الرمز:\nabc123" in text
     assert "2026-03-13 12:00 UTC" in text
     assert "مرة واحدة" in text
 
@@ -214,6 +215,7 @@ def test_extension_step_captions_exist():
     assert "chrome://extensions" in s1
     assert "Developer Mode" in s1
     assert "Load unpacked" in s2
+    assert "فك ضغط" in s2
     assert "✅" in s3
 
 

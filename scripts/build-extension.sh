@@ -23,7 +23,7 @@ trap cleanup EXIT
 echo "Building extension from $EXTENSION_DIR"
 
 # Minify and obfuscate JS files
-JS_FILES=("background.js" "popup.js" "strings.js" "content-main.js" "content-relay.js" "config.js")
+JS_FILES=("auth.js" "background.js" "popup.js" "strings.js" "content-main.js" "content-relay.js" "config.js")
 for js in "${JS_FILES[@]}"; do
     echo "  Minifying $js"
     npx --yes terser@5 "$EXTENSION_DIR/$js" \

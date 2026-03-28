@@ -32,6 +32,7 @@
       <label for="api-token-input">رمز الدخول</label>
       <input id="api-token-input" type="password" placeholder="الصق الرمز من أمر /token" />
       <button id="btn-save-token">حفظ</button>
+      <div id="setup-error" class="status-banner error hidden"></div>
     </div>
 
     <!-- Entity IDs not yet captured -->
@@ -118,6 +119,7 @@
       <button id="btn-reset-token" class="danger">إعادة ربط الحساب</button>
     </div>
   </div>
+  <script src="auth.js"></script>
   <script src="strings.js"></script>
   <script src="popup.js"></script>
 </body>

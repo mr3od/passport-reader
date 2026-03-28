@@ -89,6 +89,13 @@ Agent-maintained log of significant changes. Each entry records what was done an
 - Updated root and package docs to describe the workspace-first `uv` workflow, root `pyproject.toml`, root tooling (`ruff`, `pytest`, `ty`), and MicroK8s `k8s/` deployment path
 - Tightened test fixtures and workspace `ty` configuration so `uv run ty check` passes while excluding the experimental `browser-session` package
 
+## 2026-03-29 — extension token exchange fix [codex]
+
+- Fixed the extension login flow to exchange Telegram one-time tokens through `/auth/exchange` before storing the API session token
+- Added a session-expired fallback in the popup when the stored extension session is no longer valid
+- Put the Telegram bot login token on its own line so it is easier to copy into the extension
+- Clarified the Telegram extension install steps to tell users to unzip the downloaded file before choosing `Load unpacked`
+
 ## 2026-03-29 — manual extension workflow triggers [codex]
 
 - Added `workflow_dispatch` to the extension CI and extension release workflows so they can be run manually from GitHub Actions

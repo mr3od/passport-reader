@@ -65,8 +65,8 @@ def extension_step1_caption() -> str:
 def extension_step2_caption() -> str:
     """Caption for the Load unpacked screenshot."""
     return (
-        "الخطوة 2️⃣: انقر على «Load unpacked»\n"
-        "ثم اختر المجلد الذي فككت فيه ضغط الملف."
+        "الخطوة 2️⃣: فك ضغط الملف أولًا\n"
+        "ثم انقر على «Load unpacked» واختر المجلد الذي ظهر بعد فك الضغط."
     )
 
 
@@ -161,7 +161,8 @@ def temp_token_text(issued: IssuedTempToken) -> str:
     expires_at = issued.expires_at.astimezone(UTC).strftime("%Y-%m-%d %H:%M UTC")
     return (
         "تم إصدار رمز تسجيل دخول مؤقت للإضافة.\n"
-        f"الرمز: `{issued.token}`\n"
+        "الرمز:\n"
+        f"{issued.token}\n"
         f"ينتهي في: {expires_at}\n"
         "هذا الرمز صالح للاستخدام مرة واحدة فقط.\n"
         "الصقه في شاشة تسجيل الدخول داخل الإضافة."

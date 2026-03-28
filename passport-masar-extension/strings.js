@@ -37,6 +37,9 @@ const S = {
   GROUP_LOAD_FAILED: "تعذر جلب المجموعات",
   GROUP_NONE_FOUND:  "لا توجد مجموعات",
 
+  // ── Setup / login ───────────────────────────────────────────────────────────
+  SETUP_LOGIN_FAILED: (msg) => msg ? `تعذر تسجيل الدخول (${msg})` : "تعذر تسجيل الدخول",
+
   // ── Background: Masar submission step errors ───────────────────────────────────
   // Returned in { error: S.* } objects and shown to agencies in the popup.
   // background.js log()/logError() calls stay English — developer-only.
