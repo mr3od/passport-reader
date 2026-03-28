@@ -1,0 +1,46 @@
+name: Extension CI
+
+on:
+  pull_request:
+    branches:
+      - main
+      - production
+    paths:
+      - "passport-masar-extension/**"
+      - "scripts/build-extension.sh"
+      - ".github/workflows/extension-ci.yml"
+
+jobs:
+  build-extension:
+    name: Build and Validate Extension ZIP
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build extension
+        run: bash scripts/build-extension.sh
+
+      - name: Verify ZIP is non-empty
+        run: |
+          ZIP=passport-masar-extension/dist/extension.zip
+          if [ ! -f "$ZIP" ]; then
+            echo "ERROR: $ZIP was not created"
+            exit 1
+          fi
+          SIZE=$(wc -c < "$ZIP")
+          echo "extension.zip size: $SIZE bytes"
+          if [ "$SIZE" -lt 1024 ]; then
+            echo "ERROR: ZIP is suspiciously small ($SIZE bytes)"
+            exit 1
+          fi
+
+      - name: Verify manifest.json is inside ZIP
+        run: |
+          unzip -l passport-masar-extension/dist/extension.zip | grep manifest.json
