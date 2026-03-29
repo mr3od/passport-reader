@@ -220,11 +220,14 @@ async def extension_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         await _reply_text(update, extension_fetch_error_text())
         return
 
+    if update.effective_message is None:
+        return
+
     for step_path, caption_fn in _EXTENSION_STEPS:
         with step_path.open("rb") as f:
-            await update.message.reply_photo(photo=f, caption=caption_fn())
+            await update.effective_message.reply_photo(photo=f, caption=caption_fn())
 
-    await update.message.reply_document(
+    await update.effective_message.reply_document(
         document=io.BytesIO(zip_bytes),
         filename="passport-masar-extension.zip",
     )
