@@ -25,6 +25,7 @@ from passport_platform import (
     build_platform_runtime,
     build_processing_runtime,
 )
+from passport_platform.models.user import User
 from passport_platform.schemas.commands import EnsureUserCommand
 from telegram import Document, Message, PhotoSize, Update
 from telegram.ext import (
@@ -200,6 +201,7 @@ async def extension_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     services: BotServices = context.application.bot_data["services"]
     user = await _get_or_create_user(update, services)
     if user.status is UserStatus.BLOCKED:
+        await _reply_text(update, user_blocked_text())
         return
 
     cfg: TelegramSettings = context.application.bot_data["settings"]
@@ -419,7 +421,7 @@ def _build_bot_services(settings: TelegramSettings) -> BotServices:
     )
 
 
-async def _get_or_create_user(update: Update, services: BotServices):
+async def _get_or_create_user(update: Update, services: BotServices) -> User:
     return await asyncio.to_thread(
         services.users.get_or_create_user,
         EnsureUserCommand(

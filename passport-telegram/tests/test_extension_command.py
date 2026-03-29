@@ -8,7 +8,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from passport_platform.enums import UserStatus
 from passport_telegram.bot import build_application, extension_command
 from passport_telegram.extension import ExtensionFetchError
-from passport_telegram.messages import extension_fetch_error_text, extension_installing_text
+from passport_telegram.messages import (
+    extension_fetch_error_text,
+    extension_installing_text,
+    user_blocked_text,
+)
 from telegram import Update
 from telegram.ext import CommandHandler, ContextTypes
 
@@ -79,7 +83,7 @@ def _make_settings(*, has_token: bool = True, has_repo: bool = True):
     )
 
 
-def test_extension_command_blocked_user_is_ignored():
+def test_extension_command_blocked_user_gets_blocked_reply():
     reply = FakeReplyMessage()
     services = _make_services(_blocked_user())
     settings = _make_settings()
@@ -88,7 +92,8 @@ def test_extension_command_blocked_user_is_ignored():
 
     asyncio.run(extension_command(update, context))
 
-    assert len(reply.replies) == 0
+    assert len(reply.replies) == 1
+    assert reply.replies[0] == user_blocked_text()
     assert len(reply.photos) == 0
     assert len(reply.documents) == 0
 
