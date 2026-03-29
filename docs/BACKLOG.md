@@ -274,6 +274,13 @@ Status
 
 ## Documentation Work
 
+### D3. Extension distribution — implemented in 0.3.0
+
+Status
+- Completed in `passport-telegram` 0.3.0
+- `/extension` command delivers the Chrome extension ZIP to agencies via GitHub Releases (`extension-latest` tag)
+- `PASSPORT_GITHUB_RELEASE_READ_TOKEN` and `PASSPORT_GITHUB_REPO` env vars required in production
+
 ### D2. Update package READMEs after the split
 
 Status

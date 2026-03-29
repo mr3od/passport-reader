@@ -6,10 +6,18 @@ Agency-facing Telegram adapter only.
 
 ## Command scope
 
-- Self-service agency commands only: `/start`, `/help`, `/account`, `/usage`, `/plan`, `/token`, `/masar`
+- Self-service agency commands only: `/start`, `/help`, `/account`, `/usage`, `/plan`, `/token`, `/masar`, `/extension`
 - No admin/operator commands
 - No cross-user lookups
 - `/usage` is self-only and must not support argument-based lookups
+
+## /extension command
+
+- Delivers the Chrome extension ZIP to agencies via Telegram
+- Fetches the ZIP at runtime from GitHub Releases using the `extension-latest` mutable tag
+- Required env vars: `PASSPORT_GITHUB_RELEASE_READ_TOKEN`, `PASSPORT_GITHUB_REPO`
+- `extension.py` uses a 5-minute TTL cache to avoid repeated GitHub API calls between requests
+- Installation step screenshots (Arabic captions) are sent as a media group after the ZIP
 
 ## Strings
 

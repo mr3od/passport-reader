@@ -2,6 +2,15 @@
 
 Agent-maintained log of significant changes. Each entry records what was done and who did it.
 
+## 2026-03-29 — /extension command and GitHub Releases distribution [codex]
+
+**passport-telegram 0.3.0**
+- Added `/extension` command to the agency Telegram bot; sends the Chrome extension ZIP as a document followed by 3 installation step screenshots with Arabic captions
+- Extension ZIP is fetched at runtime from GitHub Releases using the `extension-latest` mutable tag; a 5-minute TTL cache in `extension.py` avoids hammering the GitHub API
+- Added `PASSPORT_GITHUB_RELEASE_READ_TOKEN` and `PASSPORT_GITHUB_REPO` env vars to `TelegramSettings` for GitHub Releases access
+- Added a terser-based build script that minifies and obfuscates the Chrome extension before packaging it as a ZIP artifact
+- Added CI workflow to build and publish extension ZIPs to GitHub Releases on the `extension-latest` mutable channel
+
 ## 2026-03-28 — switch deploys to immutable registry images [codex]
 
 - Updated the deploy workflow to build and push immutable registry-tagged images in CI instead of building and importing images on the MicroK8s server
