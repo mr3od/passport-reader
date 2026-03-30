@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Final Review Mock — passport extension</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Tajawal:wght@500;700;800&display=swap');
+
+:root {
+  --bg: #ebe3d4;
+  --card: #fbf7f0;
+  --card-strong: #fffdf8;
+  --line: #dccfbc;
+  --text: #32281d;
+  --text-soft: #766857;
+  --amber-1: #bf8b29;
+  --amber-2: #8c6520;
+  --green-1: #567244;
+  --green-2: #314929;
+  --red-1: #b65e43;
+  --red-2: #7f3924;
+  --orange-1: #cc7f1f;
+  --orange-2: #8d5311;
+  --amber-soft: #f7ecd5;
+  --red-soft: #f7e3dc;
+  --olive-soft: #edf1e7;
+  --shadow-card: 0 24px 60px rgba(73, 50, 22, 0.16);
+  --shadow-soft: 0 10px 24px rgba(73, 50, 22, 0.08);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  min-height: 100vh;
+  font-family: "IBM Plex Sans Arabic", sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(circle at top right, rgba(120, 91, 38, 0.10), transparent 30%),
+    radial-gradient(circle at bottom left, rgba(89, 122, 78, 0.08), transparent 34%),
+    linear-gradient(180deg, #f2ebdf 0%, var(--bg) 100%);
+  padding: 40px 20px 80px;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(95, 67, 34, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(95, 67, 34, 0.03) 1px, transparent 1px);
+  background-size: 24px 24px;
+  mask-image: linear-gradient(180deg, rgba(0,0,0,0.3), transparent 80%);
+}
+
+.page-header {
+  max-width: 1120px;
+  margin: 0 auto 30px;
+  display: grid;
+  gap: 12px;
+}
+
+.eyebrow {
+  width: fit-content;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(255, 253, 248, 0.72);
+  border: 1px solid rgba(111, 84, 48, 0.12);
+  color: var(--text-soft);
+  font-size: 12px;
+}
+
+.page-title {
+  font-family: "Tajawal", sans-serif;
+  font-size: clamp(34px, 4vw, 52px);
+  font-weight: 800;
+  line-height: 1.06;
+}
+
+.page-subtitle {
+  max-width: 760px;
+  color: var(--text-soft);
+  font-size: 15px;
+  line-height: 1.9;
+}
+
+.review-flow {
+  max-width: 1120px;
+  margin: 0 auto;
+  display: grid;
+  gap: 34px;
+}
+
+.review-group {
+  display: grid;
+  gap: 16px;
+}
+
+.group-head {
+  display: grid;
+  gap: 4px;
+}
+
+.group-kicker {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+  direction: ltr;
+}
+
+.group-title {
+  font-family: "Tajawal", sans-serif;
+  font-size: 26px;
+  font-weight: 800;
+}
+
+.group-copy {
+  color: var(--text-soft);
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.group-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 26px 24px;
+}
+
+.scene {
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+}
+
+.scene-label {
+  font-size: 12px;
+  color: var(--text-soft);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  direction: ltr;
+}
+
+.popup {
+  width: 340px;
+  min-height: 560px;
+  background: var(--card);
+  border: 1px solid rgba(89, 60, 26, 0.08);
+  border-radius: 22px;
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 10px;
+  background: rgba(255, 252, 246, 0.72);
+  border-bottom: 1px solid rgba(89, 60, 26, 0.06);
+}
+
+.topbar-title {
+  font-size: 12px;
+  color: var(--text-soft);
+}
+
+.icon-row { display: flex; gap: 6px; }
+
+.icon-btn {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 10px;
+  background: rgba(74, 55, 29, 0.06);
+  color: var(--text);
+  font-size: 15px;
+}
+
+.state-header {
+  padding: 22px 20px 18px;
+  color: #fffdf9;
+  position: relative;
+  overflow: hidden;
+}
+
+.state-header::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(45deg, rgba(255,255,255,0.05) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.05) 50%, rgba(255,255,255,0.05) 75%, transparent 75%, transparent);
+  background-size: 28px 28px;
+  opacity: 0.45;
+}
+
+.state-header > * { position: relative; z-index: 1; }
+.state-header.amber { background: linear-gradient(145deg, var(--amber-1), var(--amber-2)); }
+.state-header.green { background: linear-gradient(145deg, var(--green-1), var(--green-2)); }
+.state-header.red { background: linear-gradient(145deg, var(--red-1), var(--red-2)); }
+.state-header.orange { background: linear-gradient(145deg, var(--orange-1), var(--orange-2)); }
+
+.header-kicker {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.16);
+  font-size: 11px;
+  margin-bottom: 12px;
+}
+
+.header-title {
+  font-family: "Tajawal", sans-serif;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.15;
+  margin-bottom: 6px;
+}
+
+.header-subtitle {
+  font-size: 12px;
+  line-height: 1.8;
+  opacity: 0.92;
+}
+
+.body {
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.banner {
+  border-radius: 14px;
+  padding: 11px 12px;
+  font-size: 12px;
+  line-height: 1.8;
+  border: 1px solid transparent;
+}
+
+.banner.error {
+  background: var(--red-soft);
+  border-color: rgba(146, 69, 43, 0.18);
+  color: #6d301f;
+}
+
+.banner.warn {
+  background: var(--amber-soft);
+  border-color: rgba(143, 103, 20, 0.16);
+  color: #704d09;
+}
+
+.banner.soft {
+  background: rgba(74, 55, 29, 0.05);
+  border-color: rgba(74, 55, 29, 0.08);
+  color: var(--text-soft);
+}
+
+.field { display: grid; gap: 6px; }
+.field label { font-size: 12px; color: var(--text-soft); }
+
+.input, .select {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card-strong);
+  color: var(--text);
+  padding: 0 14px;
+  font: inherit;
+}
+
+.button {
+  min-height: 48px;
+  border: 0;
+  border-radius: 14px;
+  padding: 0 16px;
+  font: 700 14px "IBM Plex Sans Arabic", sans-serif;
+}
+
+.button.primary {
+  color: #fffdf9;
+  background: linear-gradient(145deg, #493017, #2f2012);
+}
+
+.button.secondary {
+  color: var(--text);
+  background: rgba(74, 55, 29, 0.07);
+}
+
+.button-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.action-stack { display: grid; gap: 10px; }
+
+.summary-strip {
+  background: linear-gradient(145deg, rgba(86, 114, 68, 0.10), rgba(49, 73, 41, 0.06));
+  border: 1px solid rgba(67, 93, 53, 0.14);
+  border-radius: 16px;
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.summary-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.summary-title { font-size: 13px; font-weight: 700; }
+.summary-meta { font-size: 11px; color: var(--text-soft); }
+
+.pill {
+  width: fit-content;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.pill.green {
+  background: rgba(86, 114, 68, 0.12);
+  color: #36512b;
+}
+
+.tabs { display: flex; gap: 8px; overflow: hidden; }
+
+.tab {
+  min-height: 38px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(89, 60, 26, 0.08);
+  background: rgba(255,255,255,0.66);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.tab.active {
+  background: linear-gradient(145deg, rgba(86, 114, 68, 0.18), rgba(49, 73, 41, 0.10));
+  color: #2f4727;
+}
+
+.tab-count {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: rgba(74, 55, 29, 0.08);
+  display: inline-grid;
+  place-items: center;
+  font-size: 10px;
+}
+
+.record {
+  background: rgba(255,255,255,0.72);
+  border: 1px solid rgba(89, 60, 26, 0.08);
+  border-radius: 16px;
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+  position: relative;
+  box-shadow: var(--shadow-soft);
+}
+
+.record::before {
+  content: "";
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  right: 0;
+  width: 4px;
+  border-radius: 999px;
+  background: #7f9d6c;
+}
+
+.record.review::before { background: #cb8a25; }
+.record.failed::before { background: #af593f; }
+.record.processing::before { background: #9f7741; }
+
+.record.rich {
+  grid-template-columns: 52px 1fr;
+  gap: 10px 12px;
+}
+
+.passport-thumb {
+  width: 52px;
+  height: 64px;
+  border-radius: 12px;
+  background:
+    linear-gradient(145deg, rgba(92, 122, 76, 0.16), rgba(74, 55, 29, 0.06)),
+    repeating-linear-gradient(180deg, rgba(255,255,255,0.36), rgba(255,255,255,0.36) 6px, transparent 6px, transparent 12px);
+  border: 1px solid rgba(89, 60, 26, 0.10);
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  color: var(--text-soft);
+}
+
+.record-main { display: grid; gap: 10px; }
+.record.rich .record-actions { grid-column: 1 / -1; }
+
+.record-top {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.record-name { font-size: 14px; font-weight: 700; line-height: 1.5; }
+.record-meta { font-size: 11px; color: var(--text-soft); }
+.record-note { font-size: 11px; color: var(--text-soft); }
+
+.status-chip {
+  padding: 5px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.status-chip.green {
+  background: rgba(86, 114, 68, 0.12);
+  color: #35502a;
+}
+
+.status-chip.amber {
+  background: rgba(191, 139, 41, 0.15);
+  color: #7c5612;
+}
+
+.status-chip.red {
+  background: rgba(182, 94, 67, 0.14);
+  color: #833721;
+}
+
+.mini-actions { display: flex; gap: 8px; }
+
+.mini-btn {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 0;
+  font: 600 12px "IBM Plex Sans Arabic", sans-serif;
+}
+
+.mini-btn.primary { background: #392513; color: #fffdf9; }
+.mini-btn.ghost { background: rgba(74, 55, 29, 0.07); color: var(--text); }
+
+.processing-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  color: var(--text-soft);
+}
+
+.spinner {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid rgba(89, 60, 26, 0.16);
+  border-top-color: #624221;
+  animation: spin 1s linear infinite;
+}
+
+.route-list { display: grid; gap: 10px; }
+
+.route-card {
+  border-radius: 18px;
+  padding: 14px;
+  background: rgba(255,255,255,0.64);
+  border: 1px solid rgba(89, 60, 26, 0.08);
+  display: grid;
+  gap: 10px;
+}
+
+.route-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.route-title {
+  font-family: "Tajawal", sans-serif;
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.page-tag {
+  width: fit-content;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(74, 55, 29, 0.07);
+  font-size: 10px;
+  color: var(--text-soft);
+  font-weight: 700;
+}
+
+.route-row {
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  gap: 10px;
+  align-items: start;
+}
+
+.route-label {
+  font-size: 11px;
+  color: var(--text-soft);
+  font-weight: 700;
+}
+
+.route-value {
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+.footer-note {
+  max-width: 1120px;
+  margin: 28px auto 0;
+  color: var(--text-soft);
+  font-size: 13px;
+  line-height: 1.9;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 760px) {
+  body { padding-inline: 14px; }
+  .group-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+  <header class="page-header">
+    <div class="eyebrow">Reviewer Cut • Final Popup UX</div>
+    <h1 class="page-title">نسخة مراجعة نهائية: أقل مشاهد، ومسار أوضح</h1>
+    <p class="page-subtitle">
+      هذه نسخة مختصرة للمراجعة. تحذف معظم المشاهد الاستكشافية، وتبقي فقط الحالات التي يجب اعتمادها فعليًا:
+      كيف يبدأ المستخدم، متى يخرج إلى صفحة خارجية، كيف يعمل التبويب الرئيسي، وماذا يحدث بعد الرفع.
+    </p>
+  </header>
+
+  <main class="review-flow">
+    <section class="review-group">
+      <div class="group-head">
+        <div class="group-kicker">Row 01</div>
+        <div class="group-title">بداية الاستخدام</div>
+        <div class="group-copy">الصف الأول يجمع كل ما يحدث قبل الوصول إلى مساحة العمل: ربط الحساب، فتح صفحة الدخول الخارجية عند الحاجة، ثم فتح صفحة العمل والعودة لاختيار المجموعة.</div>
+      </div>
+      <div class="group-grid">
+    <section class="scene">
+      <div class="scene-label">01 · Link Account</div>
+      <article class="popup">
+        <div class="topbar">
+          <div class="topbar-title">تسجيل المعتمرين</div>
+          <div class="icon-row"><button class="icon-btn">&#9881;</button></div>
+        </div>
+        <div class="state-header amber">
+          <div class="header-kicker">بداية المسار</div>
+          <div class="header-title">اربط الحساب أولًا</div>
+          <div class="header-subtitle">هذه الصفحة تظهر عند أول استخدام، وتظهر أيضًا إذا انتهت جلسة الربط. لا يوجد هنا إلا إجراء واحد واضح.</div>
+        </div>
+        <div class="body">
+          <form class="action-stack">
+            <input class="sr-only" type="text" autocomplete="username" value="linked-account" />
+            <div class="field">
+              <label>رمز الربط</label>
+              <input class="input" type="password" autocomplete="new-password" placeholder="الصق الرمز هنا" />
+            </div>
+            <button class="button primary" type="button">حفظ ومتابعة</button>
+          </form>
+          <div class="banner soft">زر "حفظ ومتابعة" لا يفتح صفحة خارجية. يبقي المستخدم داخل الإضافة وينقله إلى خطوة التقاط الجلسة.</div>
+        </div>
+      </article>
+    </section>
+
+    <section class="scene">
+      <div class="scene-label">02 · External Login</div>
+      <article class="popup">
+        <div class="topbar">
+          <div class="topbar-title">تسجيل المعتمرين</div>
+          <div class="icon-row"><button class="icon-btn">&#9881;</button></div>
+        </div>
+        <div class="state-header orange">
+          <div class="header-kicker">صفحة مستقلة</div>
+          <div class="header-title">جلسة الدخول غير متاحة</div>
+          <div class="header-subtitle">هذه ليست إعادة ربط. الربط ما زال موجودًا. المطلوب هنا فقط فتح صفحة الدخول الخارجية ثم العودة.</div>
+        </div>
+        <div class="body">
+          <div class="banner.warn">المستخدم يجب أن يعرف بوضوح أن هذا الزر يفتح صفحة خارجية، وليس شاشة داخل الإضافة.</div>
+          <button class="button primary">افتح صفحة الدخول</button>
+          <button class="button secondary">تحديث بعد تسجيل الدخول</button>
+        </div>
+      </article>
+    </section>
+
+    <section class="scene">
+      <div class="scene-label">03 · Capture / Group</div>
+      <article class="popup">
+        <div class="topbar">
+          <div class="topbar-title">تسجيل المعتمرين</div>
+          <div class="icon-row"><button class="icon-btn">&#9881;</button></div>
+        </div>
+        <div class="state-header amber">
+          <div class="header-kicker">الانتقال إلى العمل</div>
+          <div class="header-title">افتح صفحة العمل ثم اختر المجموعة</div>
+          <div class="header-subtitle">بعد ربط الحساب، يفتح المستخدم صفحة العمل الخارجية لالتقاط الجلسة، ثم يعود لإكمال اختيار المجموعة داخل الإضافة.</div>
+        </div>
+        <div class="body">
+          <button class="button primary">افتح صفحة العمل</button>
+          <div class="banner soft">هذا الزر يفتح الصفحة الخارجية. بعد الرجوع تظهر بيانات الجلسة ويُستكمل الاختيار داخل الإضافة.</div>
+          <div class="field">
+            <label>المجموعة</label>
+            <select class="select">
+              <option>1542 · مجموعة المدينة</option>
+              <option>1543 · مجموعة مكة</option>
+            </select>
+          </div>
+          <button class="button secondary">تأكيد المجموعة</button>
+        </div>
+      </article>
+    </section>
+      </div>
+    </section>
+
+    <section class="review-group">
+      <div class="group-head">
+        <div class="group-kicker">Row 02</div>
+        <div class="group-title">مساحة العمل اليومية</div>
+        <div class="group-copy">الصف الثاني يوضح كيف تبدو الواجهة بعد الدخول: تبويبات علوية واضحة، قاعدة رفع داخل "قائمة الرفع"، وقاعدة فتح التفاصيل داخل "تم الرفع".</div>
+      </div>
+      <div class="group-grid">
+    <section class="scene">
+      <div class="scene-label">04 · Main Workspace</div>
+      <article class="popup">
+        <div class="topbar">
+          <div class="topbar-title">تسجيل المعتمرين</div>
+          <div class="icon-row">
+            <button class="icon-btn">&#8635;</button>
+            <button class="icon-btn">&#9881;</button>
+          </div>
+        </div>
+        <div class="state-header green">
+          <div class="header-kicker">المساحة الأساسية</div>
+          <div class="header-title">تبويبات عليا بدل أقسام كثيرة</div>
+          <div class="header-subtitle">هذه هي الواجهة اليومية. تبويب واحد ظاهر في كل لحظة، مع قاعدة واضحة لكل تبويب.</div>
+        </div>
+        <div class="body">
+          <div class="banner warn">تم تغيير العقد. سيُطبّق التبديل بعد اكتمال الرفع الحالي.</div>
+          <div class="tabs">
+            <div class="tab active">قائمة الرفع <span class="tab-count">3</span></div>
+            <div class="tab">تم الرفع <span class="tab-count">8</span></div>
+            <div class="tab">فشل <span class="tab-count">2</span></div>
+            <div class="tab">قيد المعالجة <span class="tab-count">1</span></div>
+          </div>
+          <div class="summary-strip">
+            <div class="summary-head">
+              <div>
+                <div class="summary-title">القسم الحالي: قائمة الرفع</div>
+                <div class="summary-meta">داخل هذا التبويب، الإجراء الأساسي دائمًا هو الرفع</div>
+              </div>
+              <div class="pill green">العقد نشط</div>
+            </div>
+          </div>
+          <div class="record rich review">
+            <div class="passport-thumb">صورة</div>
+            <div class="record-main">
+              <div class="record-top">
+                <div>
+                  <div class="record-name">عبد العزيز فهد السبيعي</div>
+                  <div class="record-meta">#Q22099031 · يحتاج مراجعة لكنه يبقى قابلًا للرفع</div>
+                </div>
+                <div class="status-chip amber">يحتاج مراجعة</div>
+              </div>
+            </div>
+            <div class="record-actions">
+              <div class="record-note">المستخدم لا يخمن: داخل قائمة الرفع = زر "رفع".</div>
+              <div class="mini-actions">
+                <button class="mini-btn ghost">تخطي</button>
+                <button class="mini-btn primary">رفع</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="scene">
+      <div class="scene-label">05 · Submitted Cards</div>
+      <article class="popup">
+        <div class="topbar">
+          <div class="topbar-title">تسجيل المعتمرين</div>
+          <div class="icon-row">
+            <button class="icon-btn">&#8635;</button>
+            <button class="icon-btn">&#9881;</button>
+          </div>
+        </div>
+        <div class="state-header green">
+          <div class="header-kicker">بعد الرفع</div>
+          <div class="header-title">الضغط على البطاقة يفتح التفاصيل</div>
+          <div class="header-subtitle">هذه القاعدة يجب أن تكون صريحة: بعد نجاح الرفع، لا يوجد زر رفع داخل "تم الرفع". الضغط على البطاقة نفسها يفتح صفحة تفاصيل المعتمر.</div>
+        </div>
+        <div class="body">
+          <div class="tabs">
+            <div class="tab">قائمة الرفع <span class="tab-count">0</span></div>
+            <div class="tab active">تم الرفع <span class="tab-count">8</span></div>
+            <div class="tab">فشل <span class="tab-count">2</span></div>
+            <div class="tab">قيد المعالجة <span class="tab-count">1</span></div>
+          </div>
+          <div class="record rich">
+            <div class="passport-thumb">M100</div>
+            <div class="record-main">
+              <div class="record-top">
+                <div>
+                  <div class="record-name">أحمد ناصر العمودي</div>
+                  <div class="record-meta">#A90910222 · اضغط البطاقة لفتح التفاصيل</div>
+                </div>
+                <div class="status-chip green">تم الرفع</div>
+              </div>
+              <div class="record-note">هذه البطاقة تفتح صفحة تفاصيل المعتمر في النظام الخارجي.</div>
+            </div>
+          </div>
+          <div class="record rich review">
+            <div class="passport-thumb">M200</div>
+            <div class="record-main">
+              <div class="record-top">
+                <div>
+                  <div class="record-name">طارق عبد الرحمن</div>
+                  <div class="record-meta">#M22190432 · تم الرفع لكن يحتاج مراجعة</div>
+                </div>
+                <div class="status-chip amber">تم الرفع - يحتاج مراجعة</div>
+              </div>
+              <div class="record-note">حتى هنا القاعدة نفسها: الضغط على البطاقة يفتح صفحة التفاصيل.</div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+      </div>
+    </section>
+
+    <section class="review-group">
+      <div class="group-head">
+        <div class="group-kicker">Row 03</div>
+        <div class="group-title">الحظر والقواعد النهائية</div>
+        <div class="group-copy">الصف الأخير يجمع الحالة الحاجزة الوحيدة تقريبًا مع خريطة السلوك الكاملة، حتى يراجع القارئ القرار النهائي من دون الرجوع إلى لوحات أخرى.</div>
+      </div>
+      <div class="group-grid">
+    <section class="scene">
+      <div class="scene-label">06 · Hard Block</div>
+      <article class="popup">
+        <div class="topbar">
+          <div class="topbar-title">تسجيل المعتمرين</div>
+          <div class="icon-row">
+            <button class="icon-btn">&#8635;</button>
+            <button class="icon-btn">&#9881;</button>
+          </div>
+        </div>
+        <div class="state-header red">
+          <div class="header-kicker">حالة حظر</div>
+          <div class="header-title">العقد منتهٍ</div>
+          <div class="header-subtitle">هذه هي الحالة الوحيدة تقريبًا التي تستحق سطحًا صريحًا يمنع الرفع بدل مجرد بانر تحذيري.</div>
+        </div>
+        <div class="body">
+          <div class="banner error">لا يمكن متابعة الرفع الآن حتى يتم تحديث حالة العقد.</div>
+          <div class="record failed">
+            <div class="record-top">
+              <div>
+                <div class="record-name">محمد عبد الله العمري</div>
+                <div class="record-meta">#P20485921 · البطاقة تبقى مرئية كسياق فقط</div>
+              </div>
+              <div class="status-chip red">موقوف</div>
+            </div>
+          </div>
+          <div class="button-row">
+            <button class="button secondary">تحديث الحالة</button>
+            <button class="button secondary">تغيير المجموعة</button>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="scene">
+      <div class="scene-label">07 · Workflow Map</div>
+      <article class="popup">
+        <div class="topbar">
+          <div class="topbar-title">تسجيل المعتمرين</div>
+          <div class="icon-row"><button class="icon-btn">&#9881;</button></div>
+        </div>
+        <div class="state-header amber">
+          <div class="header-kicker">للمراجعة النهائية</div>
+          <div class="header-title">كل صفحة، وكل زر، وإلى أين يذهب</div>
+          <div class="header-subtitle">هذه الخريطة تختصر القرار كله حتى لا يضطر أي مراجع أو مستخدم إلى تفسير السلوك بنفسه.</div>
+        </div>
+        <div class="body">
+          <div class="route-list">
+            <div class="route-card">
+              <div class="route-head">
+                <div class="route-title">ربط الحساب</div>
+                <div class="page-tag">داخل الإضافة</div>
+              </div>
+              <div class="route-row">
+                <div class="route-label">زر رئيسي</div>
+                <div class="route-value"><strong>حفظ ومتابعة</strong> → ينقلك داخل الإضافة إلى خطوة التقاط الجلسة.</div>
+              </div>
+            </div>
+
+            <div class="route-card">
+              <div class="route-head">
+                <div class="route-title">التقاط الجلسة / الدخول الخارجي</div>
+                <div class="page-tag">يفتح صفحة خارجية</div>
+              </div>
+              <div class="route-row">
+                <div class="route-label">زر الصفحة</div>
+                <div class="route-value"><strong>افتح صفحة العمل</strong> أو <strong>افتح صفحة الدخول</strong> → يفتح الصفحة الخارجية المناسبة في المتصفح.</div>
+              </div>
+              <div class="route-row">
+                <div class="route-label">بعد الرجوع</div>
+                <div class="route-value"><strong>تحديث بعد تسجيل الدخول</strong> → يعيد الفحص من داخل الإضافة.</div>
+              </div>
+            </div>
+
+            <div class="route-card">
+              <div class="route-head">
+                <div class="route-title">مساحة العمل</div>
+                <div class="page-tag">داخل الإضافة</div>
+              </div>
+              <div class="route-row">
+                <div class="route-label">قائمة الرفع</div>
+                <div class="route-value"><strong>رفع</strong> أو <strong>رفع الكل</strong> → يبدأ الرفع من داخل الإضافة.</div>
+              </div>
+              <div class="route-row">
+                <div class="route-label">تم الرفع</div>
+                <div class="route-value"><strong>الضغط على البطاقة نفسها</strong> → يفتح صفحة تفاصيل المعتمر في النظام الخارجي.</div>
+              </div>
+              <div class="route-row">
+                <div class="route-label">فشل</div>
+                <div class="route-value"><strong>إعادة المحاولة</strong> → يعيد الرفع من داخل الإضافة.</div>
+              </div>
+              <div class="route-row">
+                <div class="route-label">قيد المعالجة</div>
+                <div class="route-value">لا يوجد إجراء. المستخدم ينتظر فقط.</div>
+              </div>
+            </div>
+
+            <div class="route-card">
+              <div class="route-head">
+                <div class="route-title">قاعدة ما بعد الرفع</div>
+                <div class="page-tag">قاعدة ثابتة</div>
+              </div>
+              <div class="route-row">
+                <div class="route-label">بعد النجاح</div>
+                <div class="route-value">إذا أصبح الجواز في <strong>تم الرفع</strong>، فيمكن للمستخدم الضغط على البطاقة لفتح <strong>صفحة تفاصيل المعتمر</strong>.</div>
+              </div>
+              <div class="route-row">
+                <div class="route-label">إذا لا توجد تفاصيل</div>
+                <div class="route-value">تظهر عبارة <strong>تفاصيل غير متوفرة</strong> بدل فتح صفحة خاطئة.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+      </div>
+    </section>
+  </main>
+
+  <p class="footer-note">
+    هذه هي النسخة المناسبة للمراجعة النهائية: سبع لوحات فقط، وقاعدة واضحة لكل شاشة وكل زر.
+  </p>
+</body>
+</html>

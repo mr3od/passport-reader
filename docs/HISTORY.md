@@ -173,3 +173,10 @@ Agent-maintained log of significant changes. Each entry records what was done an
 - v1 workflow: 94.9% accuracy
 - v2 extraction: 98.1% accuracy (+3.2pp)
 - Model: `google/gemini-3.1-flash-lite-preview`
+
+## 2026-03-31 — final popup proposal consolidation [codex]
+
+- Added the canonical final popup design proposal in `docs/FINAL-DESIGN-PROPOSAL.md`
+- Added the canonical final popup mock in `docs/final-design-proposal.html`
+- Archived exploratory and duplicate popup proposal artifacts under `docs/archive/design-exploration/`
+- Updated the final written proposal and final HTML mock to state which design artifacts are canonical versus archived

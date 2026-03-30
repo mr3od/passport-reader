@@ -1,0 +1,2314 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Final Proposal — Warm Operational Editorial</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Tajawal:wght@500;700;800&display=swap');
+
+:root {
+  --bg: #ebe3d4;
+  --bg-mesh-a: rgba(120, 91, 38, 0.10);
+  --bg-mesh-b: rgba(89, 122, 78, 0.08);
+  --card: #fbf7f0;
+  --card-strong: #fffdf8;
+  --line: #dccfbc;
+  --text: #32281d;
+  --text-soft: #766857;
+  --amber-1: #bf8b29;
+  --amber-2: #8c6520;
+  --green-1: #567244;
+  --green-2: #314929;
+  --red-1: #b65e43;
+  --red-2: #7f3924;
+  --orange-1: #cc7f1f;
+  --orange-2: #8d5311;
+  --olive-soft: #edf1e7;
+  --amber-soft: #f7ecd5;
+  --red-soft: #f7e3dc;
+  --shadow-card: 0 24px 60px rgba(73, 50, 22, 0.16);
+  --shadow-soft: 0 10px 24px rgba(73, 50, 22, 0.08);
+  --radius-xl: 22px;
+  --radius-lg: 16px;
+  --radius-md: 12px;
+  --radius-sm: 10px;
+  --space-1: 6px;
+  --space-2: 10px;
+  --space-3: 14px;
+  --space-4: 18px;
+  --space-5: 24px;
+  --space-6: 30px;
+  --trans-fast: 160ms ease;
+  --trans-mid: 260ms ease;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  min-height: 100vh;
+  font-family: "IBM Plex Sans Arabic", sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(circle at top right, var(--bg-mesh-a), transparent 30%),
+    radial-gradient(circle at bottom left, var(--bg-mesh-b), transparent 34%),
+    linear-gradient(180deg, #f2ebdf 0%, var(--bg) 100%);
+  padding: 42px 20px 80px;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(95, 67, 34, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(95, 67, 34, 0.035) 1px, transparent 1px);
+  background-size: 24px 24px;
+  mask-image: linear-gradient(180deg, rgba(0,0,0,0.36), transparent 80%);
+}
+
+.page-header {
+  max-width: 1120px;
+  margin: 0 auto 34px;
+  display: grid;
+  gap: 12px;
+}
+
+.eyebrow {
+  width: fit-content;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(255, 253, 248, 0.72);
+  border: 1px solid rgba(111, 84, 48, 0.12);
+  color: var(--text-soft);
+  font-size: 12px;
+}
+
+.page-title {
+  font-family: "Tajawal", sans-serif;
+  font-size: clamp(34px, 4vw, 52px);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+.page-subtitle {
+  max-width: 760px;
+  color: var(--text-soft);
+  font-size: 15px;
+  line-height: 1.9;
+}
+
+.proposal-flow {
+  max-width: 1120px;
+  margin: 0 auto;
+  display: grid;
+  gap: 34px;
+}
+
+.proposal-group {
+  display: grid;
+  gap: 16px;
+}
+
+.group-head {
+  display: grid;
+  gap: 4px;
+}
+
+.group-kicker {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+  direction: ltr;
+}
+
+.group-title {
+  font-family: "Tajawal", sans-serif;
+  font-size: 26px;
+  font-weight: 800;
+}
+
+.group-copy {
+  color: var(--text-soft);
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.group-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 26px 24px;
+}
+
+.scene {
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+}
+
+.scene-label {
+  font-size: 12px;
+  color: var(--text-soft);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  direction: ltr;
+}
+
+.popup {
+  width: 340px;
+  min-height: 560px;
+  background: var(--card);
+  border: 1px solid rgba(89, 60, 26, 0.08);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+  position: relative;
+}
+
+.popup::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 120px;
+  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.12));
+  pointer-events: none;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 10px;
+  background: rgba(255, 252, 246, 0.72);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(89, 60, 26, 0.06);
+}
+
+.topbar-title {
+  font-size: 12px;
+  color: var(--text-soft);
+}
+
+.icon-row {
+  display: flex;
+  gap: 6px;
+}
+
+.icon-btn {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 10px;
+  background: rgba(74, 55, 29, 0.06);
+  color: var(--text);
+  font-size: 15px;
+}
+
+.state-header {
+  padding: 22px 20px 18px;
+  color: #fffdf9;
+  position: relative;
+  overflow: hidden;
+}
+
+.state-header::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(45deg, rgba(255,255,255,0.05) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.05) 50%, rgba(255,255,255,0.05) 75%, transparent 75%, transparent);
+  background-size: 28px 28px;
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.state-header > * {
+  position: relative;
+  z-index: 1;
+}
+
+.state-header.amber { background: linear-gradient(145deg, var(--amber-1), var(--amber-2)); }
+.state-header.green { background: linear-gradient(145deg, var(--green-1), var(--green-2)); }
+.state-header.red { background: linear-gradient(145deg, var(--red-1), var(--red-2)); }
+.state-header.orange { background: linear-gradient(145deg, var(--orange-1), var(--orange-2)); }
+
+.header-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.16);
+  backdrop-filter: blur(4px);
+  font-size: 11px;
+  margin-bottom: 12px;
+}
+
+.header-title {
+  font-family: "Tajawal", sans-serif;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.15;
+  margin-bottom: 6px;
+}
+
+.header-subtitle {
+  font-size: 12px;
+  line-height: 1.8;
+  opacity: 0.92;
+}
+
+.body {
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+  position: relative;
+}
+
+.body::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at top left, rgba(152, 127, 91, 0.05), transparent 34%),
+    linear-gradient(180deg, rgba(255,255,255,0.5), transparent 70%);
+  pointer-events: none;
+}
+
+.body > * {
+  position: relative;
+  z-index: 1;
+}
+
+.banner {
+  border-radius: 14px;
+  padding: 11px 12px;
+  font-size: 12px;
+  line-height: 1.8;
+  border: 1px solid transparent;
+}
+
+.banner.error {
+  background: var(--red-soft);
+  border-color: rgba(146, 69, 43, 0.18);
+  color: #6d301f;
+}
+
+.banner.warn {
+  background: var(--amber-soft);
+  border-color: rgba(143, 103, 20, 0.16);
+  color: #704d09;
+}
+
+.banner.soft {
+  background: rgba(74, 55, 29, 0.05);
+  border-color: rgba(74, 55, 29, 0.08);
+  color: var(--text-soft);
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.field label {
+  font-size: 12px;
+  color: var(--text-soft);
+}
+
+.input,
+.select {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card-strong);
+  color: var(--text);
+  padding: 0 14px;
+  font: inherit;
+  outline: none;
+  transition: border-color var(--trans-fast), transform var(--trans-fast), box-shadow var(--trans-fast);
+}
+
+.input:focus,
+.select:focus {
+  border-color: rgba(191, 139, 41, 0.72);
+  box-shadow: 0 0 0 4px rgba(191, 139, 41, 0.12);
+}
+
+.button {
+  min-height: 48px;
+  border: 0;
+  border-radius: 14px;
+  padding: 0 16px;
+  font: 700 14px "IBM Plex Sans Arabic", sans-serif;
+  transition: transform var(--trans-fast), box-shadow var(--trans-fast), opacity var(--trans-fast);
+  cursor: pointer;
+}
+
+.button.primary {
+  color: #fffdf9;
+  background: linear-gradient(145deg, #493017, #2f2012);
+  box-shadow: 0 12px 22px rgba(46, 31, 14, 0.18);
+}
+
+.button.primary:hover {
+  transform: translateY(-1px);
+}
+
+.button.secondary {
+  color: var(--text);
+  background: rgba(74, 55, 29, 0.07);
+}
+
+.button-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+}
+
+.summary-strip {
+  background: linear-gradient(145deg, rgba(86, 114, 68, 0.10), rgba(49, 73, 41, 0.06));
+  border: 1px solid rgba(67, 93, 53, 0.14);
+  border-radius: 16px;
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.summary-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.summary-title {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.summary-meta {
+  font-size: 11px;
+  color: var(--text-soft);
+}
+
+.pill {
+  width: fit-content;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.pill.green {
+  background: rgba(86, 114, 68, 0.12);
+  color: #36512b;
+}
+
+.pill.orange {
+  background: rgba(204, 127, 31, 0.14);
+  color: #7d4d14;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.summary-cell {
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.56);
+  border: 1px solid rgba(89, 60, 26, 0.06);
+}
+
+.summary-cell .key {
+  font-size: 10px;
+  color: var(--text-soft);
+  margin-bottom: 4px;
+}
+
+.summary-cell .value {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.queue {
+  display: grid;
+  gap: 10px;
+}
+
+.queue-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.queue-title {
+  font-family: "Tajawal", sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.queue-sub {
+  font-size: 11px;
+  color: var(--text-soft);
+}
+
+.record {
+  background: rgba(255,255,255,0.7);
+  border: 1px solid rgba(89, 60, 26, 0.08);
+  border-radius: 16px;
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+  position: relative;
+  box-shadow: var(--shadow-soft);
+}
+
+.record::before {
+  content: "";
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  right: 0;
+  width: 4px;
+  border-radius: 999px;
+  background: #7f9d6c;
+}
+
+.record.review::before { background: #cb8a25; }
+.record.failed::before { background: #af593f; }
+
+.record-top {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.record-name {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.record-meta {
+  font-size: 11px;
+  color: var(--text-soft);
+}
+
+.status-chip {
+  padding: 5px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.status-chip.green {
+  background: rgba(86, 114, 68, 0.12);
+  color: #35502a;
+}
+
+.status-chip.amber {
+  background: rgba(191, 139, 41, 0.15);
+  color: #7c5612;
+}
+
+.status-chip.red {
+  background: rgba(182, 94, 67, 0.14);
+  color: #833721;
+}
+
+.record-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.record-note {
+  font-size: 11px;
+  color: var(--text-soft);
+}
+
+.mini-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.mini-btn {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 0;
+  font: 600 12px "IBM Plex Sans Arabic", sans-serif;
+}
+
+.mini-btn.primary {
+  background: #392513;
+  color: #fffdf9;
+}
+
+.mini-btn.ghost {
+  background: rgba(74, 55, 29, 0.07);
+  color: var(--text);
+}
+
+.helper-text {
+  font-size: 11px;
+  color: var(--text-soft);
+  line-height: 1.8;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.action-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.choice-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.choice-card {
+  border: 1px solid rgba(89, 60, 26, 0.09);
+  background: rgba(255,255,255,0.68);
+  border-radius: 16px;
+  padding: 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.choice-card strong {
+  font-size: 13px;
+}
+
+.choice-card span {
+  font-size: 11px;
+  color: var(--text-soft);
+  line-height: 1.8;
+}
+
+.skeleton-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.skeleton-card {
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(89, 60, 26, 0.07);
+  background: rgba(255,255,255,0.62);
+  display: grid;
+  gap: 8px;
+}
+
+.skeleton-line {
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(197, 180, 156, 0.30), rgba(255,255,255,0.75), rgba(197, 180, 156, 0.30));
+  background-size: 180% 100%;
+  animation: shimmer 2.6s linear infinite;
+}
+
+.skeleton-line.wide { width: 88%; }
+.skeleton-line.med { width: 62%; }
+.skeleton-line.short { width: 38%; }
+
+.empty-state {
+  border: 1px dashed rgba(89, 60, 26, 0.18);
+  border-radius: 18px;
+  padding: 24px 16px;
+  background: rgba(255,255,255,0.48);
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.empty-mark {
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(86, 114, 68, 0.14), rgba(49, 73, 41, 0.08));
+  display: grid;
+  place-items: center;
+  font-size: 24px;
+}
+
+.empty-title {
+  font-family: "Tajawal", sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.blocked-panel {
+  border: 1px solid rgba(146, 69, 43, 0.20);
+  background: rgba(247, 227, 220, 0.78);
+  border-radius: 18px;
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.blocked-title {
+  font-family: "Tajawal", sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: #6d301f;
+}
+
+.processing-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  color: var(--text-soft);
+}
+
+.spinner {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid rgba(89, 60, 26, 0.16);
+  border-top-color: #624221;
+  animation: spin 1s linear infinite;
+}
+
+.record.processing {
+  background: rgba(255,255,255,0.52);
+}
+
+.record.processing::before {
+  background: #9f7741;
+}
+
+.record.success::before {
+  background: #557845;
+}
+
+.record.success {
+  background: rgba(237, 241, 231, 0.88);
+}
+
+.overlay-demo {
+  position: relative;
+}
+
+.overlay-demo .body {
+  padding-bottom: 100px;
+}
+
+.modal-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(41, 28, 13, 0.28);
+  display: grid;
+  place-items: end center;
+  padding: 18px;
+}
+
+.modal-card {
+  width: 100%;
+  background: var(--card-strong);
+  border-radius: 20px;
+  border: 1px solid rgba(89, 60, 26, 0.09);
+  box-shadow: 0 22px 48px rgba(47, 31, 14, 0.22);
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.modal-title {
+  font-family: "Tajawal", sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.modal-text {
+  font-size: 12px;
+  color: var(--text-soft);
+  line-height: 1.8;
+}
+
+.modal-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.toast {
+  position: absolute;
+  right: 16px;
+  left: 16px;
+  bottom: 16px;
+  min-height: 48px;
+  border-radius: 16px;
+  background: linear-gradient(145deg, #344a2d, #263722);
+  color: #fffdf9;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 14px;
+  box-shadow: 0 18px 32px rgba(38, 55, 34, 0.30);
+}
+
+.toast small {
+  opacity: 0.78;
+  font-size: 11px;
+}
+
+.micro-list {
+  display: grid;
+  gap: 8px;
+}
+
+.micro-row {
+  min-height: 42px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.62);
+  border: 1px solid rgba(89, 60, 26, 0.07);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  gap: 10px;
+}
+
+.micro-row strong {
+  font-size: 12px;
+}
+
+.micro-row span {
+  font-size: 11px;
+  color: var(--text-soft);
+}
+
+.stack-sections {
+  display: grid;
+  gap: 14px;
+}
+
+.section-block {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.54);
+  border: 1px solid rgba(89, 60, 26, 0.08);
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.section-title {
+  font-family: "Tajawal", sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.section-caption {
+  font-size: 11px;
+  color: var(--text-soft);
+}
+
+.record.rich {
+  grid-template-columns: 52px 1fr;
+  gap: 10px 12px;
+}
+
+.record.rich::before {
+  top: 10px;
+  bottom: 10px;
+}
+
+.passport-thumb {
+  width: 52px;
+  height: 64px;
+  border-radius: 12px;
+  background:
+    linear-gradient(145deg, rgba(92, 122, 76, 0.16), rgba(74, 55, 29, 0.06)),
+    repeating-linear-gradient(180deg, rgba(255,255,255,0.36), rgba(255,255,255,0.36) 6px, transparent 6px, transparent 12px);
+  border: 1px solid rgba(89, 60, 26, 0.10);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.45);
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  color: var(--text-soft);
+}
+
+.record-main {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.record.rich .record-actions {
+  grid-column: 1 / -1;
+}
+
+.detail-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #35502a;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.detail-link.muted {
+  color: var(--text-soft);
+}
+
+.support-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  font-size: 12px;
+  color: var(--text);
+  text-decoration: none;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(74, 55, 29, 0.07);
+}
+
+.contract-box {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(255,255,255,0.62);
+  border: 1px solid rgba(89, 60, 26, 0.08);
+}
+
+.contract-box.hidden-mode {
+  opacity: 0.56;
+}
+
+.badge-demo {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.badge-card {
+  border-radius: 16px;
+  padding: 12px;
+  background: rgba(255,255,255,0.62);
+  border: 1px solid rgba(89, 60, 26, 0.08);
+  display: grid;
+  gap: 8px;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.tab {
+  min-height: 38px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(89, 60, 26, 0.08);
+  background: rgba(255,255,255,0.66);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.tab.active {
+  background: linear-gradient(145deg, rgba(86, 114, 68, 0.18), rgba(49, 73, 41, 0.10));
+  color: #2f4727;
+  border-color: rgba(67, 93, 53, 0.18);
+}
+
+.tab-count {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: rgba(74, 55, 29, 0.08);
+  display: inline-grid;
+  place-items: center;
+  font-size: 10px;
+}
+
+.route-list {
+  display: grid;
+  gap: 10px;
+}
+
+.route-card {
+  border-radius: 18px;
+  padding: 14px;
+  background: rgba(255,255,255,0.64);
+  border: 1px solid rgba(89, 60, 26, 0.08);
+  display: grid;
+  gap: 10px;
+}
+
+.route-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.route-title {
+  font-family: "Tajawal", sans-serif;
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.route-body {
+  display: grid;
+  gap: 8px;
+}
+
+.route-row {
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  gap: 10px;
+  align-items: start;
+}
+
+.route-label {
+  font-size: 11px;
+  color: var(--text-soft);
+  font-weight: 700;
+}
+
+.route-value {
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+.page-tag {
+  width: fit-content;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(74, 55, 29, 0.07);
+  font-size: 10px;
+  color: var(--text-soft);
+  font-weight: 700;
+}
+
+.click-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(67, 93, 53, 0.16);
+  background: linear-gradient(145deg, rgba(86, 114, 68, 0.12), rgba(255,255,255,0.72));
+}
+
+.click-hint {
+  font-size: 11px;
+  color: #35502a;
+  font-weight: 700;
+}
+
+.mini-browser-badge {
+  width: 30px;
+  height: 24px;
+  border-radius: 8px;
+  background: #e4d8c6;
+  position: relative;
+}
+
+.mini-browser-badge::after {
+  content: attr(data-badge);
+  position: absolute;
+  top: -5px;
+  left: -5px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #af593f;
+  color: white;
+  font-size: 10px;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes shimmer {
+  to { background-position: -180% 0; }
+}
+
+.footer-note {
+  max-width: 1120px;
+  margin: 28px auto 0;
+  color: var(--text-soft);
+  font-size: 13px;
+  line-height: 1.9;
+}
+
+.archive-note {
+  max-width: 1120px;
+  margin: 16px auto 0;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(255, 253, 248, 0.7);
+  border: 1px solid rgba(111, 84, 48, 0.12);
+  color: var(--text-soft);
+  font-size: 13px;
+  line-height: 1.9;
+}
+
+.archive-note strong {
+  color: var(--text);
+}
+
+@media (max-width: 760px) {
+  body {
+    padding-inline: 14px;
+  }
+
+  .group-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
+</head>
+<body>
+  <header class="page-header">
+    <div class="eyebrow">Final Popup Mock • Warm Operational Editorial</div>
+    <h1 class="page-title">واجهة واحدة واضحة، وحالات منفصلة بدون التباس</h1>
+    <p class="page-subtitle">
+      هذا mock بصري يحوّل المقترح النهائي إلى واجهة ملموسة: ربط الحساب داخل نفس المسار،
+      جلسة الدخول الخارجية في حالة مستقلة، وشاشة عمل رئيسية أكثر كثافة ووضوحًا.
+    </p>
+  </header>
+
+  <main class="proposal-flow">
+    <section class="proposal-group">
+      <div class="group-head">
+        <div class="group-kicker">Row 01</div>
+        <h2 class="group-title">مسار البدء والربط</h2>
+        <p class="group-copy">هذه المجموعة تعرض أول ما يراه المستخدم: ربط الحساب، إعادة الربط عند الحاجة، حالة الدخول الخارجية، ثم اختيار المجموعة قبل الوصول إلى الواجهة اليومية.</p>
+      </div>
+      <div class="group-grid">
+    <section class="scene">
+      <div class="scene-label">01 · Setup</div>
+      <article class="popup">
+        <div class="topbar">
+          <div class="topbar-title">تسجيل المعتمرين</div>
+          <div class="icon-row"><button class="icon-btn">&#9881;</button></div>
+        </div>
+        <div class="state-header amber">
+          <div class="header-kicker">الخطوة الأولى • ربط الحساب</div>
+          <div class="header-title">أضف رمز الربط للبدء</div>
+          <div class="header-subtitle">الواجهة تبدأ بإجراء واحد فقط: الصق الرمز، ثم انتقل مباشرة إلى بقية الخطوات.</div>
+        </div>
+        <div class="body">
+          <form class="action-stack">
+            <input class="sr-only" type="text" autocomplete="username" value="linked-account" />
+            <div class="field">
+              <label>رمز الربط</label>
+              <input class="input" type="password" autocomplete="new-password" placeholder="الصق الرمز هنا" />
+            </div>
+            <button class="button primary" type="button">حفظ ومتابعة</button>
+          </form>
+          <div class="banner soft">بعد الحفظ ستنتقل الواجهة تلقائيًا إلى التقاط الجلسة واختيار المجموعة.</div>
+        </div>
+      </article>
+    </section>
+
+    <section class="scene">
+      <div class="scene-label">02 · Relink Required</div>
+      <article class="popup">
+        <div class="topbar">
+          <div class="topbar-title">تسجيل المعتمرين</div>
+          <div class="icon-row"><button class="icon-btn">&#9881;</button></div>
+        </div>
+        <div class="state-header red">
+          <div class="header-kicker">يلزم ربط جديد</div>
+          <div class="header-title">انتهت جلسة الربط</div>
+          <div class="header-subtitle">هذه ليست مشكلة تسجيل دخول. الربط نفسه لم يعد صالحًا ويحتاج رمزًا جديدًا.</div>
+        </div>
+        <div class="body">
+          <div class="banner error">الصق رمزًا جديدًا للمتابعة. سيتم الحفاظ على الخطوات الأخرى عند الإمكان.</div>
+          <form class="action-stack">
+            <input class="sr-only" type="text" autocomplete="username" value="relink-account" />
+            <div class="field">
+              <label>رمز جديد</label>
+              <input class="input" type="password" autocomplete="new-password" placeholder="الصق رمزًا جديدًا" />
+            </div>
+            <button class="button primary" type="button">إعادة ربط الحساب</button>
+          </form>
+        </div>
+      </article>
+    </section>
+
+    <section class="scene">
+      <div class="scene-label">03 · Login Required</div>
+      <article class="popup">
+        <div class="topbar">
+          <div class="topbar-title">تسجيل المعتمرين</div>
+          <div class="icon-row"><button class="icon-btn">&#9881;</button></div>
+        </div>
+        <div class="state-header orange">
+          <div class="header-kicker">خطوة خارجية</div>
+          <div class="header-title">جلسة الدخول غير متاحة</div>
+          <div class="header-subtitle">الربط ما زال موجودًا. المطلوب هنا فقط فتح صفحة الدخول ثم العودة.</div>
+        </div>
+        <div class="body">
+          <div class="banner warn">بعد تسجيل الدخول ستعود الواجهة لإكمال العمل من نفس المكان.</div>
+          <button class="button primary">افتح صفحة الدخول</button>
+          <button class="button secondary">تحديث بعد تسجيل الدخول</button>
+        </div>
+      </article>
+    </section>
+
+    <section class="scene">
+      <div class="scene-label">04 · Group Selection</div>
+      <article class="popup">
+        <div class="topbar">
+          <div class="topbar-title">تسجيل المعتمرين</div>
+          <div class="icon-row"><button class="icon-btn">&#9881;</button></div>
+        </div>
+        <div class="state-header amber">
+          <div class="header-kicker">الخطوة الأخيرة</div>
+          <div class="header-title">اختر المجموعة</div>
+          <div class="header-subtitle">هذه الشاشة تبقى قصيرة جدًا: تعليمات واضحة، اختيار واحد، ثم انتقال مباشر إلى القائمة.</div>
+        </div>
+        <div class="body">
+          <div class="banner soft">إذا لم تظهر المجموعات بعد، افتح القائمة في الصفحة الخارجية ثم ارجع هنا.</div>
+          <div class="field">
+            <label>المجموعة</label>
+            <select class="select">
+              <option>1542 · مجموعة المدينة</option>
+              <option>1543 · مجموعة مكة</option>
+              <option>1544 · مجموعة جدة</option>
+            </select>
+          </div>
+          <button class="button primary">تأكيد المجموعة</button>
+        </div>
+      </article>
+    </section>
+      </div>
+    </section>
+
+    <section class="proposal-group">
+      <div class="group-head">
+        <div class="group-kicker">Row 02</div>
+        <h2 class="group-title">بداية التشغيل داخل الإضافة</h2>
+        <p class="group-copy">بعد اكتمال الإعداد، يمر المستخدم بمساحة العمل الأولى: القائمة الأساسية، التقاط الجلسة، التحميل، ثم حالة الفراغ عندما لا توجد جوازات جاهزة للرفع.</p>
+      </div>
+      <div class="group-grid">
+    <section class="scene">
+      <div class="scene-label">05 · Main Queue</div>
+      <article class="popup">
+        <div class="topbar">
+          <div class="topbar-title">تسجيل المعتمرين</div>
+          <div class="icon-row">
+            <button class="icon-btn">&#8635;</button>
+            <button class="icon-btn">&#9881;</button>
+          </div>
+        </div>
+        <div class="state-header green">
+          <div class="header-kicker">جاهز للعمل</div>
+          <div class="header-title">القائمة الرئيسية</div>
+          <div class="header-subtitle">الهيدر يعطي الحالة بسرعة، بينما تبقى بقية المساحة للقائمة العملية الكثيفة.</div>
+        </div>
+        <div class="body">
+          <div class="summary-strip">
+            <div class="summary-head">
+              <div>
+                <div class="summary-title">مكتب النخبة</div>
+                <div class="summary-meta">آخر تحديث منذ 3 دقائق</div>
+              </div>
+              <div class="pill green">العقد نشط</div>
+            </div>
+            <div class="summary-grid">
+              <div class="summary-cell">
+                <div class="key">المجموعة</div>
+                <div class="value">1542 · المدينة</div>
+              </div>
+              <div class="summary-cell">
+                <div class="key">العدد المعلّق</div>
+                <div class="value">3 جوازات</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="queue">
+            <div class="queue-head">
+              <div>
+                <div class="queue-title">جوازات معلقة</div>
+                <div class="queue-sub">صفوف مضغوطة وسريعة للمراجعة والرفع</div>
+              </div>
+              <button class="button secondary">تغيير المجموعة</button>
+            </div>
+
+            <div class="record">
+              <div class="record-top">
+                <div>
+                  <div class="record-name">محمد عبد الله العمري</div>
+                  <div class="record-meta">#P20485921 · SA · جاهز للرفع</div>
+                </div>
+                <div class="status-chip green">جاهز</div>
+              </div>
+              <div class="record-actions">
+                <div class="record-note">لن يحتاج تدخل إضافي قبل الرفع</div>
+                <div class="mini-actions">
+                  <button class="mini-btn ghost">تخطي</button>
+                  <button class="mini-btn primary">رفع</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="record review">
+              <div class="record-top">
+                <div>
+                  <div class="record-name">أحمد حسن المدني</div>
+                  <div class="record-meta">#R88472011 · EG · يحتاج مراجعة</div>
+                </div>
+                <div class="status-chip amber">مراجعة</div>
+              </div>
+              <div class="record-actions">
+                <div class="record-note">يوجد اختلاف يحتاج تأكيدًا قبل الرفع</div>
+                <div class="mini-actions">
+                  <button class="mini-btn ghost">تخطي</button>
+                  <button class="mini-btn primary">رفع</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="record failed">
+              <div class="record-top">
+                <div>
+                  <div class="record-name">علي يحيى السلمي</div>
+                  <div class="record-meta">#M77219440 · YE · تعذر الرفع</div>
+                </div>
+                <div class="status-chip red">تعذر</div>
+              </div>
+              <div class="record-actions">
+                <div class="record-note">فشل تحديث الحالة. يلزم إعادة المحاولة.</div>
+                <div class="mini-actions">
+                  <button class="mini-btn ghost">تخطي</button>
+                  <button class="mini-btn primary">إعادة</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="scene">
+      <div class="scene-label">06 · Activation Capture</div>
+      <article class="popup">
+        <div class="topbar">
+          <div class="topbar-title">تسجيل المعتمرين</div>
+          <div class="icon-row"><button class="icon-btn">&#9881;</button></div>
+        </div>
+        <div class="state-header amber">
+          <div class="header-kicker">التقاط الجلسة</div>
+          <div class="header-title">افتح صفحة العمل في هذا المتصفح</div>
+          <div class="header-subtitle">بعد ربط الحساب، تحتاج الإضافة إلى قراءة الجلسة والسياق الحاليين قبل متابعة العمل.</div>
+        </div>
+        <div class="body">
+          <div class="banner soft">عند فتح الصفحة ستلتقط الإضافة بيانات الحساب والعقد تلقائيًا ثم تنقلك إلى الخطوة التالية.</div>
+          <div class="choice-grid">
+            <div class="choice-card">
+              <strong>المطلوب الآن</strong>
+              <span>افتح صفحة العمل، ثم ارجع مباشرة إلى الإضافة.</span>
+            </div>
+            <div class="choice-card">
+              <strong>إذا لم يكتمل الالتقاط</strong>
+              <span>حدّث الصفحة مرة واحدة ثم ارجع هنا من جديد.</span>
+            </div>
+          </div>
+          <div class="action-stack">
+            <button class="button primary">افتح صفحة العمل</button>
+            <button class="button secondary">تحقق من الجلسة</button>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="scene">
+      <div class="scene-label">07 · Loading + Sync</div>
+      <article class="popup">
+        <div class="topbar">
+          <div class="topbar-title">تسجيل المعتمرين</div>
+          <div class="icon-row">
+            <button class="icon-btn">&#8635;</button>
+            <button class="icon-btn">&#9881;</button>
+          </div>
+        </div>
+        <div class="state-header amber">
+          <div class="header-kicker">جارٍ التحديث</div>
+          <div class="header-title">جارٍ مزامنة الجلسة والقائمة</div>
+          <div class="header-subtitle">الحالة الانتقالية يجب أن تبقى واضحة وهادئة بدل شاشة فارغة أو قفزة مفاجئة.</div>
+        </div>
+        <div class="body">
+          <div class="processing-note"><span class="spinner"></span> جارٍ قراءة بيانات الحساب وتحميل الجوازات المعلقة</div>
+          <div class="skeleton-stack">
+            <div class="skeleton-card">
+              <div class="skeleton-line wide"></div>
+              <div class="skeleton-line med"></div>
+              <div class="skeleton-line short"></div>
+            </div>
+            <div class="skeleton-card">
+              <div class="skeleton-line wide"></div>
+              <div class="skeleton-line med"></div>
+              <div class="skeleton-line short"></div>
+            </div>
+            <div class="skeleton-card">
+              <div class="skeleton-line wide"></div>
+              <div class="skeleton-line med"></div>
+              <div class="skeleton-line short"></div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="scene">
+      <div class="scene-label">08 · Empty Queue</div>
+      <article class="popup">
+        <div class="topbar">
+          <div class="topbar-title">تسجيل المعتمرين</div>
+          <div class="icon-row">
+            <button class="icon-btn">&#8635;</button>
+            <button class="icon-btn">&#9881;</button>
+          </div>
+        </div>
+        <div class="state-header green">
+          <div class="header-kicker">جاهز</div>
+          <div class="header-title">لا توجد عناصر معلقة</div>
+          <div class="header-subtitle">حتى في حالة الفراغ، تبقى الواجهة عملية وتعرض السياق الحالي بوضوح.</div>
+        </div>
+        <div class="body">
+          <div class="summary-strip">
+            <div class="summary-head">
+              <div>
+                <div class="summary-title">مكتب النخبة</div>
+                <div class="summary-meta">آخر تحديث الآن</div>
+              </div>
+              <div class="pill green">العقد نشط</div>
+            </div>
+            <div class="summary-grid">
+              <div class="summary-cell">
+                <div class="key">المجموعة</div>
+                <div class="value">1542 · المدينة</div>
+              </div>
+              <div class="summary-cell">
+                <div class="key">العدد المعلّق</div>
+                <div class="value">0 جوازات</div>
+              </div>
+            </div>
+          </div>
+          <div class="empty-state">
+            <div class="empty-mark">✓</div>
+            <div class="empty-title">كل شيء مرفوع</div>
+            <div class="helper-text">لا توجد جوازات معلقة الآن. يمكنك تحديث القائمة لاحقًا أو تغيير المجموعة عند الحاجة.</div>
+            <button class="button secondary">تحديث القائمة</button>
+          </div>
+        </div>
+      </article>
+    </section>
+      </div>
+    </section>
+
+    <section class="proposal-group">
+      <div class="group-head">
+        <div class="group-kicker">Row 03</div>
+        <h2 class="group-title">التبديل والأعطال الواضحة</h2>
+        <p class="group-copy">هذا الصف يجمع الحالات التي تحتاج قرارًا أو توقفًا واضحًا: تغيّر السياق، انتهاء العقد، الانتقالات داخل الصفوف، مشاكل تحميل المجموعات، وأي خطأ عام لا يملك مسارًا مخصصًا.</p>
+      </div>
+      <div class="group-grid">
+    <section class="scene">
+      <div class="scene-label">09 · Context Changed</div>
+      <article class="popup">
+        <div class="topbar">
+          <div class="topbar-title">تسجيل المعتمرين</div>
+          <div class="icon-row"><button class="icon-btn">&#9881;</button></div>
+        </div>
+        <div class="state-header orange">
+          <div class="header-kicker">تغيّر السياق</div>
+          <div class="header-title">تم اكتشاف تغيير في الحساب أو العقد</div>
+          <div class="header-subtitle">هذا ليس خطأ. لكنه يحتاج قرارًا واضحًا قبل متابعة العمل على مجموعة قديمة.</div>
+        </div>
+        <div class="body">
+          <div class="choice-grid">
+            <div class="choice-card">
+              <strong>السياق الحالي</strong>
+              <span>الحساب الجديد مختلف عن السياق الذي حُفظت عليه المجموعة السابقة.</span>
+            </div>
+            <div class="choice-card">
+              <strong>ما الذي سيحدث</strong>
+              <span>سيتم مسح اختيار المجموعة فقط ثم إعادة اختيار المجموعة المناسبة للسياق الحالي.</span>
+            </div>
+          </div>
+          <div class="button-row">
+            <button class="button secondary">رجوع</button>
+            <button class="button primary">متابعة وتحديث المجموعة</button>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="scene">
+      <div class="scene-label">10 · Contract Expired Block</div>
+      <article class="popup">
+        <div class="topbar">
+          <div class="topbar-title">تسجيل المعتمرين</div>
+          <div class="icon-row">
+            <button class="icon-btn">&#8635;</button>
+            <button class="icon-btn">&#9881;</button>
+          </div>
+        </div>
+        <div class="state-header red">
+          <div class="header-kicker">إيقاف العمل</div>
+          <div class="header-title">العقد منتهٍ</div>
+          <div class="header-subtitle">هذه حالة حظر واضحة. تبقى القائمة ظاهرة كسياق، لكن إجراءات الرفع نفسها تتوقف.</div>
+        </div>
+        <div class="body">
+          <div class="blocked-panel">
+            <div class="blocked-title">لا يمكن متابعة الرفع الآن</div>
+            <div class="helper-text">لن تُقبل عمليات جديدة حتى يتم تحديث حالة العقد. يمكنك مراجعة البيانات أو تغيير المجموعة فقط.</div>
+            <div class="button-row">
+              <button class="button secondary">تغيير المجموعة</button>
+              <button class="button secondary">تحديث الحالة</button>
+            </div>
+          </div>
+          <div class="micro-list">
+            <div class="micro-row">
+              <div>
+                <strong>محمد عبد الله العمري</strong>
+                <span>#P20485921</span>
+              </div>
+              <div class="status-chip red">موقوف</div>
+            </div>
+            <div class="micro-row">
+              <div>
+                <strong>أحمد حسن المدني</strong>
+                <span>#R88472011</span>
+              </div>
+              <div class="status-chip red">موقوف</div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="scene">
+      <div class="scene-label">11 · Transitional Row States</div>
+      <article class="popup overlay-demo">
+        <div class="topbar">
+          <div class="topbar-title">تسجيل المعتمرين</div>
+          <div class="icon-row">
+            <button class="icon-btn">&#8635;</button>
+            <button class="icon-btn">&#9881;</button>
+          </div>
+        </div>
+        <div class="state-header green">
+          <div class="header-kicker">داخل القائمة</div>
+          <div class="header-title">حالات الصف الانتقالية</div>
+          <div class="header-subtitle">المستخدم يحتاج أن يفهم الفرق بين مراجعة مطلوبة، رفع جارٍ، ونجاح تم للتو.</div>
+        </div>
+        <div class="body">
+          <div class="record review">
+            <div class="record-top">
+              <div>
+                <div class="record-name">أحمد حسن المدني</div>
+                <div class="record-meta">#R88472011 · يحتاج مراجعة قبل الرفع</div>
+              </div>
+              <div class="status-chip amber">مراجعة</div>
+            </div>
+            <div class="record-actions">
+              <div class="record-note">سيظهر تأكيد قصير قبل المتابعة</div>
+              <div class="mini-actions">
+                <button class="mini-btn ghost">تخطي</button>
+                <button class="mini-btn primary">رفع</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="record processing">
+            <div class="record-top">
+              <div>
+                <div class="record-name">محمد عبد الله العمري</div>
+                <div class="record-meta">#P20485921 · جارٍ معالجة الرفع</div>
+              </div>
+              <div class="status-chip amber">جارٍ الرفع</div>
+            </div>
+            <div class="record-actions">
+              <div class="processing-note"><span class="spinner"></span> لا تغلق النافذة أثناء المعالجة</div>
+              <div class="mini-actions">
+                <button class="mini-btn ghost" disabled>تخطي</button>
+                <button class="mini-btn primary" disabled>رفع</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="record success">
+            <div class="record-top">
+              <div>
+                <div class="record-name">علي يحيى السلمي</div>
+                <div class="record-meta">#M77219440 · اكتمل الرفع</div>
+              </div>
+              <div class="status-chip green">تم</div>
+            </div>
+            <div class="record-actions">
+              <div class="record-note">سيختفي هذا الصف بعد لحظات من القائمة</div>
+            </div>
+          </div>
+
+          <div class="modal-scrim">
+            <div class="modal-card">
+              <div class="modal-title">تأكيد المراجعة</div>
+              <div class="modal-text">هذه البيانات تحتاج مراجعة قبل الرفع. هل تريد المتابعة الآن؟</div>
+              <div class="modal-actions">
+                <button class="button secondary">إلغاء</button>
+                <button class="button primary">تأكيد</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="toast">
+            <div>
+              <div>تم رفع الجواز بنجاح</div>
+              <small>سيتم تحديث القائمة تلقائيًا</small>
+            </div>
+            <div>✓</div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="scene">
+      <div class="scene-label">12 · Group Edge Cases</div>
+      <article class="popup">
+        <div class="topbar">
+          <div class="topbar-title">تسجيل المعتمرين</div>
+          <div class="icon-row"><button class="icon-btn">&#9881;</button></div>
+        </div>
+        <div class="state-header amber">
+          <div class="header-kicker">حالة طرفية</div>
+          <div class="header-title">تعذر تحميل المجموعات</div>
+          <div class="header-subtitle">حتى الحالات الطرفية يجب أن تبقى قصيرة وموجهة للإجراء التالي مباشرة.</div>
+        </div>
+        <div class="body">
+          <div class="banner warn">افتح قائمة المجموعات في صفحة العمل ثم أعد التحديث هنا.</div>
+          <div class="micro-list">
+            <div class="micro-row">
+              <div>
+                <strong>لا توجد مجموعات ظاهرة</strong>
+                <span>لم يتم العثور على بيانات يمكن اختيارها الآن</span>
+              </div>
+              <div class="status-chip amber">بانتظار</div>
+            </div>
+            <div class="micro-row">
+              <div>
+                <strong>فشل التحميل الأخير</strong>
+                <span>يمكن المحاولة مرة أخرى بعد تحديث الجلسة</span>
+              </div>
+              <div class="status-chip red">تعذر</div>
+            </div>
+          </div>
+          <div class="action-stack">
+            <button class="button primary">تحديث المجموعات</button>
+            <button class="button secondary">افتح صفحة العمل</button>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="scene">
+      <div class="scene-label">13 · Generic Error Fallback</div>
+      <article class="popup">
+        <div class="topbar">
+          <div class="topbar-title">تسجيل المعتمرين</div>
+          <div class="icon-row"><button class="icon-btn">&#9881;</button></div>
+        </div>
+        <div class="state-header red">
+          <div class="header-kicker">حالة غير متوقعة</div>
+          <div class="header-title">تعذر إكمال العملية</div>
+          <div class="header-subtitle">عند غياب تصنيف أو مسار خاص، تبقى الرسالة مختصرة وتعرض إجراءين واضحين فقط.</div>
+        </div>
+        <div class="body">
+          <div class="banner error">حدث خطأ غير متوقع أثناء تحميل البيانات. حاول مرة أخرى، وإذا استمر الخطأ فأعد فتح الإضافة.</div>
+          <div class="choice-grid">
+            <div class="choice-card">
+              <strong>الإجراء الأول</strong>
+              <span>أعد المحاولة مباشرة من داخل الإضافة.</span>
+            </div>
+            <div class="choice-card">
+              <strong>الإجراء الثاني</strong>
+              <span>إذا بقي الخطأ، أغلق الإضافة وافتحها من جديد ثم أعد التحقق.</span>
+            </div>
+          </div>
+          <div class="button-row">
+            <button class="button secondary">إغلاق</button>
+            <button class="button primary">إعادة المحاولة</button>
+          </div>
+        </div>
+      </article>
+    </section>
+      </div>
+    </section>
+
+    <section class="proposal-group">
+      <div class="group-head">
+        <div class="group-kicker">Row 04</div>
+        <h2 class="group-title">هيكل العمل والتفاصيل بعد الرفع</h2>
+        <p class="group-copy">هنا يظهر شكل مساحة العمل الكاملة، وما يحدث بعد الإرسال، وكيف تُعرض الإشارات الخارجية والتبديل المعلّق بدون أن يضطر المستخدم لتخمين الخطوة التالية.</p>
+      </div>
+      <div class="group-grid">
+    <section class="scene">
+      <div class="scene-label">14 · Four-Section Working Layout</div>
+      <article class="popup">
+        <div class="topbar">
+          <div class="topbar-title">تسجيل المعتمرين</div>
+          <div class="icon-row">
+            <button class="icon-btn">&#8635;</button>
+            <button class="icon-btn">&#9881;</button>
+          </div>
+        </div>
+        <div class="state-header green">
+          <div class="header-kicker">البنية النهائية</div>
+          <div class="header-title">أقسام العمل الأربعة</div>
+          <div class="header-subtitle">هذا هو الجزء الذي كان ناقصًا من mock سابق: ليست قائمة واحدة فقط، بل أربعة أقسام واضحة داخل نفس الواجهة.</div>
+        </div>
+        <div class="body">
+          <div class="contract-box hidden-mode">
+            <div class="section-caption">اختيار العقد يظهر فقط عند الحاجة، وليس بشكل دائم.</div>
+            <select class="select" disabled>
+              <option>اختيار العقد تلقائيًا</option>
+            </select>
+          </div>
+          <div class="stack-sections">
+            <div class="section-block" id="queue-section-mock">
+              <div class="section-header">
+                <div>
+                  <div class="section-title">قائمة الرفع</div>
+                  <div class="section-caption">يشمل الجاهز ويشمل أيضًا ما يحتاج مراجعة قبل الرفع</div>
+                </div>
+                <button class="button secondary">رفع الكل</button>
+              </div>
+              <div class="record rich review">
+                <div class="passport-thumb">صورة</div>
+                <div class="record-main">
+                  <div class="record-top">
+                    <div>
+                      <div class="record-name">سالم محمد القحطاني</div>
+                      <div class="record-meta">#N55021011 · يحتاج مراجعة لكنه ما زال قابلًا للرفع</div>
+                    </div>
+                    <div class="status-chip amber">يحتاج مراجعة</div>
+                  </div>
+                </div>
+                <div class="record-actions">
+                  <div class="record-note">يبقى داخل قائمة الرفع ولا ينتقل إلى قسم مستقل</div>
+                  <div class="mini-actions">
+                    <button class="mini-btn ghost">تخطي</button>
+                    <button class="mini-btn primary">رفع</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="section-block" id="submitted-section-mock">
+              <div class="section-header">
+                <div>
+                  <div class="section-title">تم الرفع</div>
+                  <div class="section-caption">البطاقات هنا تفتح صفحة التفاصيل مباشرة عند توفر المعرف</div>
+                </div>
+              </div>
+              <div class="record rich">
+                <div class="passport-thumb">صورة</div>
+                <div class="record-main">
+                  <div class="record-top">
+                    <div>
+                      <div class="record-name">محمود علي عثمان</div>
+                      <div class="record-meta">#M11044220 · رُفع بنجاح</div>
+                    </div>
+                    <div class="status-chip green">تم الرفع</div>
+                  </div>
+                  <a class="detail-link" href="#">افتح التفاصيل</a>
+                </div>
+              </div>
+              <div class="record rich review">
+                <div class="passport-thumb">صورة</div>
+                <div class="record-main">
+                  <div class="record-top">
+                    <div>
+                      <div class="record-name">طارق عبد الرحمن</div>
+                      <div class="record-meta">#M22190432 · رُفع لكن يحتاج متابعة</div>
+                    </div>
+                    <div class="status-chip amber">تم الرفع - يحتاج مراجعة</div>
+                  </div>
+                  <a class="detail-link" href="#">افتح التفاصيل</a>
+                </div>
+              </div>
+            </div>
+
+            <div class="section-block" id="failed-section-mock">
+              <div class="section-header">
+                <div>
+                  <div class="section-title">فشل</div>
+                  <div class="section-caption">محاولة جديدة بدل ترك البطاقة بلا إجراء</div>
+                </div>
+              </div>
+              <div class="record rich failed">
+                <div class="passport-thumb">صورة</div>
+                <div class="record-main">
+                  <div class="record-top">
+                    <div>
+                      <div class="record-name">سعيد مبارك العتيبي</div>
+                      <div class="record-meta">#F88772014 · تعذر رفع البيانات</div>
+                    </div>
+                    <div class="status-chip red">فشل</div>
+                  </div>
+                </div>
+                <div class="record-actions">
+                  <div class="record-note">سبب مختصر مع زر واحد واضح لإعادة المحاولة</div>
+                  <div class="mini-actions">
+                    <button class="mini-btn primary">إعادة المحاولة</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="section-block" id="pending-section-mock">
+              <div class="section-header">
+                <div>
+                  <div class="section-title">قيد المعالجة</div>
+                  <div class="section-caption">بطاقات انتظار فقط، من دون أزرار</div>
+                </div>
+              </div>
+              <div class="record rich processing">
+                <div class="passport-thumb">صورة</div>
+                <div class="record-main">
+                  <div class="record-top">
+                    <div>
+                      <div class="record-name">محمد ياسين المدني</div>
+                      <div class="record-meta">#P77210914 · ما زال النظام يعالج البيانات</div>
+                    </div>
+                    <div class="status-chip">قيد المعالجة</div>
+                  </div>
+                  <div class="processing-note"><span class="spinner"></span> لا يتطلب أي تدخل الآن</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <a class="support-link" href="#">مساعدة</a>
+        </div>
+      </article>
+    </section>
+
+    <section class="scene">
+      <div class="scene-label">15 · Redirect + Detail Availability</div>
+      <article class="popup">
+        <div class="topbar">
+          <div class="topbar-title">تسجيل المعتمرين</div>
+          <div class="icon-row"><button class="icon-btn">&#9881;</button></div>
+        </div>
+        <div class="state-header green">
+          <div class="header-kicker">تفاصيل بعد الرفع</div>
+          <div class="header-title">فتح التفاصيل أو إظهار عدم التوفر</div>
+          <div class="header-subtitle">البطاقات المرفوعة فقط هي التي يمكن أن تعيد المستخدم إلى صفحة التفاصيل، وإذا غاب المعرف يظهر ذلك بصراحة.</div>
+        </div>
+        <div class="body">
+          <div class="record rich">
+            <div class="passport-thumb">M100</div>
+            <div class="record-main">
+              <div class="record-top">
+                <div>
+                  <div class="record-name">أحمد ناصر العمودي</div>
+                  <div class="record-meta">#A90910222 · تفاصيل متاحة</div>
+                </div>
+                <div class="status-chip green">تم الرفع</div>
+              </div>
+              <a class="detail-link" href="#">افتح التفاصيل على الصفحة</a>
+            </div>
+          </div>
+          <div class="record rich">
+            <div class="passport-thumb">—</div>
+            <div class="record-main">
+              <div class="record-top">
+                <div>
+                  <div class="record-name">عبد الرحمن صالح</div>
+                  <div class="record-meta">#A90910223 · لا يوجد معرف تفاصيل</div>
+                </div>
+                <div class="status-chip amber">تم الرفع - يحتاج مراجعة</div>
+              </div>
+              <div class="detail-link muted">تفاصيل غير متوفرة</div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="scene">
+      <div class="scene-label">16 · Context Banner In-Flow</div>
+      <article class="popup">
+        <div class="topbar">
+          <div class="topbar-title">تسجيل المعتمرين</div>
+          <div class="icon-row">
+            <button class="icon-btn">&#8635;</button>
+            <button class="icon-btn">&#9881;</button>
+          </div>
+        </div>
+        <div class="state-header orange">
+          <div class="header-kicker">تبديل مؤجل</div>
+          <div class="header-title">تغيّر السياق أثناء الرفع</div>
+          <div class="header-subtitle">النسخة السابقة عرضت قرار السياق كصفحة مستقلة فقط. هنا يظهر أيضًا كبانر داخل سير العمل، وهو الأقرب للسلوك الفعلي.</div>
+        </div>
+        <div class="body">
+          <div class="banner warn">تم تغيير الحساب أو العقد. سيتم التبديل بعد اكتمال الرفع الحالي.</div>
+          <div class="button-row">
+            <button class="button secondary">لاحقًا</button>
+            <button class="button primary">نعم، بدّل</button>
+          </div>
+          <div class="record processing">
+            <div class="record-top">
+              <div>
+                <div class="record-name">ماجد عبد الله الزهراني</div>
+                <div class="record-meta">#X22019040 · يوجد رفع جارٍ الآن</div>
+              </div>
+              <div class="status-chip amber">جارٍ الرفع</div>
+            </div>
+            <div class="record-actions">
+              <div class="processing-note"><span class="spinner"></span> بعد اكتمال هذا الصف يمكن تطبيق التغيير المعلّق</div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="scene">
+      <div class="scene-label">17 · Badge + Notification Priority</div>
+      <article class="popup">
+        <div class="topbar">
+          <div class="topbar-title">تسجيل المعتمرين</div>
+          <div class="icon-row"><button class="icon-btn">&#9881;</button></div>
+        </div>
+        <div class="state-header red">
+          <div class="header-kicker">إشارات خارج النافذة</div>
+          <div class="header-title">الشارة والإشعارات</div>
+          <div class="header-subtitle">التخطيط المصقول لا يكتمل من دون تمثيل للإشارات التي تظهر خارج popup نفسه.</div>
+        </div>
+        <div class="body">
+          <div class="badge-demo">
+            <div class="badge-card">
+              <div class="mini-browser-badge" data-badge="!"></div>
+              <strong>أولوية الجلسة</strong>
+              <span>إذا انتهت الجلسة، الشارة تعرض التنبيه الأوضح قبل أي حالات أخرى.</span>
+            </div>
+            <div class="badge-card">
+              <div class="mini-browser-badge" data-badge="3"></div>
+              <strong>عدد الفشل</strong>
+              <span>إذا لا توجد مشكلة جلسة أو تبديل سياق، تعرض الشارة عدد العناصر الفاشلة.</span>
+            </div>
+          </div>
+          <div class="toast">
+            <div>
+              <div>اكتمل رفع الدفعة</div>
+              <small>تم تحديث البطاقات والإشعارات بدون تكرار</small>
+            </div>
+            <div>✓</div>
+          </div>
+          <div class="banner soft">لا يوجد إشعار منفصل لحالة "يحتاج مراجعة" لأنها إشارة داخل البطاقة نفسها، وليست نتيجة جديدة من النظام الخارجي.</div>
+        </div>
+      </article>
+    </section>
+      </div>
+    </section>
+
+    <section class="proposal-group">
+      <div class="group-head">
+        <div class="group-kicker">Row 05</div>
+        <h2 class="group-title">النسخة المبسطة والتبويبات النشطة</h2>
+        <p class="group-copy">الصف الأخير يجمع النسخة الأبسط للمراجعة: مساحة العمل بالتبويبات، خريطة التنقل، ملخص البداية، ثم شكل تبويبي الفشل وقيد المعالجة عندما يكون كل واحد منهما هو الواجهة النشطة.</p>
+      </div>
+      <div class="group-grid">
+    <section class="scene">
+      <div class="scene-label">18 · Simplified Workspace With Tabs</div>
+      <article class="popup">
+        <div class="topbar">
+          <div class="topbar-title">تسجيل المعتمرين</div>
+          <div class="icon-row">
+            <button class="icon-btn">&#8635;</button>
+            <button class="icon-btn">&#9881;</button>
+          </div>
+        </div>
+        <div class="state-header green">
+          <div class="header-kicker">تبسيط الواجهة</div>
+          <div class="header-title">مساحة عمل واحدة مع تبويبات علوية</div>
+          <div class="header-subtitle">بدل إظهار أقسام كثيرة دفعة واحدة، يبقى المستخدم داخل مساحة واحدة. التبويبات هنا مجرد فلاتر واضحة، وليست تنقلًا معقدًا.</div>
+        </div>
+        <div class="body">
+          <div class="banner warn">تم تغيير العقد. سيُطبّق التبديل بعد اكتمال الرفع الحالي.</div>
+          <div class="tabs">
+            <div class="tab active">قائمة الرفع <span class="tab-count">3</span></div>
+            <div class="tab">تم الرفع <span class="tab-count">8</span></div>
+            <div class="tab">فشل <span class="tab-count">2</span></div>
+            <div class="tab">قيد المعالجة <span class="tab-count">1</span></div>
+          </div>
+          <div class="summary-strip">
+            <div class="summary-head">
+              <div>
+                <div class="summary-title">المساحة الحالية: قائمة الرفع</div>
+                <div class="summary-meta">الزر الأساسي هنا دائمًا هو الإجراء التالي الواضح</div>
+              </div>
+              <div class="pill green">العقد نشط</div>
+            </div>
+          </div>
+          <div class="record rich review">
+            <div class="passport-thumb">صورة</div>
+            <div class="record-main">
+              <div class="record-top">
+                <div>
+                  <div class="record-name">عبد العزيز فهد السبيعي</div>
+                  <div class="record-meta">#Q22099031 · داخل قائمة الرفع رغم أنه يحتاج مراجعة</div>
+                </div>
+                <div class="status-chip amber">يحتاج مراجعة</div>
+              </div>
+            </div>
+            <div class="record-actions">
+              <div class="record-note">الإجراء الأساسي: رفع. لا يحتاج المستخدم إلى تخمين القسم الصحيح.</div>
+              <div class="mini-actions">
+                <button class="mini-btn ghost">تخطي</button>
+                <button class="mini-btn primary">رفع</button>
+              </div>
+            </div>
+          </div>
+          <div class="click-card">
+            <div class="click-hint">عندما ينتقل هذا الجواز إلى تبويب "تم الرفع"، يمكن الضغط على البطاقة نفسها لفتح صفحة تفاصيل المعتمر.</div>
+            <div class="helper-text">بهذا الشكل تبقى القاعدة ثابتة: داخل قائمة الرفع = زر رفع. داخل تم الرفع = اضغط البطاقة لفتح التفاصيل.</div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="scene">
+      <div class="scene-label">19 · Workflow Map</div>
+      <article class="popup">
+        <div class="topbar">
+          <div class="topbar-title">تسجيل المعتمرين</div>
+          <div class="icon-row"><button class="icon-btn">&#9881;</button></div>
+        </div>
+        <div class="state-header amber">
+          <div class="header-kicker">مسار واضح</div>
+          <div class="header-title">كل زر يذهب إلى أين؟</div>
+          <div class="header-subtitle">هذه الخريطة مكتوبة عمدًا بشكل مباشر حتى لا يضطر المستخدم إلى التخمين: أي صفحة تظهر أولًا، وأي زر يفتح أي صفحة.</div>
+        </div>
+        <div class="body">
+          <div class="route-list">
+            <div class="route-card">
+              <div class="route-head">
+                <div class="route-title">1. صفحة ربط الحساب</div>
+                <div class="page-tag">داخل الإضافة</div>
+              </div>
+              <div class="route-body">
+                <div class="route-row">
+                  <div class="route-label">تظهر عندما</div>
+                  <div class="route-value">لا يوجد رمز ربط محفوظ أو عندما تنتهي جلسة الربط.</div>
+                </div>
+                <div class="route-row">
+                  <div class="route-label">زر رئيسي</div>
+                  <div class="route-value"><strong>حفظ ومتابعة</strong> → يبقى داخل الإضافة وينقلك إلى خطوة التقاط الجلسة.</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="route-card">
+              <div class="route-head">
+                <div class="route-title">2. صفحة التقاط الجلسة</div>
+                <div class="page-tag">داخل الإضافة</div>
+              </div>
+              <div class="route-body">
+                <div class="route-row">
+                  <div class="route-label">زر يفتح صفحة</div>
+                  <div class="route-value"><strong>افتح صفحة العمل</strong> → يفتح صفحة العمل الخارجية في المتصفح حتى تلتقط الإضافة الجلسة الحالية.</div>
+                </div>
+                <div class="route-row">
+                  <div class="route-label">بعد الرجوع</div>
+                  <div class="route-value">إذا تم الالتقاط بنجاح ينتقل المستخدم إلى اختيار المجموعة أو مباشرة إلى مساحة العمل.</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="route-card">
+              <div class="route-head">
+                <div class="route-title">3. صفحة الدخول الخارجي</div>
+                <div class="page-tag">داخل الإضافة</div>
+              </div>
+              <div class="route-body">
+                <div class="route-row">
+                  <div class="route-label">تظهر عندما</div>
+                  <div class="route-value">جلسة الدخول الخارجية غير متاحة، لكن الربط نفسه ما زال صالحًا.</div>
+                </div>
+                <div class="route-row">
+                  <div class="route-label">زر يفتح صفحة</div>
+                  <div class="route-value"><strong>افتح صفحة الدخول</strong> → يفتح صفحة الدخول الخارجية في المتصفح.</div>
+                </div>
+                <div class="route-row">
+                  <div class="route-label">زر داخل الإضافة</div>
+                  <div class="route-value"><strong>تحديث بعد تسجيل الدخول</strong> → يعيد فحص الجلسة ويأخذك إلى نفس مساحة العمل السابقة.</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="route-card">
+              <div class="route-head">
+                <div class="route-title">4. مساحة العمل الرئيسية</div>
+                <div class="page-tag">داخل الإضافة</div>
+              </div>
+              <div class="route-body">
+                <div class="route-row">
+                  <div class="route-label">تبويب قائمة الرفع</div>
+                  <div class="route-value"><strong>زر رفع</strong> أو <strong>زر رفع الكل</strong> → يبدآن الرفع من داخل الإضافة.</div>
+                </div>
+                <div class="route-row">
+                  <div class="route-label">تبويب تم الرفع</div>
+                  <div class="route-value"><strong>الضغط على البطاقة نفسها</strong> → يفتح صفحة تفاصيل المعتمر في النظام الخارجي.</div>
+                </div>
+                <div class="route-row">
+                  <div class="route-label">تبويب فشل</div>
+                  <div class="route-value"><strong>إعادة المحاولة</strong> → يعيد الرفع من داخل الإضافة.</div>
+                </div>
+                <div class="route-row">
+                  <div class="route-label">أزرار أعلى الصفحة</div>
+                  <div class="route-value"><strong>تحديث</strong> → يعيد تحميل البيانات. <strong>الإعدادات</strong> → يفتح صفحة الإعدادات داخل الإضافة.</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="route-card">
+              <div class="route-head">
+                <div class="route-title">5. بعد نجاح الرفع</div>
+                <div class="page-tag">صفحة خارجية</div>
+              </div>
+              <div class="route-body">
+                <div class="route-row">
+                  <div class="route-label">القاعدة</div>
+                  <div class="route-value">بعد أن يصبح الجواز في <strong>تم الرفع</strong>، يمكن للمستخدم الضغط على البطاقة لفتح <strong>صفحة تفاصيل المعتمر</strong> في النظام الخارجي.</div>
+                </div>
+                <div class="route-row">
+                  <div class="route-label">إذا لا توجد تفاصيل</div>
+                  <div class="route-value">تظهر عبارة <strong>تفاصيل غير متوفرة</strong> بدل فتح أي صفحة خاطئة.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="scene">
+      <div class="scene-label">20 · Home Summary + Contract Select</div>
+      <article class="popup">
+        <div class="topbar">
+          <div class="topbar-title">تسجيل المعتمرين</div>
+          <div class="icon-row">
+            <button class="icon-btn">&#8635;</button>
+            <button class="icon-btn">&#9881;</button>
+          </div>
+        </div>
+        <div class="state-header green">
+          <div class="header-kicker">ملخص البداية</div>
+          <div class="header-title">ملخص الأعداد واختيار العقد</div>
+          <div class="header-subtitle">هذا المشهد يغطي ما كان مفقودًا من البنية: ملخص سريع في الأعلى، ثم اختيار عقد ظاهر فقط عندما توجد أكثر من جهة متاحة.</div>
+        </div>
+        <div class="body">
+          <div class="summary-strip">
+            <div class="summary-head">
+              <div>
+                <div class="summary-title">لوحة الملخص</div>
+                <div class="summary-meta">تُظهر ما الذي ينتظر المستخدم قبل الدخول في التفاصيل</div>
+              </div>
+              <div class="pill green">جاهز</div>
+            </div>
+            <div class="summary-grid">
+              <div class="summary-cell">
+                <div class="key">قيد المعالجة</div>
+                <div class="value">4</div>
+              </div>
+              <div class="summary-cell">
+                <div class="key">فشل</div>
+                <div class="value">2</div>
+              </div>
+            </div>
+          </div>
+          <div class="contract-box">
+            <div class="section-caption">يوجد أكثر من عقد نشط، لذلك يظهر الاختيار هنا بدل الإخفاء التلقائي.</div>
+            <select class="select">
+              <option>عقد المدينة الرئيسي</option>
+              <option>عقد مكة الموسمي</option>
+            </select>
+          </div>
+          <a class="support-link" href="#">مساعدة</a>
+        </div>
+      </article>
+    </section>
+
+    <section class="scene">
+      <div class="scene-label">21 · Failed Tab Active</div>
+      <article class="popup">
+        <div class="topbar">
+          <div class="topbar-title">تسجيل المعتمرين</div>
+          <div class="icon-row">
+            <button class="icon-btn">&#8635;</button>
+            <button class="icon-btn">&#9881;</button>
+          </div>
+        </div>
+        <div class="state-header red">
+          <div class="header-kicker">تبويب منفصل</div>
+          <div class="header-title">عرض الفشل كوجهة مستقلة</div>
+          <div class="header-subtitle">المشهد السابق عرض بطاقة فشل داخل نظام أكبر، لكن هذا المشهد يوضح كيف يبدو التبويب نفسه عندما يكون هو النشط.</div>
+        </div>
+        <div class="body">
+          <div class="tabs">
+            <div class="tab">قائمة الرفع <span class="tab-count">1</span></div>
+            <div class="tab">تم الرفع <span class="tab-count">8</span></div>
+            <div class="tab active">فشل <span class="tab-count">2</span></div>
+            <div class="tab">قيد المعالجة <span class="tab-count">1</span></div>
+          </div>
+          <div class="record rich failed">
+            <div class="passport-thumb">صورة</div>
+            <div class="record-main">
+              <div class="record-top">
+                <div>
+                  <div class="record-name">سعيد مبارك العتيبي</div>
+                  <div class="record-meta">#F88772014 · تعذر رفع البيانات</div>
+                </div>
+                <div class="status-chip red">فشل</div>
+              </div>
+            </div>
+            <div class="record-actions">
+              <div class="record-note">الإجراء الواضح هنا هو إعادة المحاولة فقط.</div>
+              <div class="mini-actions">
+                <button class="mini-btn primary">إعادة المحاولة</button>
+              </div>
+            </div>
+          </div>
+          <div class="record rich failed">
+            <div class="passport-thumb">صورة</div>
+            <div class="record-main">
+              <div class="record-top">
+                <div>
+                  <div class="record-name">فهد سالم القرني</div>
+                  <div class="record-meta">#F88772015 · فشل تحديث الحالة بعد الرفع</div>
+                </div>
+                <div class="status-chip red">فشل</div>
+              </div>
+            </div>
+            <div class="record-actions">
+              <div class="record-note">تبقى البطاقة قابلة للفهم حتى لو كان سبب الفشل مختلفًا.</div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="scene">
+      <div class="scene-label">22 · Pending Tab Active</div>
+      <article class="popup">
+        <div class="topbar">
+          <div class="topbar-title">تسجيل المعتمرين</div>
+          <div class="icon-row">
+            <button class="icon-btn">&#8635;</button>
+            <button class="icon-btn">&#9881;</button>
+          </div>
+        </div>
+        <div class="state-header amber">
+          <div class="header-kicker">تبويب انتظار</div>
+          <div class="header-title">قيد المعالجة بدون أزرار</div>
+          <div class="header-subtitle">هذا التبويب يجب أن يشرح نفسه: العناصر هنا لا تحتاج إجراء من المستخدم، بل فقط متابعة بصرية هادئة.</div>
+        </div>
+        <div class="body">
+          <div class="tabs">
+            <div class="tab">قائمة الرفع <span class="tab-count">1</span></div>
+            <div class="tab">تم الرفع <span class="tab-count">8</span></div>
+            <div class="tab">فشل <span class="tab-count">2</span></div>
+            <div class="tab active">قيد المعالجة <span class="tab-count">3</span></div>
+          </div>
+          <div class="record rich processing">
+            <div class="passport-thumb">صورة</div>
+            <div class="record-main">
+              <div class="record-top">
+                <div>
+                  <div class="record-name">محمد ياسين المدني</div>
+                  <div class="record-meta">#P77210914 · جارٍ تجهيز البيانات</div>
+                </div>
+                <div class="status-chip">قيد المعالجة</div>
+              </div>
+              <div class="processing-note"><span class="spinner"></span> لا يوجد زر هنا لأن الإجراء ما زال جاريًا في الخلفية</div>
+            </div>
+          </div>
+          <div class="record rich processing">
+            <div class="passport-thumb">صورة</div>
+            <div class="record-main">
+              <div class="record-top">
+                <div>
+                  <div class="record-name">خالد حسن العمري</div>
+                  <div class="record-meta">#P77210915 · تمت إضافته إلى الدور</div>
+                </div>
+                <div class="status-chip">قيد المعالجة</div>
+              </div>
+              <div class="record-note">المستخدم ينتظر فقط حتى ينتقل هذا الصف تلقائيًا إلى تبويب آخر.</div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+      </div>
+    </section>
+  </main>
+
+  <p class="footer-note">
+    هذه النسخة المحدثة تضيف أيضًا المشاهد الناقصة من البنية النهائية: ملخص البداية، اختيار العقد الظاهر، وتبويبات الفشل والانتظار عندما تكون هي الواجهة النشطة.
+  </p>
+
+  <div class="archive-note">
+    <strong>النسخة المعتمدة:</strong>
+    هذا الملف هو mock النهائي المعتمد للتنفيذ.
+    <strong>الملفات المؤرشفة لأنها استكشافات أو نسخ مكررة:</strong>
+    <code>DESIGN-PROPOSAL.md</code> و <code>design-proposal-1.html</code> و <code>design-proposal-2.html</code> و <code>design-proposal-3.html</code> كانت مقترحات استكشافية مبكرة،
+    بينما <code>final-design-review.html</code> كانت نسخة مراجعة مختصرة مكررة للاتجاه النهائي.
+  </div>
+</body>
+</html>
