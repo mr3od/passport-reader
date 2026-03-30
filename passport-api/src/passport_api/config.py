@@ -13,4 +13,3 @@ class ApiSettings(BaseSettings):
     host: str = "127.0.0.1"
     port: int = 8000
     log_level: str = "INFO"
-    dev_token_secret: str | None = None

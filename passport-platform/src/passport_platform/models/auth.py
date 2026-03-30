@@ -19,6 +19,5 @@ class ExtensionSession:
     id: int
     user_id: int
     session_token_hash: str
-    expires_at: datetime
     revoked_at: datetime | None
     created_at: datetime

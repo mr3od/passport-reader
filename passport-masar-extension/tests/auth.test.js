@@ -18,7 +18,6 @@ test("exchangeTempToken posts temp token and returns session token", async () =>
         ok: true,
         json: async () => ({
           session_token: "session-token",
-          expires_at: "2026-03-29T12:00:00Z",
         }),
       };
     },
@@ -30,7 +29,6 @@ test("exchangeTempToken posts temp token and returns session token", async () =>
   assert.equal(request.options.body, JSON.stringify({ token: "temp-token" }));
   assert.deepEqual(result, {
     sessionToken: "session-token",
-    expiresAt: "2026-03-29T12:00:00Z",
   });
 });
 

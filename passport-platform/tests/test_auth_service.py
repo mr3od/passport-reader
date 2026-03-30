@@ -39,10 +39,28 @@ def test_exchange_temp_token_marks_it_used_and_returns_session(tmp_path) -> None
 
     assert session.session_token
     assert session.authenticated.user.id == user.id
-    assert session.expires_at == session.authenticated.session.expires_at
+    assert not hasattr(session, "expires_at")
+    assert not hasattr(session.authenticated.session, "expires_at")
     stored_token = service.auth_tokens.get_temp_token_by_id(issued.record.id)
     assert stored_token is not None
     assert stored_token.used_at is not None
+
+
+def test_exchange_temp_token_revokes_existing_sessions_for_user(tmp_path) -> None:
+    service, user = build_auth_service(tmp_path)
+    first_issued = service.issue_temp_token(user.id)
+    second_issued = service.issue_temp_token(user.id)
+
+    first_session = service.exchange_temp_token(first_issued.token)
+    second_session = service.exchange_temp_token(second_issued.token)
+
+    with pytest.raises(InvalidExtensionSessionError) as exc_info:
+        service.authenticate_session(first_session.session_token)
+    assert "إيقاف" in str(exc_info.value)
+
+    authenticated = service.authenticate_session(second_session.session_token)
+    assert authenticated.user.id == user.id
+    assert authenticated.session.id == second_session.authenticated.session.id
 
 
 def test_exchange_rejects_used_temp_token(tmp_path) -> None:
@@ -82,27 +100,14 @@ def test_authenticate_session_rejects_revoked_session(tmp_path) -> None:
     service, user = build_auth_service(tmp_path)
     issued = service.issue_temp_token(user.id)
     session = service.exchange_temp_token(issued.token)
-    service.revoke_session(session.session_token)
+    service.auth_tokens.revoke_extension_session(
+        session.authenticated.session.id,
+        revoked_at=datetime(2026, 3, 13, 10, 5, tzinfo=UTC),
+    )
 
     with pytest.raises(InvalidExtensionSessionError) as exc_info:
         service.authenticate_session(session.session_token)
     assert "إيقاف" in str(exc_info.value)
-
-
-def test_authenticate_session_rejects_expired_session(tmp_path) -> None:
-    service, user = build_auth_service(tmp_path)
-    issued = service.issue_temp_token(user.id, now=datetime(2026, 3, 13, 10, 0, tzinfo=UTC))
-    session = service.exchange_temp_token(
-        issued.token,
-        now=datetime(2026, 3, 13, 10, 1, tzinfo=UTC),
-    )
-
-    with pytest.raises(InvalidExtensionSessionError) as exc_info:
-        service.authenticate_session(
-            session.session_token,
-            now=datetime(2026, 3, 13, 22, 2, tzinfo=UTC),
-        )
-    assert "انتهت الجلسة" in str(exc_info.value)
 
 
 def test_authenticate_session_rejects_blocked_user(tmp_path) -> None:
@@ -130,6 +135,5 @@ def build_auth_service(tmp_path):
         AuthTokensRepository(db),
         users,
         temp_token_ttl=timedelta(minutes=10),
-        extension_session_ttl=timedelta(hours=12),
     )
     return service, user

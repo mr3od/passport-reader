@@ -234,7 +234,7 @@ async function submitRecord(record, item) {
     }
     const err = res?.error || "Unknown error";
     statusEl.className = "status-msg error";
-    if (err.includes("401") || err.includes("403") || err.includes("session") || err.includes("login")) {
+    if (err.includes("401") || err.includes("session") || err.includes("login")) {
       statusEl.textContent = S.ERR_SESSION;
     } else {
       statusEl.textContent = S.ERR_GENERIC(err);
@@ -343,7 +343,7 @@ async function loadMainQueue() {
   const res = await sendMsg({ type: "FETCH_PENDING" });
 
   if (!res || !res.ok) {
-    if (res?.status === 401 || res?.status === 403) {
+    if (res?.status === 401) {
       showScreen("session-expired");
       return;
     }
@@ -372,7 +372,6 @@ $("btn-save-token").addEventListener("click", async () => {
     });
     await storageSet({
       api_token: issued.sessionToken,
-      api_token_expires_at: issued.expiresAt,
     });
     $("api-token-input").value = "";
     await init();
@@ -441,7 +440,7 @@ $("btn-refresh-context").addEventListener("click", async () => {
 });
 
 $("btn-reset-token").addEventListener("click", async () => {
-  await storageRemove(["api_token", "api_token_expires_at", "masar_group_id"]);
+  await storageRemove(["api_token", "masar_group_id"]);
   showSetupError("");
   showScreen("setup");
 });

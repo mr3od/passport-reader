@@ -11,13 +11,7 @@ from passport_platform import (
 )
 from passport_platform.strings import AUTH_HEADER_INVALID, AUTH_HEADER_MISSING
 
-from passport_api.config import ApiSettings
 from passport_api.services import ApiServices, build_services
-
-
-@lru_cache
-def get_settings() -> ApiSettings:
-    return ApiSettings()
 
 
 @lru_cache

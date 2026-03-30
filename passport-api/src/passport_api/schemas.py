@@ -12,7 +12,6 @@ class ExchangeTokenRequest(BaseModel):
 
 class ExchangeTokenResponse(BaseModel):
     session_token: str
-    expires_at: datetime
 
 
 class MeResponse(BaseModel):

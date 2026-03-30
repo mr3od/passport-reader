@@ -45,7 +45,6 @@
 
     return {
       sessionToken: payload.session_token,
-      expiresAt: payload.expires_at || null,
     };
   }
 

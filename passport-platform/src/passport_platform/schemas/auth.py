@@ -23,5 +23,4 @@ class AuthenticatedSession:
 @dataclass(slots=True)
 class IssuedExtensionSession:
     session_token: str
-    expires_at: datetime
     authenticated: AuthenticatedSession

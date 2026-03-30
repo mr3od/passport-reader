@@ -33,17 +33,14 @@ from passport_platform.services.users import UserService
 class FakeAuthService:
     def exchange_temp_token(self, token: str) -> IssuedExtensionSession:
         assert token == "temp-token"
-        expires_at = datetime(2026, 3, 13, 12, 0, tzinfo=UTC)
         return IssuedExtensionSession(
             session_token="session-token",
-            expires_at=expires_at,
             authenticated=AuthenticatedSession(
                 user=make_fake_user(),
                 session=ExtensionSession(
                     id=1,
                     user_id=1,
                     session_token_hash="session-token-hash",
-                    expires_at=expires_at,
                     revoked_at=None,
                     created_at=datetime(2026, 3, 13, 11, 30, tzinfo=UTC),
                 ),
@@ -58,7 +55,6 @@ class FakeAuthService:
                 id=1,
                 user_id=1,
                 session_token_hash="session-token-hash",
-                expires_at=datetime(2026, 3, 13, 12, 0, tzinfo=UTC),
                 revoked_at=None,
                 created_at=datetime(2026, 3, 13, 11, 30, tzinfo=UTC),
             ),
@@ -122,7 +118,7 @@ def test_exchange_me_and_records_endpoints():
     records = client.get("/records", headers={"Authorization": "Bearer session-token"})
 
     assert exchange.status_code == 200
-    assert exchange.json()["session_token"] == "session-token"
+    assert exchange.json() == {"session_token": "session-token"}
     assert me.status_code == 200
     assert me.json()["external_user_id"] == "12345"
     assert records.status_code == 200
@@ -138,6 +134,15 @@ def test_health_endpoint_and_debug_mode():
     assert app.debug is False
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+def test_dev_token_route_is_not_available():
+    app = create_app()
+    client = TestClient(app)
+
+    response = client.post("/auth/dev-token")
+
+    assert response.status_code == 404
 
 
 def test_end_to_end_exchange_me_and_records(tmp_path: Path, monkeypatch):
@@ -197,6 +202,44 @@ def test_end_to_end_exchange_me_and_records(tmp_path: Path, monkeypatch):
     assert records.status_code == 200
     assert len(records.json()) == 1
     assert records.json()[0]["passport_number"] == "12345678"
+
+
+def test_second_exchange_revokes_first_session_token(tmp_path: Path, monkeypatch):
+    db_path = tmp_path / "platform.sqlite3"
+    monkeypatch.setenv("PASSPORT_PLATFORM_DB_PATH", str(db_path))
+    monkeypatch.setenv("PASSPORT_PLATFORM_ARTIFACTS_DIR", str(tmp_path / "artifacts"))
+
+    services = build_services()
+    db = Database(db_path)
+    users = UserService(UsersRepository(db))
+    user = users.get_or_create_user(
+        EnsureUserCommand(
+            external_provider=ExternalProvider.TELEGRAM,
+            external_user_id="12345",
+            display_name="Agency A",
+        )
+    )
+    first_temp = services.auth.issue_temp_token(user.id)
+    second_temp = services.auth.issue_temp_token(user.id)
+
+    app = create_app()
+    app.dependency_overrides[get_api_services] = lambda: services
+    client = TestClient(app)
+
+    first_exchange = client.post("/auth/exchange", json={"token": first_temp.token})
+    second_exchange = client.post("/auth/exchange", json={"token": second_temp.token})
+
+    assert first_exchange.status_code == 200
+    assert second_exchange.status_code == 200
+
+    first_token = first_exchange.json()["session_token"]
+    second_token = second_exchange.json()["session_token"]
+
+    first_me = client.get("/me", headers={"Authorization": f"Bearer {first_token}"})
+    second_me = client.get("/me", headers={"Authorization": f"Bearer {second_token}"})
+
+    assert first_me.status_code == 401
+    assert second_me.status_code == 200
 
 
 def test_review_gate_before_masar_submit(tmp_path: Path, monkeypatch):

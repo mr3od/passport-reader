@@ -2,6 +2,14 @@
 
 Agent-maintained log of significant changes. Each entry records what was done and who did it.
 
+## 2026-03-30 — revoke extension sessions on re-link [codex]
+
+- Removed `expires_at` from extension-session storage, platform models, API responses, and extension popup state so extension auth is revocation-based instead of time-based
+- Updated `/auth/exchange` to revoke all existing extension sessions for the user before issuing the new session token, making the newest extension login authoritative
+- Removed the unused `/auth/dev-token` endpoint and its related API config/service helpers
+- Updated platform and API tests to prove a second exchange invalidates the first bearer token immediately
+- Updated the extension auth helper and popup flow to persist only `api_token` and to treat backend `401` responses, not generic `403` responses, as relink-required state
+
 ## 2026-03-29 — /extension command and GitHub Releases distribution [codex]
 
 **passport-telegram 0.3.0**

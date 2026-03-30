@@ -124,7 +124,6 @@ class AuthTokensRepository:
         *,
         user_id: int,
         session_token_hash: str,
-        expires_at: datetime,
         conn: sqlite3.Connection | None = None,
     ) -> ExtensionSession:
         created_at = datetime.now(UTC)
@@ -135,16 +134,14 @@ class AuthTokensRepository:
                 INSERT INTO extension_sessions (
                     user_id,
                     session_token_hash,
-                    expires_at,
                     revoked_at,
                     created_at
                 )
-                VALUES (?, ?, ?, NULL, ?)
+                VALUES (?, ?, NULL, ?)
                 """,
                 (
                     user_id,
                     session_token_hash,
-                    expires_at.isoformat(),
                     created_at.isoformat(),
                 ),
             )
@@ -155,7 +152,6 @@ class AuthTokensRepository:
                 id=session_id,
                 user_id=user_id,
                 session_token_hash=session_token_hash,
-                expires_at=expires_at,
                 revoked_at=None,
                 created_at=created_at,
             )
@@ -163,6 +159,24 @@ class AuthTokensRepository:
         if session is None:
             raise RuntimeError("created extension session could not be loaded")
         return session
+
+    def revoke_active_extension_sessions_for_user(
+        self,
+        user_id: int,
+        *,
+        revoked_at: datetime,
+        conn: sqlite3.Connection | None = None,
+    ) -> None:
+        context = nullcontext(conn) if conn is not None else self.db.transaction()
+        with context as active_conn:
+            active_conn.execute(
+                """
+                UPDATE extension_sessions
+                SET revoked_at = ?
+                WHERE user_id = ? AND revoked_at IS NULL
+                """,
+                (revoked_at.isoformat(), user_id),
+            )
 
     def get_extension_session_by_hash(self, session_token_hash: str) -> ExtensionSession | None:
         with self.db.connect() as conn:
@@ -172,7 +186,6 @@ class AuthTokensRepository:
                     id,
                     user_id,
                     session_token_hash,
-                    expires_at,
                     revoked_at,
                     created_at
                 FROM extension_sessions
@@ -190,7 +203,6 @@ class AuthTokensRepository:
                     id,
                     user_id,
                     session_token_hash,
-                    expires_at,
                     revoked_at,
                     created_at
                 FROM extension_sessions
@@ -239,7 +251,6 @@ def _row_to_extension_session(row) -> ExtensionSession | None:
         id=int(row["id"]),
         user_id=int(row["user_id"]),
         session_token_hash=row["session_token_hash"],
-        expires_at=datetime.fromisoformat(row["expires_at"]),
         revoked_at=datetime.fromisoformat(row["revoked_at"]) if row["revoked_at"] else None,
         created_at=datetime.fromisoformat(row["created_at"]),
     )

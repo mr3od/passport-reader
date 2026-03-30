@@ -18,7 +18,6 @@ from passport_platform.schemas.auth import (
 )
 from passport_platform.services.users import UserService
 from passport_platform.strings import (
-    AUTH_SESSION_EXPIRED,
     AUTH_SESSION_INVALID,
     AUTH_SESSION_REVOKED,
     AUTH_TOKEN_EXPIRED,
@@ -34,12 +33,10 @@ class AuthService:
         users: UserService,
         *,
         temp_token_ttl: timedelta = timedelta(minutes=10),
-        extension_session_ttl: timedelta = timedelta(hours=12),
     ) -> None:
         self.auth_tokens = auth_tokens
         self.users = users
         self.temp_token_ttl = temp_token_ttl
-        self.extension_session_ttl = extension_session_ttl
 
     def issue_temp_token(self, user_id: int, *, now: datetime | None = None) -> IssuedTempToken:
         issued_at = _utc(now)
@@ -76,10 +73,14 @@ class AuthService:
                 raise InvalidTempTokenError(AUTH_TOKEN_EXPIRED)
 
             self.auth_tokens.mark_temp_token_used(token.id, used_at=current_time, conn=conn)
+            self.auth_tokens.revoke_active_extension_sessions_for_user(
+                token.user_id,
+                revoked_at=current_time,
+                conn=conn,
+            )
             session = self.auth_tokens.create_extension_session(
                 user_id=token.user_id,
                 session_token_hash=session_token_hash,
-                expires_at=current_time + self.extension_session_ttl,
                 conn=conn,
             )
 
@@ -91,7 +92,6 @@ class AuthService:
         authenticated = AuthenticatedSession(user=user, session=session)
         return IssuedExtensionSession(
             session_token=session_token,
-            expires_at=session.expires_at,
             authenticated=authenticated,
         )
 
@@ -101,56 +101,18 @@ class AuthService:
         *,
         now: datetime | None = None,
     ) -> AuthenticatedSession:
-        current_time = _utc(now)
+        del now
         session = self.auth_tokens.get_extension_session_by_hash(_hash_token(raw_session_token))
         if session is None:
             raise InvalidExtensionSessionError(AUTH_SESSION_INVALID)
         if session.revoked_at is not None:
             raise InvalidExtensionSessionError(AUTH_SESSION_REVOKED)
-        if session.expires_at <= current_time:
-            raise InvalidExtensionSessionError(AUTH_SESSION_EXPIRED)
         user = self.users.get_by_id(session.user_id)
         if user is None:
             raise RuntimeError(f"user {session.user_id} not found for extension session")
         if user.status is UserStatus.BLOCKED:
             raise UserBlockedError(user)
         return AuthenticatedSession(user=user, session=session)
-
-    def issue_dev_session(
-        self, user_id: int, *, now: datetime | None = None
-    ) -> IssuedExtensionSession:
-        current_time = _utc(now)
-        session_token = secrets.token_urlsafe(32)
-        session_token_hash = _hash_token(session_token)
-        session = self.auth_tokens.create_extension_session(
-            user_id=user_id,
-            session_token_hash=session_token_hash,
-            expires_at=current_time + self.extension_session_ttl,
-        )
-        user = self.users.get_by_id(session.user_id)
-        if user is None:
-            raise RuntimeError(f"user {session.user_id} not found")
-        return IssuedExtensionSession(
-            session_token=session_token,
-            expires_at=session.expires_at,
-            authenticated=AuthenticatedSession(user=user, session=session),
-        )
-
-    def revoke_session(
-        self,
-        raw_session_token: str,
-        *,
-        now: datetime | None = None,
-    ) -> AuthenticatedSession:
-        current_time = _utc(now)
-        session = self.auth_tokens.get_extension_session_by_hash(_hash_token(raw_session_token))
-        if session is None:
-            raise InvalidExtensionSessionError(AUTH_SESSION_INVALID)
-        updated = self.auth_tokens.revoke_extension_session(session.id, revoked_at=current_time)
-        user = self.users.get_by_id(updated.user_id)
-        if user is None:
-            raise RuntimeError(f"user {updated.user_id} not found for extension session")
-        return AuthenticatedSession(user=user, session=updated)
 
 
 def _hash_token(value: str) -> str:

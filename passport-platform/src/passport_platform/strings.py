@@ -9,14 +9,10 @@ AUTH_TOKEN_EXPIRED = "انتهت صلاحية الرمز"
 # ── Auth: extension session ───────────────────────────────────────────────────
 AUTH_SESSION_INVALID = "يجب تسجيل الدخول من جديد"
 AUTH_SESSION_REVOKED = "تم إيقاف الوصول"
-AUTH_SESSION_EXPIRED = "انتهت الجلسة"
 
 # ── Auth: HTTP headers ────────────────────────────────────────────────────────
 AUTH_HEADER_MISSING = "يجب تسجيل الدخول أولاً"
 AUTH_HEADER_INVALID = "بيانات الدخول غير صحيحة"
-
-# ── Auth: dev endpoint ────────────────────────────────────────────────────────
-AUTH_DEV_SECRET_INVALID = "رمز غير صحيح"
 
 # ── User ──────────────────────────────────────────────────────────────────────
 USER_BLOCKED = "هذا الحساب موقوف"
