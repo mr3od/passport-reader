@@ -47,6 +47,14 @@ function updateBadge(records) {
   }
 }
 
+function taggedError(failureKind, message) {
+  const error = new Error(message);
+  if (failureKind) {
+    error.failureKind = failureKind;
+  }
+  return error;
+}
+
 // ─── Submission serializer ────────────────────────────────────────────────────
 // Only one SUBMIT_RECORD runs at a time. Concurrent calls queue behind the
 // current one — prevents parallel Attachment/Upload 429s from Cloudflare and
@@ -261,7 +269,7 @@ async function fetchGroups() {
     }
   );
   log("fetchGroups — status:", res.status);
-  if (!res.ok) throw new Error(`groups ${res.status}`);
+  if (!res.ok) throw taggedError(res.status === 401 ? "masar-auth" : null, `groups ${res.status}`);
   const json = await res.json();
   log("fetchGroups — raw response:", JSON.stringify(json).slice(0, 500));
   return json;
@@ -295,7 +303,9 @@ async function apiFetch(path, options = {}) {
 async function fetchImageBytes(uploadId) {
   log("fetchImageBytes — upload_id:", uploadId);
   const res = await apiFetch(`/records/${uploadId}/image`);
-  if (!res.ok) throw new Error(S.ERR_IMAGE_FETCH(res.status));
+  if (!res.ok) {
+    throw taggedError(res.status === 401 ? "backend-auth" : null, S.ERR_IMAGE_FETCH(res.status));
+  }
   return res.arrayBuffer();
 }
 
@@ -401,7 +411,10 @@ async function submitToMasar(record) {
   if (!step1Res.ok) {
     const errText = await step1Res.text();
     logError("submitToMasar [1/6] — error body:", errText);
-    throw new Error(S.ERR_SCAN_PASSPORT(step1Res.status));
+    throw taggedError(
+      step1Res.status === 401 ? "masar-auth" : null,
+      S.ERR_SCAN_PASSPORT(step1Res.status),
+    );
   }
   const step1Json = await step1Res.json();
   // Masar returns a non-standard envelope when the scan contract is inactive:
@@ -455,7 +468,12 @@ async function submitToMasar(record) {
     { method: "POST", body: JSON.stringify(step2Body) }
   );
   log("submitToMasar [2/6] — status:", step2Res.status);
-  if (!step2Res.ok) throw new Error(S.ERR_SUBMIT_PASSPORT(step2Res.status));
+  if (!step2Res.ok) {
+    throw taggedError(
+      step2Res.status === 401 ? "masar-auth" : null,
+      S.ERR_SUBMIT_PASSPORT(step2Res.status),
+    );
+  }
   const step2Json = await step2Res.json();
   // Response envelope: { response: { data: { id: "<mutamerId>" } } }
   const mutamerId = step2Json.response.data.id;
@@ -471,7 +489,12 @@ async function submitToMasar(record) {
     { method: "POST", body: "{}" }
   );
   log("submitToMasar [3/6] — status:", step3Res.status);
-  if (!step3Res.ok) throw new Error(S.ERR_FETCH_CONTACT(step3Res.status));
+  if (!step3Res.ok) {
+    throw taggedError(
+      step3Res.status === 401 ? "masar-auth" : null,
+      S.ERR_FETCH_CONTACT(step3Res.status),
+    );
+  }
   const step3Json = await step3Res.json();
   const currentPersonalInfo = step3Json.response.data.personalInfo;
   log("submitToMasar [3/6] — personalPictureId:", currentPersonalInfo?.personalPictureId);
@@ -502,7 +525,10 @@ async function submitToMasar(record) {
   if (!step4Res.ok) {
     const errText = await step4Res.text();
     logError("submitToMasar [4/6] — error body:", errText);
-    throw new Error(S.ERR_UPLOAD_ATTACH(step4Res.status));
+    throw taggedError(
+      step4Res.status === 401 ? "masar-auth" : null,
+      S.ERR_UPLOAD_ATTACH(step4Res.status),
+    );
   }
   const step4Json = await step4Res.json();
   // Response envelope: { response: { data: { attachmentResponse: {...} } } }
@@ -557,7 +583,12 @@ async function submitToMasar(record) {
     { method: "POST", body: JSON.stringify(step5Body) }
   );
   log("submitToMasar [5/6] — status:", step5Res.status);
-  if (!step5Res.ok) throw new Error(S.ERR_SUBMIT_PERSONAL(step5Res.status));
+  if (!step5Res.ok) {
+    throw taggedError(
+      step5Res.status === 401 ? "masar-auth" : null,
+      S.ERR_SUBMIT_PERSONAL(step5Res.status),
+    );
+  }
 
   // ── Step 6: SubmitDisclosureForm ──────────────────────────────────────────
   log("submitToMasar [6/6] — SubmitDisclosureForm");
@@ -589,7 +620,12 @@ async function submitToMasar(record) {
     { method: "POST", body: JSON.stringify(step6Body) }
   );
   log("submitToMasar [6/6] — status:", step6Res.status);
-  if (!step6Res.ok) throw new Error(S.ERR_SUBMIT_DISCLOSURE(step6Res.status));
+  if (!step6Res.ok) {
+    throw taggedError(
+      step6Res.status === 401 ? "masar-auth" : null,
+      S.ERR_SUBMIT_DISCLOSURE(step6Res.status),
+    );
+  }
 
   log("submitToMasar — all 6 steps complete! mutamerId:", mutamerId);
   return { mutamerId, scanResult: scanData };
@@ -675,7 +711,7 @@ async function handleMessage(msg) {
       return { ok: true, data };
     } catch (err) {
       logError("FETCH_GROUPS — error:", err.message);
-      return { ok: false, error: S.ERR_UNEXPECTED };
+      return { ok: false, error: err.message || S.ERR_UNEXPECTED, failureKind: err.failureKind || null };
     }
   }
 
@@ -683,7 +719,9 @@ async function handleMessage(msg) {
     try {
       const res = await apiFetch("/records/masar/pending");
       log("FETCH_PENDING — status:", res.status);
-      if (!res.ok) return { ok: false, status: res.status };
+      if (!res.ok) {
+        return { ok: false, status: res.status, failureKind: res.status === 401 ? "backend-auth" : null };
+      }
       const data = await res.json();
       log("FETCH_PENDING — count:", Array.isArray(data) ? data.length : data);
       updateBadge(Array.isArray(data) ? data : []);
@@ -712,7 +750,12 @@ async function handleMessage(msg) {
         }),
       });
       log("SUBMIT_RECORD — patch status:", patchRes.status);
-      if (!patchRes.ok) throw new Error(S.ERR_PATCH_FAILED(patchRes.status));
+      if (!patchRes.ok) {
+        throw taggedError(
+          patchRes.status === 401 ? "backend-auth" : null,
+          S.ERR_PATCH_FAILED(patchRes.status),
+        );
+      }
       // Refresh badge after successful submit — failure count may have dropped.
       apiFetch("/records/masar/pending").then(async (r) => {
         if (r.ok) updateBadge(await r.json());
@@ -728,7 +771,7 @@ async function handleMessage(msg) {
         const r = await apiFetch("/records/masar/pending");
         if (r.ok) updateBadge(await r.json());
       }).catch(() => {});
-      return { ok: false, error: err.message };
+      return { ok: false, error: err.message, failureKind: err.failureKind || null };
     }
     }); // end serialiseSubmit
   }
@@ -740,7 +783,7 @@ async function handleMessage(msg) {
       body: JSON.stringify({ status: "reviewed" }),
     });
     if (!patchRes.ok) {
-      return { ok: false, status: patchRes.status };
+      return { ok: false, status: patchRes.status, failureKind: patchRes.status === 401 ? "backend-auth" : null };
     }
     return { ok: true };
   }

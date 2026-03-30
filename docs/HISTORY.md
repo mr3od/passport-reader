@@ -2,6 +2,12 @@
 
 Agent-maintained log of significant changes. Each entry records what was done and who did it.
 
+## 2026-03-30 — split extension relink and login UI [codex]
+
+- Split extension auth failures into relink-required versus login-required paths so revoked backend sessions no longer send agencies to the external login screen
+- Added a popup-side failure classifier plus focused tests to map backend-auth and provider-auth failures to the correct UI state
+- Updated popup copy to keep relink guidance in setup and the external-login screen focused on opening the login page
+
 ## 2026-03-30 — revoke extension sessions on re-link [codex]
 
 - Removed `expires_at` from extension-session storage, platform models, API responses, and extension popup state so extension auth is revocation-based instead of time-based

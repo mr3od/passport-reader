@@ -27,7 +27,6 @@ const S = {
   REVIEW_DONE:       "تمت المراجعة",
   REVIEW_CONFIRM:    "هذه البيانات تحتاج مراجعة قبل الرفع. هل تؤكد المتابعة؟",
   REVIEW_UPDATE_FAILED: (d) => `تعذر تحديث حالة المراجعة (${d})`,
-  ERR_SESSION:       "انتهت الجلسة — افتح منصة نسك وأعد المحاولة",
   ERR_GENERIC:       (msg) => `خطأ: ${msg}`,
 
   // ── Record display name fallback ───────────────────────────────────────────────
@@ -38,7 +37,10 @@ const S = {
   GROUP_NONE_FOUND:  "لا توجد مجموعات",
 
   // ── Setup / login ───────────────────────────────────────────────────────────
+  SETUP_RELINK_REQUIRED: "انتهت جلسة الربط — الصق رمزًا جديدًا من /token",
   SETUP_LOGIN_FAILED: (msg) => msg ? `تعذر تسجيل الدخول (${msg})` : "تعذر تسجيل الدخول",
+  MASAR_LOGIN_REQUIRED: "جلسة الدخول غير متاحة — افتح صفحة الدخول وسجّل الدخول",
+  OPEN_MASAR_BUTTON: "افتح صفحة الدخول",
 
   // ── Background: Masar submission step errors ───────────────────────────────────
   // Returned in { error: S.* } objects and shown to agencies in the popup.
