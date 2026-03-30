@@ -121,7 +121,8 @@ The extension popup should:
 - exchange the temp token through `/auth/exchange`
 - store only `api_token`
 - stop storing or reading `api_token_expires_at`
-- continue treating `401` or `403` responses as a relink-required state
+- treat `401` responses from protected backend routes as a relink-required state
+- stop treating `403` responses as relink-required; `403` means the account is blocked or access is denied for another non-relink reason
 
 The existing relink/reset UI may continue to clear local state. A separate server-side logout endpoint is not required for this change because re-linking already revokes prior sessions globally.
 
@@ -140,14 +141,14 @@ This prevents split state where both the old and new session remain active.
 
 `AuthService.authenticate_session()` should stop checking `expires_at` and should only enforce existence, revocation, and user status.
 
-## Repository Changes
+## Repository And Service Cleanup
 
 The auth-token repository needs one new operation:
 - revoke all active extension sessions for a user at a given timestamp
 
 This should update only sessions whose `revoked_at` is still `NULL`.
 
-The existing single-session revoke method may remain if other callers still need it.
+The current codebase does not have a product caller that needs single-session revoke. The old single-session revoke method and unused service wrapper should be removed as part of this cleanup unless implementation discovers a concrete remaining dependency.
 
 ## Testing Plan
 
@@ -174,7 +175,8 @@ Update API tests to prove:
 Update extension tests to prove:
 - `exchangeTempToken()` reads only `session_token`
 - the popup stores only `api_token`
-- relink-required behavior still triggers on `401` and `403`
+- relink-required behavior triggers on `401`
+- `403` does not force relink behavior
 
 ## Files Expected To Change
 
@@ -222,4 +224,3 @@ Minimum verification:
 If implementation touches imports or Python package boundaries, also run:
 - `uv run lint-imports`
 - `uv run ty check passport-platform passport-api`
-
