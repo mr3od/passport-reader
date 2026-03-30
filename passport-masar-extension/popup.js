@@ -24,6 +24,18 @@ function showSetupError(msg) {
   el.classList.toggle("hidden", !msg);
 }
 
+function showMasarLoginRequired() {
+  $("session-expired-text").textContent = S.MASAR_LOGIN_REQUIRED;
+  $("btn-open-masar-expired").textContent = S.OPEN_MASAR_BUTTON;
+  showScreen("session-expired");
+}
+
+async function showRelinkRequired() {
+  await storageRemove(["api_token"]);
+  showSetupError(S.SETUP_RELINK_REQUIRED);
+  showScreen("setup");
+}
+
 function storageGet(keys) {
   return new Promise((resolve) => chrome.storage.local.get(keys, resolve));
 }
@@ -195,6 +207,15 @@ async function submitRecord(record, item) {
     if (!confirmed) return;
     const reviewRes = await sendMsg({ type: "MARK_REVIEWED", uploadId: record.upload_id });
     if (!reviewRes || !reviewRes.ok) {
+      const failure = MasarPopupFailure.classifyFailure(reviewRes);
+      if (failure.type === "relink") {
+        await showRelinkRequired();
+        return;
+      }
+      if (failure.type === "masar-login") {
+        showMasarLoginRequired();
+        return;
+      }
       statusEl.className = "status-msg error";
       statusEl.classList.remove("hidden");
       statusEl.textContent = S.REVIEW_UPDATE_FAILED(reviewRes?.status || reviewRes?.error || "?");
@@ -234,11 +255,16 @@ async function submitRecord(record, item) {
     }
     const err = res?.error || "Unknown error";
     statusEl.className = "status-msg error";
-    if (err.includes("401") || err.includes("session") || err.includes("login")) {
-      statusEl.textContent = S.ERR_SESSION;
-    } else {
-      statusEl.textContent = S.ERR_GENERIC(err);
+    const failure = MasarPopupFailure.classifyFailure(res);
+    if (failure.type === "relink") {
+      await showRelinkRequired();
+      return;
     }
+    if (failure.type === "masar-login") {
+      showMasarLoginRequired();
+      return;
+    }
+    statusEl.textContent = S.ERR_GENERIC(err);
     btnSubmit.disabled = false;
     btnSkip.disabled = false;
     renderQueue();
@@ -307,6 +333,15 @@ async function loadGroupPicker() {
   console.log("[masar-ext popup] FETCH_GROUPS response:", JSON.stringify(res).slice(0, 500));
 
   if (!res || !res.ok) {
+    const failure = MasarPopupFailure.classifyFailure(res);
+    if (failure.type === "relink") {
+      await showRelinkRequired();
+      return;
+    }
+    if (failure.type === "masar-login") {
+      showMasarLoginRequired();
+      return;
+    }
     select.innerHTML = `<option value="">${S.GROUP_LOAD_FAILED}</option>`;
     $("group-select-hint").classList.remove("hidden");
     return;
@@ -343,8 +378,13 @@ async function loadMainQueue() {
   const res = await sendMsg({ type: "FETCH_PENDING" });
 
   if (!res || !res.ok) {
-    if (res?.status === 401) {
-      showScreen("session-expired");
+    const failure = MasarPopupFailure.classifyFailure(res);
+    if (failure.type === "relink") {
+      await showRelinkRequired();
+      return;
+    }
+    if (failure.type === "masar-login") {
+      showMasarLoginRequired();
       return;
     }
     $("queue-list").innerHTML = `<div class="status-msg error">${S.QUEUE_LOAD_FAILED(res?.status || res?.error || "?")}</div>`;

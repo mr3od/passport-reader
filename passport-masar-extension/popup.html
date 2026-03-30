@@ -45,10 +45,8 @@
 
     <!-- Session expired -->
     <div id="screen-session-expired" class="screen hidden">
-      <div class="status-banner error">
-        انتهت الجلسة — سجّل الدخول من جديد
-      </div>
-      <button id="btn-open-masar-expired">تسجيل الدخول</button>
+      <div id="session-expired-text" class="status-banner error"></div>
+      <button id="btn-open-masar-expired"></button>
     </div>
 
     <!-- Group selection (first launch) -->
@@ -121,6 +119,7 @@
   </div>
   <script src="config.js"></script>
   <script src="auth.js"></script>
+  <script src="popup-failure.js"></script>
   <script src="strings.js"></script>
   <script src="popup.js"></script>
 </body>
