@@ -49,6 +49,7 @@ SETUP_SUMMARY.md
 START_HERE.md
 validate-setup.sh
 .codex-tmp
+.worktrees/
 *.har
 state.json
 passport-benchmark/runs
