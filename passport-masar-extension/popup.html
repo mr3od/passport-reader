@@ -3,124 +3,175 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>تسجيل المعتمرين</title>
+  <title></title>
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
-  <!-- Persistent top bar — always visible -->
   <div id="topbar">
-    <span id="topbar-title">تسجيل المعتمرين</span>
-    <button id="btn-settings" class="icon-btn" title="الإعدادات">&#9881;</button>
+    <span id="topbar-title"></span>
+    <div class="topbar-actions">
+      <a id="help-support-link" class="text-link" target="_blank" rel="noreferrer"></a>
+      <button id="btn-settings" class="icon-btn" type="button"></button>
+    </div>
   </div>
 
   <div id="app">
-    <!-- Loading -->
-    <div id="screen-loading" class="screen hidden">
-      <div class="status-banner" style="background:#f0f4ff;border:1px solid #c0d0f0;color:#333;">جارٍ التحميل…</div>
-    </div>
+    <section id="screen-loading" class="screen hidden">
+      <div class="status-banner info">
+        <span id="loading-text"></span>
+      </div>
+    </section>
 
-    <!-- Error fallback -->
-    <div id="screen-error" class="screen hidden">
+    <section id="screen-error" class="screen hidden">
       <div class="status-banner error">
-        <strong>خطأ</strong><br /><span id="error-detail"></span>
+        <strong id="error-title"></strong>
+        <span id="error-detail"></span>
       </div>
-    </div>
+    </section>
 
-    <!-- Token setup screen -->
-    <div id="screen-setup" class="screen hidden">
-      <h2>ربط الحساب</h2>
-      <label for="api-token-input">رمز الدخول</label>
-      <input id="api-token-input" type="password" placeholder="الصق الرمز من أمر /token" />
-      <button id="btn-save-token">حفظ</button>
+    <section id="screen-setup" class="screen hidden">
+      <h2 id="setup-title"></h2>
+      <label id="setup-token-label" for="api-token-input"></label>
+      <input id="api-token-input" type="password" />
+      <button id="btn-save-token" type="button"></button>
       <div id="setup-error" class="status-banner error hidden"></div>
-    </div>
+    </section>
 
-    <!-- Entity IDs not yet captured -->
-    <div id="screen-activate" class="screen hidden">
-      <div class="status-banner warning">
-        افتح <strong>masar.nusuk.sa</strong> في هذا المتصفح للتفعيل.
-      </div>
-      <button id="btn-open-masar-activate">افتح منصة نسك</button>
-    </div>
+    <section id="screen-activate" class="screen hidden">
+      <div id="activate-message" class="status-banner warning"></div>
+      <button id="btn-open-masar-activate" type="button"></button>
+    </section>
 
-    <!-- Session expired -->
-    <div id="screen-session-expired" class="screen hidden">
+    <section id="screen-session-expired" class="screen hidden">
       <div id="session-expired-text" class="status-banner error"></div>
-      <button id="btn-open-masar-expired"></button>
-    </div>
+      <button id="btn-open-masar-expired" type="button"></button>
+    </section>
 
-    <!-- Group selection (first launch) -->
-    <div id="screen-group-select" class="screen hidden">
-      <h2>اختر المجموعة</h2>
-      <div id="group-select-hint" class="status-banner warning hidden">
-        افتح قائمة المجموعات على منصة نسك — ستظهر هنا تلقائيًا.
-      </div>
+    <section id="screen-group-select" class="screen hidden">
+      <h2 id="group-title"></h2>
+      <div id="group-select-hint" class="status-banner warning hidden"></div>
       <select id="group-select"></select>
-      <button id="btn-confirm-group">تأكيد</button>
-    </div>
+      <button id="btn-confirm-group" type="button"></button>
+    </section>
 
-    <!-- Main queue screen -->
-    <div id="screen-main" class="screen hidden">
-      <!-- Context panel: who am I · which contract · which group -->
-      <div id="context-panel" class="context-panel">
-        <div class="context-row">
-          <span class="context-label">الحساب</span>
-          <span id="ctx-entity" class="context-value">—</span>
-        </div>
-        <div class="context-row">
-          <span class="context-label">العقد</span>
-          <span id="ctx-contract" class="context-value">—</span>
-        </div>
-        <div class="context-row">
-          <span class="context-label">ينتهي</span>
-          <span id="ctx-contract-end" class="context-value">—</span>
-        </div>
-        <div class="context-row">
-          <span class="context-label">المجموعة</span>
-          <span id="ctx-group" class="context-value">—</span>
-        </div>
-        <div class="context-footer">
-          <span id="ctx-synced" class="context-synced-text">لم يتم التحديث</span>
-          <button id="btn-refresh-context" class="icon-btn small" title="تحديث البيانات">&#8635;</button>
+    <section id="screen-main" class="screen hidden">
+      <div id="context-change-banner" class="status-banner warning hidden">
+        <span id="context-change-text"></span>
+        <div class="banner-actions">
+          <button id="ctx-change-confirm" type="button"></button>
+          <button id="ctx-change-defer" class="ghost-btn" type="button"></button>
         </div>
       </div>
 
-      <!-- Contract expired / expiring warning -->
-      <div id="banner-contract-expired" class="status-banner error hidden">
-        &#9888; انتهى العقد — لن تقبل منصة نسك أي تسجيلات.
-      </div>
-      <div id="banner-contract-expiring" class="status-banner warning hidden">
-        &#9888; العقد ينتهي اليوم — قد لا تُقبل بعض التسجيلات.
+      <div id="home-summary" class="summary-strip">
+        <div class="summary-primary">
+          <div class="summary-block">
+            <span class="summary-label" id="home-office-label"></span>
+            <strong id="ctx-entity"></strong>
+          </div>
+          <div class="summary-block">
+            <span class="summary-label" id="home-contract-label"></span>
+            <strong id="ctx-contract"></strong>
+          </div>
+        </div>
+        <div class="summary-secondary">
+          <span id="ctx-group" class="summary-pill"></span>
+          <span id="contract-state-pill" class="summary-pill hidden"></span>
+        </div>
+        <div class="summary-metrics">
+          <div class="metric">
+            <span class="metric-label" id="home-pending-label"></span>
+            <strong id="pending-count"></strong>
+          </div>
+          <div class="metric">
+            <span class="metric-label" id="home-failed-label"></span>
+            <strong id="failed-count"></strong>
+          </div>
+        </div>
       </div>
 
-      <div class="header">
-        <span id="pending-count" class="pending-label"></span>
-        <button id="btn-change-group" class="icon-btn" title="تغيير المجموعة">&#8597;</button>
+      <div id="contract-dropdown-container" class="contract-selector hidden">
+        <select id="contract-select"></select>
       </div>
-      <div id="queue-list"></div>
-    </div>
 
-    <!-- Settings panel -->
-    <div id="screen-settings" class="screen hidden">
-      <div class="header">
-        <button id="btn-back" class="icon-btn" title="رجوع">&rarr;</button>
-        <h2>الإعدادات</h2>
+      <div class="toolbar">
+        <button id="btn-change-group" class="ghost-btn" type="button"></button>
+        <button id="btn-refresh-context" class="ghost-btn" type="button"></button>
       </div>
-      <label for="settings-email">البريد الإلكتروني</label>
-      <input id="settings-email" type="email" placeholder="agency@example.com" />
-      <label for="settings-phone-cc">رمز الدولة</label>
-      <input id="settings-phone-cc" type="text" placeholder="966" maxlength="5" />
-      <label for="settings-phone">رقم الجوال</label>
-      <input id="settings-phone" type="tel" placeholder="5XXXXXXXX" />
-      <button id="btn-save-settings">حفظ</button>
-      <hr />
-      <button id="btn-reset-token" class="danger">إعادة ربط الحساب</button>
-    </div>
+
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-tab="pending" type="button">
+          <span class="tab-label" id="tab-label-pending"></span>
+          <span class="tab-count" id="tab-count-pending"></span>
+        </button>
+        <button class="tab" data-tab="inProgress" type="button">
+          <span class="tab-label" id="tab-label-in-progress"></span>
+          <span class="tab-count" id="tab-count-in-progress"></span>
+        </button>
+        <button class="tab" data-tab="submitted" type="button">
+          <span class="tab-label" id="tab-label-submitted"></span>
+          <span class="tab-count" id="tab-count-submitted"></span>
+        </button>
+        <button class="tab" data-tab="failed" type="button">
+          <span class="tab-label" id="tab-label-failed"></span>
+          <span class="tab-count" id="tab-count-failed"></span>
+        </button>
+      </div>
+
+      <section id="pending-section" class="tab-panel">
+        <div class="section-header">
+          <h3 id="pending-title"></h3>
+          <button id="submit-all-btn" type="button"></button>
+        </div>
+        <div id="pending-list" class="records-grid"></div>
+      </section>
+
+      <section id="in-progress-section" class="tab-panel hidden">
+        <div class="section-header">
+          <h3 id="in-progress-title"></h3>
+        </div>
+        <div id="in-progress-list" class="records-grid"></div>
+      </section>
+
+      <section id="submitted-section" class="tab-panel hidden">
+        <div class="section-header">
+          <h3 id="submitted-title"></h3>
+        </div>
+        <div id="submitted-list" class="records-grid"></div>
+      </section>
+
+      <section id="failed-section" class="tab-panel hidden">
+        <div class="section-header">
+          <h3 id="failed-title"></h3>
+        </div>
+        <div id="failed-list" class="records-grid"></div>
+      </section>
+    </section>
+
+    <section id="screen-settings" class="screen hidden">
+      <div class="section-header">
+        <button id="btn-back" class="ghost-btn" type="button"></button>
+        <h2 id="settings-title"></h2>
+      </div>
+      <label id="settings-email-label" for="settings-email"></label>
+      <input id="settings-email" type="email" />
+      <label id="settings-phone-cc-label" for="settings-phone-cc"></label>
+      <input id="settings-phone-cc" type="text" maxlength="5" />
+      <label id="settings-phone-label" for="settings-phone"></label>
+      <input id="settings-phone" type="tel" />
+      <button id="btn-save-settings" type="button"></button>
+      <button id="btn-reset-token" class="danger-btn" type="button"></button>
+    </section>
   </div>
+
   <script src="config.js"></script>
   <script src="auth.js"></script>
   <script src="popup-failure.js"></script>
   <script src="strings.js"></script>
+  <script src="status.js"></script>
+  <script src="queue-filter.js"></script>
+  <script src="context-change.js"></script>
+  <script src="contract-select.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

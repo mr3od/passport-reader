@@ -119,6 +119,7 @@ def update_masar_status(
         status=body.status,
         masar_mutamer_id=body.masar_mutamer_id,
         masar_scan_result=body.masar_scan_result,
+        masar_detail_id=body.masar_detail_id,
     )
     if not updated:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=RECORD_NOT_FOUND)
@@ -175,6 +176,7 @@ def _record_to_response(record) -> RecordResponse:
         extraction_result=record.extraction_result,
         error_code=record.error_code,
         masar_status=record.masar_status,
+        masar_detail_id=record.masar_detail_id,
     )
 
 

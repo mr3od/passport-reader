@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS masar_submissions (
     status TEXT NOT NULL DEFAULT 'pending',
     mutamer_id TEXT,
     scan_result_json TEXT,
+    masar_detail_id TEXT,
     submitted_at TEXT,
     created_at TEXT NOT NULL,
     FOREIGN KEY (upload_id) REFERENCES uploads(id) ON DELETE CASCADE

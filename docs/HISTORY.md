@@ -2,6 +2,14 @@
 
 Agent-maintained log of significant changes. Each entry records what was done and who did it.
 
+## 2026-03-31 — extension UI redesign and Masar detail tracking [codex]
+
+- Added `masar_detail_id` to platform persistence, records projections, API schemas, and Masar status updates so submitted records can open the Nusuk detail page directly
+- Removed the pre-submit `needs_review` gate so review-needed records can still be submitted and carry an amber review badge after submission
+- Rebuilt the extension popup into a tabbed workspace with Pending, In Progress, Submitted, and Failed sections, centralized Arabic strings, contract selection, and home summary counters
+- Added extension-side batch submission state in `chrome.storage.session`, context-change buffering, badge priority handling, and Chrome notifications for batch completion and pending context changes
+- Added focused extension tests for status mapping, queue partitioning, badge logic, contract selection, popup helpers, notification titles, and batch failure propagation
+
 ## 2026-03-30 — split extension relink and login UI [codex]
 
 - Split extension auth failures into relink-required versus login-required paths so revoked backend sessions no longer send agencies to the external login screen
@@ -176,7 +184,7 @@ Agent-maintained log of significant changes. Each entry records what was done an
 
 ## 2026-03-31 — final popup proposal consolidation [codex]
 
-- Added the canonical final popup design proposal in `docs/FINAL-DESIGN-PROPOSAL.md`
+- Added the final popup written proposal artifact that guided the redesign before implementation cleanup
 - Added the canonical final popup mock in `docs/final-design-proposal.html`
 - Archived exploratory and duplicate popup proposal artifacts under `docs/archive/design-exploration/`
 - Updated the final written proposal and final HTML mock to state which design artifacts are canonical versus archived

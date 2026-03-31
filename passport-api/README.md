@@ -6,7 +6,12 @@ It currently exposes:
 
 - `POST /auth/exchange`
 - `GET /me`
+- `POST /records/upload`
 - `GET /records`
+- `GET /records/masar/pending`
+- `GET /records/{upload_id}/image`
+- `PATCH /records/{upload_id}/masar-status`
+- `PATCH /records/{upload_id}/review-status`
 
 ## Setup
 

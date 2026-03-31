@@ -42,12 +42,14 @@ class RecordResponse(BaseModel):
     extraction_result: dict[str, Any] | None
     error_code: str | None
     masar_status: str | None
+    masar_detail_id: str | None
 
 
 class MasarStatusUpdate(BaseModel):
     status: str
     masar_mutamer_id: str | None = None
     masar_scan_result: dict[str, Any] | None = None
+    masar_detail_id: str | None = None
 
 
 class ReviewStatusUpdate(BaseModel):

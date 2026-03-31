@@ -44,5 +44,6 @@ class MasarSubmission:
     status: str
     mutamer_id: str | None
     scan_result_json: str | None
+    masar_detail_id: str | None
     submitted_at: datetime | None
     created_at: datetime

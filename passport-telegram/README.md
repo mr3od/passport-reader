@@ -37,7 +37,7 @@ uv run passport-telegram
 
 ## Production
 
-Production uses the root `Dockerfile`, root `.env.production`, and the versioned manifests under `k8s/`.
+Production uses the root `Dockerfile`, deployment-provided env/secrets outside version control, and the versioned manifests under `k8s/`.
 
 ## Environment
 

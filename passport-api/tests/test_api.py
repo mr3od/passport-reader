@@ -87,6 +87,7 @@ class FakeRecordsService:
                     "extraction_result": {"data": {"PassportNumber": "12345678"}},
                     "error_code": None,
                     "masar_status": None,
+                    "masar_detail_id": None,
                 },
             )()
         ]
@@ -292,25 +293,6 @@ def test_review_gate_before_masar_submit(tmp_path: Path, monkeypatch):
     session_token = exchange.json()["session_token"]
     headers = {"Authorization": f"Bearer {session_token}"}
 
-    blocked_submit = client.patch(
-        f"/records/{upload.id}/masar-status",
-        headers=headers,
-        json={
-            "status": "submitted",
-            "masar_mutamer_id": "M-1",
-            "masar_scan_result": {"ok": True},
-        },
-    )
-    assert blocked_submit.status_code == 409
-
-    review = client.patch(
-        f"/records/{upload.id}/review-status",
-        headers=headers,
-        json={"status": "reviewed"},
-    )
-    assert review.status_code == 200
-    assert review.json()["review_status"] == "reviewed"
-
     submit = client.patch(
         f"/records/{upload.id}/masar-status",
         headers=headers,
@@ -318,7 +300,9 @@ def test_review_gate_before_masar_submit(tmp_path: Path, monkeypatch):
             "status": "submitted",
             "masar_mutamer_id": "M-1",
             "masar_scan_result": {"ok": True},
+            "masar_detail_id": "detail-123",
         },
     )
     assert submit.status_code == 200
     assert submit.json()["masar_status"] == "submitted"
+    assert submit.json()["masar_detail_id"] == "detail-123"
