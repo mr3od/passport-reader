@@ -51,7 +51,8 @@ These rules are intentionally small and strict. If a change conflicts with them,
 
 - The maintained Python workspace is defined by the root `pyproject.toml`.
 - Use `uv` from the repository root for installs, commands, and builds.
-- Use the root `.env` for local development and the root `.env.production` contract for production.
+- Use the root `.env` for local development.
+- Production secrets live outside version control and must follow the root env/settings contract used by the deployed services; do not reintroduce package-local production env files.
 - Do not reintroduce package-local `.env` workflows for `passport-core`, `passport-platform`, `passport-api`, `passport-telegram`, or `passport-admin-bot`.
 - Shared tooling is configured at the root workspace level:
   - `import-linter`
@@ -100,10 +101,10 @@ Adding a column requires all of the following to be updated together — a parti
 
 1. `_upgrade_schema()` in `passport-platform/src/passport_platform/db.py` — `ALTER TABLE` so existing databases migrate on startup
 2. The reference `.sql` file in `passport-platform/migrations/`
-3. The `ProcessingResult` dataclass in `models/upload.py`
+3. The owning dataclass in `models/upload.py` (for example `ProcessingResult` or `MasarSubmission`)
 4. The `UserRecord` schema in `schemas/results.py`
 5. The SELECT queries in `repositories/records.py`
-6. The `RecordResponse` schema and route logic in `passport-api`
+6. The `RecordResponse` schema and route logic in `passport-api` when the field is exposed through the records API
 
 ## Extraction pipeline (passport-core 0.3.0+)
 

@@ -1,31 +1,39 @@
 {
   "manifest_version": 3,
   "name": "Passport Masar Submitter",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Auto-submit passport records to masar.nusuk.sa",
   "permissions": [
     "cookies",
     "storage",
     "scripting",
     "activeTab",
-    "webRequest"
+    "webRequest",
+    "notifications"
   ],
   "host_permissions": [
     "https://masar.nusuk.sa/*",
     "https://*.nusuk.sa/*",
-    "https://*/*",
-    "http://127.0.0.1:8000/*"
+    "https://*.mr3od.dev/*"
   ],
   "content_scripts": [
     {
-      "matches": ["https://masar.nusuk.sa/*"],
-      "js": ["content-main.js"],
+      "matches": [
+        "https://masar.nusuk.sa/*"
+      ],
+      "js": [
+        "content-main.js"
+      ],
       "run_at": "document_start",
       "world": "MAIN"
     },
     {
-      "matches": ["https://masar.nusuk.sa/*"],
-      "js": ["content-relay.js"],
+      "matches": [
+        "https://masar.nusuk.sa/*"
+      ],
+      "js": [
+        "content-relay.js"
+      ],
       "run_at": "document_start"
     }
   ],

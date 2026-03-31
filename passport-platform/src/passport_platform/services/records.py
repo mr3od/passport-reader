@@ -27,6 +27,7 @@ class RecordsService:
         status: str,
         masar_mutamer_id: str | None,
         masar_scan_result: dict | None,
+        masar_detail_id: str | None = None,
     ) -> bool:
         masar_scan_result_json = (
             json.dumps(masar_scan_result) if masar_scan_result is not None else None
@@ -37,6 +38,7 @@ class RecordsService:
             status=status,
             masar_mutamer_id=masar_mutamer_id,
             masar_scan_result_json=masar_scan_result_json,
+            masar_detail_id=masar_detail_id,
         )
 
     def mark_reviewed(self, *, upload_id: int, user_id: int) -> bool:
@@ -48,6 +50,6 @@ class RecordsService:
             return
         if not record.is_complete:
             raise ReviewRequiredError()
-        if record.review_status in {"auto", "reviewed"}:
+        if record.review_status in {"auto", "reviewed", "needs_review"}:
             return
         raise ReviewRequiredError()

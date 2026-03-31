@@ -13,7 +13,8 @@ LEFT JOIN (
         ms1.upload_id AS upload_id,
         ms1.status AS masar_status,
         ms1.mutamer_id AS masar_mutamer_id,
-        ms1.scan_result_json AS masar_scan_result_json
+        ms1.scan_result_json AS masar_scan_result_json,
+        ms1.masar_detail_id AS masar_detail_id
     FROM masar_submissions ms1
     INNER JOIN (
         SELECT upload_id, MAX(id) AS max_id
@@ -44,7 +45,8 @@ _USER_RECORD_COLUMNS = """
     processing_results.error_code AS error_code,
     ms.masar_status AS masar_status,
     ms.masar_mutamer_id AS masar_mutamer_id,
-    ms.masar_scan_result_json AS masar_scan_result_json
+    ms.masar_scan_result_json AS masar_scan_result_json,
+    ms.masar_detail_id AS masar_detail_id
 """
 
 
@@ -110,6 +112,7 @@ class RecordsRepository:
         status: str,
         masar_mutamer_id: str | None,
         masar_scan_result_json: str | None,
+        masar_detail_id: str | None = None,
     ) -> bool:
         created_at = datetime.now(UTC)
         submitted_at = created_at if status == "submitted" else None
@@ -127,16 +130,18 @@ class RecordsRepository:
                     status,
                     mutamer_id,
                     scan_result_json,
+                    masar_detail_id,
                     submitted_at,
                     created_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     upload_id,
                     status,
                     masar_mutamer_id,
                     masar_scan_result_json,
+                    masar_detail_id,
                     submitted_at.isoformat() if submitted_at is not None else None,
                     created_at.isoformat(),
                 ),
@@ -192,6 +197,7 @@ def _row_to_user_record(row) -> UserRecord:
         masar_status=row["masar_status"],
         masar_mutamer_id=row["masar_mutamer_id"],
         masar_scan_result=_parse_json(row["masar_scan_result_json"]),
+        masar_detail_id=row["masar_detail_id"],
     )
 
 

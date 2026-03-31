@@ -1,50 +1,62 @@
-importScripts("config.js");
-importScripts("strings.js");
+if (typeof importScripts === "function") {
+  importScripts("config.js");
+  importScripts("strings.js");
+  importScripts("badge.js");
+  importScripts("notifications.js");
+  importScripts("context-change.js");
+}
+
+const S = globalThis.S || (typeof require === "function" ? require("./strings.js") : undefined);
+const Badge = globalThis.MasarBadge || (typeof require === "function" ? require("./badge.js") : undefined);
+const Notifications =
+  globalThis.MasarNotifications || (typeof require === "function" ? require("./notifications.js") : undefined);
+const ContextChange =
+  globalThis.MasarContextChange || (typeof require === "function" ? require("./context-change.js") : undefined);
 
 // ─── Header capture ───────────────────────────────────────────────────────────
 // Passively observe every outgoing request to masar and persist entity headers.
-chrome.webRequest.onSendHeaders.addListener(
-  (details) => {
+const debouncedContextChecker =
+  ContextChange?.createDebouncedContextChecker?.((context) => {
+    void handleStableContextChange(context);
+  }, 1500) || null;
+
+if (typeof chrome !== "undefined" && chrome.webRequest?.onSendHeaders) {
+  chrome.webRequest.onSendHeaders.addListener((details) => {
     const h = {};
     details.requestHeaders.forEach((r) => { h[r.name.toLowerCase()] = r.value; });
     if (h["activeentityid"]) {
-      // Only update each key when the header is actually present — never overwrite with empty.
-      const update = { masar_entity_id: h["activeentityid"] };
-      if (h["activeentitytypeid"]) update.masar_entity_type_id = h["activeentitytypeid"];
-      if (h["contractid"])         update.masar_contract_id    = h["contractid"];
-      // Only capture Authorization when activeentityid is also present.
-      // Requests with activeentityid use tokenType:5 (the correct session token).
-      // Requests without activeentityid (e.g. initial login) use tokenType:3,
-      // which causes "No Active Contract" errors if stored.
+      const context = {
+        entity_id: h["activeentityid"],
+        entity_type_id: h["activeentitytypeid"] || null,
+        contract_id: h["contractid"] || null,
+        auth_token: null,
+        user_name: null,
+      };
       if (h["authorization"]) {
         const authVal = h["authorization"].replace(/^"|"$/g, "");
-        update.masar_auth_token = authVal;
-        log("Captured Authorization (tokenType:5, first 30):", authVal.slice(0, 30) + "...");
-        // Decode JWT payload to extract user name — avoids needing a separate API call.
+        context.auth_token = authVal;
         try {
           const payload = JSON.parse(atob(authVal.replace(/^Bearer\s+/i, "").split(".")[1]));
-          if (payload.name) update.masar_user_name = payload.name;
+          if (payload.name) context.user_name = payload.name;
         } catch (_) {}
       }
-      log("Captured entity headers — entityId:", h["activeentityid"],
-          "entityTypeId:", h["activeentitytypeid"], "contractId:", h["contractid"]);
-      chrome.storage.local.set(update);
+      void captureObservedContext(context);
     }
   },
   { urls: ["https://masar.nusuk.sa/*", "https://*.nusuk.sa/*"] },
-  ["requestHeaders", "extraHeaders"]
-);
+  ["requestHeaders", "extraHeaders"]);
+}
 
 // ─── Badge ────────────────────────────────────────────────────────────────────
 
 function updateBadge(records) {
-  const failed = records.filter((r) => r.masar_status === "failed").length;
-  if (failed > 0) {
-    chrome.action.setBadgeText({ text: String(failed) });
-    chrome.action.setBadgeBackgroundColor({ color: "#e53e3e" });
-  } else {
-    chrome.action.setBadgeText({ text: "" });
-  }
+  return updateBadgeState({ failedCount: countFailedRecords(records) });
+}
+
+function countFailedRecords(records) {
+  return (Array.isArray(records) ? records : []).filter(
+    (record) => record.upload_status === "failed" || record.masar_status === "failed",
+  ).length;
 }
 
 function taggedError(failureKind, message) {
@@ -60,6 +72,7 @@ function taggedError(failureKind, message) {
 // current one — prevents parallel Attachment/Upload 429s from Cloudflare and
 // ensures no orphaned partial mutamers are left in Masar.
 let _submitChain = Promise.resolve();
+let _isDrainingSubmissions = false;
 function serialiseSubmit(fn) {
   const next = _submitChain.then(() => fn());
   _submitChain = next.catch(() => {}); // keep chain alive on failure
@@ -73,6 +86,26 @@ function log(...args) {
 }
 function logError(...args) {
   console.error("[masar-ext]", ...args);
+}
+
+function localGet(keys) {
+  return new Promise((resolve) => chrome.storage.local.get(keys, resolve));
+}
+
+function localSet(values) {
+  return new Promise((resolve) => chrome.storage.local.set(values, resolve));
+}
+
+function localRemove(keys) {
+  return new Promise((resolve) => chrome.storage.local.remove(keys, resolve));
+}
+
+function sessionGet(keys) {
+  return new Promise((resolve) => chrome.storage.session.get(keys, resolve));
+}
+
+function sessionSet(values) {
+  return new Promise((resolve) => chrome.storage.session.set(values, resolve));
 }
 
 // ─── Masar API helpers ────────────────────────────────────────────────────────
@@ -149,38 +182,58 @@ async function masarFetchMultipart(url, formData) {
   return res;
 }
 
+function hasValidSessionSyncSignal(snapshot) {
+  if (!snapshot || typeof snapshot !== "object") {
+    return false;
+  }
+  const entityId = typeof snapshot.entityId === "string" ? snapshot.entityId.trim() : "";
+  const jwt = typeof snapshot.jwt === "string" ? snapshot.jwt.trim() : "";
+  return Boolean(entityId || jwt);
+}
+
 // Read all session values directly from the open masar tab's storage.
 // sessionStorage: pms-ac_En_Id (entityId), pms-ac_En_Type_Id (entityTypeId), pms-tk_session (JWT)
 // localStorage:   currentContract.contractId
 async function syncSessionFromMasar() {
   try {
-    const tabs = await chrome.tabs.query({ url: "https://masar.nusuk.sa/*" });
+    const tabs = await chrome.tabs.query({ url: ["https://masar.nusuk.sa/*", "https://*.nusuk.sa/*"] });
     if (tabs.length === 0) {
       log("syncSessionFromMasar — no open masar tab");
-      return;
+      return false;
     }
-    const results = await chrome.scripting.executeScript({
-      target: { tabId: tabs[0].id },
-      func: () => {
-        const contract = (() => {
-          try { return JSON.parse(localStorage.getItem("currentContract") || "null"); } catch { return null; }
-        })();
-        // User name is decoded from the webRequest-captured JWT — no need to re-read here.
-        return {
-          entityId:           sessionStorage.getItem("pms-ac_En_Id"),
-          entityTypeId:       sessionStorage.getItem("pms-ac_En_Type_Id"),
-          jwt:                sessionStorage.getItem("pms-tk_session"),
-          contractId:         contract?.contractId ? String(contract.contractId) : null,
-          contractNumber:     contract?.contractNumber ? String(contract.contractNumber) : null,
-          contractNameEn:     contract?.companyNameEn || null,
-          contractNameAr:     contract?.companyNameAr || null,
-          contractEndDate:    contract?.contractEndDate || null,
-          contractStatusName: contract?.contractStatus?.name || null,
-        };
-      },
-    });
-    const s = results?.[0]?.result;
-    if (!s) return;
+    let s = null;
+    for (const tab of tabs) {
+      try {
+        const results = await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: () => {
+            const contract = (() => {
+              try { return JSON.parse(localStorage.getItem("currentContract") || "null"); } catch { return null; }
+            })();
+            // User name is decoded from the webRequest-captured JWT — no need to re-read here.
+            return {
+              entityId:           sessionStorage.getItem("pms-ac_En_Id"),
+              entityTypeId:       sessionStorage.getItem("pms-ac_En_Type_Id"),
+              jwt:                sessionStorage.getItem("pms-tk_session"),
+              contractId:         contract?.contractId ? String(contract.contractId) : null,
+              contractNumber:     contract?.contractNumber ? String(contract.contractNumber) : null,
+              contractNameEn:     contract?.companyNameEn || null,
+              contractNameAr:     contract?.companyNameAr || null,
+              contractEndDate:    contract?.contractEndDate || null,
+              contractStatusName: contract?.contractStatus?.name || null,
+            };
+          },
+        });
+        const candidate = results?.[0]?.result || null;
+        if (hasValidSessionSyncSignal(candidate)) {
+          s = candidate;
+          break;
+        }
+      } catch {
+        // Try another nusuk tab.
+      }
+    }
+    if (!s) return false;
 
     // Determine contract state.
     // contractEndDate is midnight that starts the end day; treat same-day as "expires today".
@@ -201,31 +254,22 @@ async function syncSessionFromMasar() {
       userNameEn: s.userNameEn, hasJwt: !!s.jwt,
     });
 
-    // Detect entity or contract switch — if either changed, the stored group
-    // belongs to the old context and must be cleared.
-    const existing = await new Promise((resolve) =>
-      chrome.storage.local.get(["masar_entity_id", "masar_contract_id"], resolve)
-    );
-    const entityChanged  = existing.masar_entity_id   && s.entityId   && existing.masar_entity_id   !== s.entityId;
-    const contractChanged = existing.masar_contract_id && s.contractId && existing.masar_contract_id !== s.contractId;
-    if (entityChanged || contractChanged) {
-      log("syncSessionFromMasar — context changed (entity or contract), clearing group selection");
-      chrome.storage.local.remove(["masar_group_id", "masar_group_name", "masar_group_number", "masar_groups_cache"]);
-    }
-
     const update = {};
     if (s.entityId)           update.masar_entity_id            = s.entityId;
     if (s.entityTypeId)       update.masar_entity_type_id       = s.entityTypeId;
-    if (s.contractId)         update.masar_contract_id          = s.contractId;
-    if (s.contractNumber)     update.masar_contract_number      = s.contractNumber;
-    if (s.contractNameEn)     update.masar_contract_name_en     = s.contractNameEn;
-    if (s.contractNameAr)     update.masar_contract_name_ar     = s.contractNameAr;
-    if (s.contractEndDate)    update.masar_contract_end_date    = s.contractEndDate;
-    if (s.contractStatusName) update.masar_contract_status_name = s.contractStatusName;
+    // Contract selection is user-controlled and should not auto-switch.
     // masar_user_name is decoded from JWT in the webRequest listener — not sourced here.
-    update.masar_contract_state = contractState;
-    // Do NOT sync jwt — webRequest captures tokenType:5; pms-tk_session is tokenType:3.
-    if (Object.keys(update).length) chrome.storage.local.set(update);
+    await captureObservedContext({
+      entity_id: s.entityId,
+      entity_type_id: s.entityTypeId,
+      contract_id: s.contractId,
+      auth_token: null,
+      user_name: null,
+    });
+    if (Object.keys(update).length) {
+      chrome.storage.local.set(update);
+    }
+    return true;
   } catch (err) {
     // "Frame with ID 0 is showing error page" — masar tab is closed or on an error page.
     // Non-fatal: webRequest-captured values remain in storage and are used instead.
@@ -234,6 +278,7 @@ async function syncSessionFromMasar() {
     } else {
       logError("syncSessionFromMasar — error:", err.message);
     }
+    return false;
   }
 }
 
@@ -241,15 +286,56 @@ async function syncSessionFromMasar() {
 // Returns { ok: true } always — errors are non-fatal.
 async function syncSession() {
   try {
-    await syncSessionFromMasar();
-    chrome.storage.local.set({ masar_last_synced: Date.now() });
+    const synced = await syncSessionFromMasar();
+    chrome.storage.local.set({
+      masar_last_synced: Date.now(),
+      ...(synced ? { session_expired: false, submit_auth_required: null } : {}),
+    });
     const stored = await getMasarEntityHeaders();
     log("syncSession — entityId:", stored.masar_entity_id, "contractId:", stored.masar_contract_id, "hasAuthToken:", !!stored.masar_auth_token);
+    await updateBadgeState();
     return { ok: true };
   } catch (err) {
     logError("syncSession — error:", err.message);
     return { ok: true }; // non-fatal
   }
+}
+
+async function captureObservedContext(context) {
+  const stored = await localGet(["masar_entity_id", "masar_contract_id"]);
+  const hasCurrentContext = Boolean(stored.masar_entity_id || stored.masar_contract_id);
+  const update = {};
+  if (context.entity_id) update.masar_entity_id = context.entity_id;
+  if (context.entity_type_id) update.masar_entity_type_id = context.entity_type_id;
+  if (context.auth_token) update.masar_auth_token = context.auth_token;
+  if (context.user_name) update.masar_user_name = context.user_name;
+  if (!hasCurrentContext) {
+    await localSet(update);
+    return;
+  }
+  if (debouncedContextChecker) {
+    debouncedContextChecker(context);
+  }
+}
+
+async function handleStableContextChange(context) {
+  const change = await ContextChange.detectContextChange(context);
+  if (!change) {
+    const update = {};
+    if (context.entity_id) update.masar_entity_id = context.entity_id;
+    if (context.entity_type_id) update.masar_entity_type_id = context.entity_type_id;
+    if (context.auth_token) update.masar_auth_token = context.auth_token;
+    if (context.user_name) update.masar_user_name = context.user_name;
+    if (Object.keys(update).length) {
+      await localSet(update);
+    }
+    return;
+  }
+  await updateBadgeState();
+  await Notifications.notify(
+    Notifications.NOTIFICATION_TYPES.CONTEXT_CHANGE,
+    change.reason === "entity_changed" ? S.CTX_CHANGED_ENTITY : S.CTX_CHANGED_CONTRACT,
+  );
 }
 
 async function fetchGroups() {
@@ -296,6 +382,126 @@ async function apiFetch(path, options = {}) {
   });
   log(`apiFetch — response status:`, res.status);
   return res;
+}
+
+async function fetchAllRecords() {
+  const response = await apiFetch("/records?limit=200");
+  if (!response.ok) {
+    if (response.status === 401) {
+      await localSet({ session_expired: true });
+      await updateBadgeState({ failedCount: 0 });
+    }
+    return {
+      ok: false,
+      status: response.status,
+      failureKind: response.status === 401 ? "backend-auth" : null,
+    };
+  }
+  await localSet({ session_expired: false });
+  const data = await response.json();
+  await updateBadgeState({
+    failedCount: countFailedRecords(data),
+  });
+  return { ok: true, data: Array.isArray(data) ? data : [] };
+}
+
+async function fetchRecordById(uploadId) {
+  const response = await apiFetch(`/records/${uploadId}`);
+  if (!response.ok) {
+    if (response.status === 401) {
+      await localSet({ session_expired: true });
+      await updateBadgeState({ failedCount: 0 });
+      throw taggedError("backend-auth", `record ${response.status}`);
+    }
+    if (response.status === 404) {
+      return null;
+    }
+    throw taggedError(null, `record ${response.status}`);
+  }
+  await localSet({ session_expired: false });
+  return response.json();
+}
+
+function shouldSubmitRecord(record) {
+  return record?.upload_status === "processed" && (!record?.masar_status || record.masar_status === "failed");
+}
+
+async function updateBadgeState({ failedCount = null } = {}) {
+  const localState = await localGet(["session_expired"]);
+  const contextChangePending = await ContextChange.hasContextChangePending();
+  const badgeState = Badge.computeBadgeState({
+    sessionExpired: Boolean(localState.session_expired),
+    contextChangePending,
+    failedCount: failedCount ?? 0,
+  });
+  await Badge.applyBadge(badgeState);
+}
+
+async function fetchContracts() {
+  const response = await masarFetch(
+    "https://masar.nusuk.sa/umrah/contracts_apis/api/ExternalAgent/GetContractList",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        umrahCompanyName: null,
+        contractStartDate: null,
+        contractEndDate: null,
+      }),
+    },
+  );
+  if (!response.ok) {
+    throw taggedError(response.status === 401 ? "masar-auth" : null, `contracts ${response.status}`);
+  }
+  const payload = await response.json();
+  return payload?.response?.data?.contracts || [];
+}
+
+async function patchRecordStatus(uploadId, body) {
+  const response = await apiFetch(`/records/${uploadId}/masar-status`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    throw taggedError(response.status === 401 ? "backend-auth" : null, S.ERR_PATCH_FAILED(response.status));
+  }
+}
+
+async function buildRecordLookup(uploadIds) {
+  const lookup = new Map();
+  for (const uploadId of uploadIds) {
+    const record = await fetchRecordById(uploadId);
+    if (record?.upload_id === uploadId) {
+      lookup.set(uploadId, record);
+    }
+  }
+  return lookup;
+}
+
+async function clearSubmissionBatch() {
+  await sessionSet({
+    submission_batch: [],
+    active_submit_id: null,
+    last_submit_result: null,
+    submission_state: ContextChange.SUBMISSION_STATES.IDLE,
+  });
+}
+
+async function ensureSubmissionSessionConsistency() {
+  if (_isDrainingSubmissions) {
+    return;
+  }
+  const session = await sessionGet(["submission_batch", "active_submit_id"]);
+  const batch = Array.isArray(session.submission_batch) ? session.submission_batch : [];
+  if (batch.length > 0 || session.active_submit_id) {
+    await clearSubmissionBatch();
+  }
+}
+
+async function removeFromBatch(uploadId) {
+  const session = await sessionGet(["submission_batch"]);
+  const nextBatch = (session.submission_batch || []).filter((id) => id !== uploadId);
+  await sessionSet({ submission_batch: nextBatch });
+  return nextBatch;
 }
 
 // ─── Submission workflow ──────────────────────────────────────────────────────
@@ -627,169 +833,343 @@ async function submitToMasar(record) {
     );
   }
 
-  log("submitToMasar — all 6 steps complete! mutamerId:", mutamerId);
-  return { mutamerId, scanResult: scanData };
+  let masarDetailId = null;
+  const passportNumber = core.PassportNumber || scan.passportNumber || record.passport_number || null;
+  if (passportNumber) {
+    const listRes = await masarFetch(
+      "https://masar.nusuk.sa/umrah/groups_apis/api/Mutamer/GetMutamerList",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          limit: 10,
+          offset: 0,
+          noCount: true,
+          sortColumn: null,
+          sortCriteria: [],
+          filterList: [
+            {
+              propertyName: "passportNumber",
+              operation: "match",
+              propertyValue: passportNumber,
+            },
+          ],
+        }),
+      },
+    );
+    if (listRes.ok) {
+      const listPayload = await listRes.json();
+      masarDetailId = listPayload?.response?.data?.content?.[0]?.id ?? null;
+    }
+  }
+
+  log("submitToMasar — all 7 steps complete! mutamerId:", mutamerId, "detailId:", masarDetailId);
+  return { mutamerId, scanResult: scanData, masarDetailId };
 }
 
 // ─── Message handler (from popup) ────────────────────────────────────────────
 
-chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-  handleMessage(msg)
-    .then(sendResponse)
-    .catch((err) => {
-      logError("handleMessage — unhandled rejection:", err.message);
-      sendResponse({ ok: false, error: err.message });
+function getContractState(contractEndDate) {
+  if (!contractEndDate) {
+    return "unknown";
+  }
+  const now = new Date();
+  const end = new Date(contractEndDate);
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const endDayStart = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+  if (todayStart > endDayStart) return "expired";
+  if (todayStart.getTime() === endDayStart.getTime()) return "expires-today";
+  return "active";
+}
+
+function buildContractSnapshotUpdate(contracts, selectedContractId) {
+  const selected = (Array.isArray(contracts) ? contracts : []).find(
+    (contract) => String(contract.contractId) === String(selectedContractId),
+  );
+  if (!selected) {
+    return {
+      masar_contract_id: "",
+      masar_contract_name_en: "",
+      masar_contract_name_ar: "",
+      masar_contract_number: "",
+      masar_contract_end_date: "",
+      masar_contract_status_name: "",
+      masar_contract_state: "unknown",
+    };
+  }
+  return {
+    masar_contract_id: String(selected.contractId),
+    masar_contract_name_en: selected.companyNameEn || "",
+    masar_contract_name_ar: selected.companyNameAr || "",
+    masar_contract_number: selected.contractNumber || "",
+    masar_contract_end_date: selected.contractEndDate || "",
+    masar_contract_status_name: selected.contractStatus?.name || "",
+    masar_contract_state: getContractState(selected.contractEndDate),
+  };
+}
+
+async function storeContractSnapshot(contracts) {
+  if (!Array.isArray(contracts) || contracts.length === 0) {
+    return;
+  }
+  const stored = await localGet(["masar_contract_id"]);
+  await localSet(buildContractSnapshotUpdate(contracts, stored.masar_contract_id));
+}
+
+async function processRecordSubmission(record) {
+  try {
+    const { mutamerId, scanResult, masarDetailId } = await submitToMasar(record);
+    await patchRecordStatus(record.upload_id, {
+      status: "submitted",
+      masar_mutamer_id: String(mutamerId),
+      masar_scan_result: scanResult,
+      masar_detail_id: masarDetailId ? String(masarDetailId) : null,
     });
-  return true; // keep channel open for async response
-});
+    await localSet({ session_expired: false, submit_auth_required: null });
+    return {
+      ok: true,
+      uploadId: record.upload_id,
+      status: "submitted",
+      mutamerId,
+      masarDetailId,
+    };
+  } catch (error) {
+    logError("processRecordSubmission — failed:", error.message);
+    if (error.failureKind === "backend-auth" || error.failureKind === "masar-auth") {
+      await localSet({ session_expired: true, submit_auth_required: error.failureKind });
+      await Notifications.notify(Notifications.NOTIFICATION_TYPES.SESSION_EXPIRED, S.NOTIF_SESSION_EXPIRED);
+    }
+    try {
+      await patchRecordStatus(record.upload_id, {
+        status: "failed",
+        masar_mutamer_id: null,
+        masar_scan_result: null,
+        masar_detail_id: null,
+      });
+    } catch (patchError) {
+      logError("processRecordSubmission — failed to patch failed status:", patchError.message);
+    }
+    return {
+      ok: false,
+      uploadId: record.upload_id,
+      status: "failed",
+      error: error.message,
+      failureKind: error.failureKind || null,
+    };
+  }
+}
+
+function shouldStopBatchAfterResult(result) {
+  return result?.ok === false && (result.failureKind === "backend-auth" || result.failureKind === "masar-auth");
+}
+
+async function drainSubmissionBatch(uploadIds, { notifyComplete = true } = {}) {
+  _isDrainingSubmissions = true;
+  const uniqueIds = [...new Set(uploadIds)];
+  try {
+    await localSet({ submit_auth_required: null });
+    await sessionSet({
+      submission_batch: uniqueIds,
+      active_submit_id: null,
+      submission_state:
+        uniqueIds.length > 1 ? ContextChange.SUBMISSION_STATES.QUEUED_MORE : ContextChange.SUBMISSION_STATES.IDLE,
+    });
+    const recordsLookup = await buildRecordLookup(uniqueIds);
+
+    let processedCount = 0;
+    let terminalFailure = null;
+    for (const uploadId of uniqueIds) {
+      const pendingStop = await ContextChange.shouldStopSubmission();
+      if (pendingStop) {
+        break;
+      }
+
+      const record = recordsLookup.get(uploadId) || null;
+      if (!record || !shouldSubmitRecord(record)) {
+        await removeFromBatch(uploadId);
+        continue;
+      }
+
+      await sessionSet({ active_submit_id: uploadId });
+      await ContextChange.setSubmissionState(ContextChange.SUBMISSION_STATES.SUBMITTING_CURRENT);
+      const result = await processRecordSubmission(record);
+      processedCount += 1;
+      await sessionSet({
+        last_submit_result: {
+          upload_id: uploadId,
+          status: result?.status || (result?.ok ? "submitted" : "failed"),
+          masar_detail_id: result?.masarDetailId ? String(result.masarDetailId) : null,
+          at: Date.now(),
+        },
+      });
+
+      const remaining = await removeFromBatch(uploadId);
+      await sessionSet({ active_submit_id: null });
+      if (shouldStopBatchAfterResult(result)) {
+        terminalFailure = result;
+        break;
+      }
+      if (remaining.length > 0) {
+        await ContextChange.setSubmissionState(ContextChange.SUBMISSION_STATES.QUEUED_MORE);
+        if (await ContextChange.shouldStopSubmission()) {
+          break;
+        }
+      }
+    }
+
+    const tail = await sessionGet(["submission_batch"]);
+    if ((tail.submission_batch || []).length > 0) {
+      await clearSubmissionBatch();
+    } else {
+      await ContextChange.setSubmissionState(ContextChange.SUBMISSION_STATES.IDLE);
+    }
+    const records = await fetchAllRecords();
+    if (records.ok) {
+      await updateBadge(records.data);
+    } else {
+      await updateBadgeState({ failedCount: 0 });
+    }
+    if (notifyComplete && processedCount > 0) {
+      await Notifications.notify(Notifications.NOTIFICATION_TYPES.BATCH_COMPLETE, S.NOTIF_BATCH_COMPLETE);
+    }
+    if (terminalFailure) {
+      return terminalFailure;
+    }
+    return { ok: true };
+  } finally {
+    _isDrainingSubmissions = false;
+  }
+}
 
 async function handleMessage(msg) {
   log("handleMessage — type:", msg.type);
+  await ensureSubmissionSessionConsistency();
 
   if (msg.type === "SYNC_SESSION") {
     return syncSession();
   }
 
   if (msg.type === "GROUP_LIST_CAPTURED") {
-    log("GROUP_LIST_CAPTURED — storing group list cache");
-    chrome.storage.local.set({ masar_groups_cache: msg.data });
+    await localSet({ masar_groups_cache: msg.data });
     return { ok: true };
   }
 
   if (msg.type === "CONTRACT_LIST_CAPTURED") {
-    // Content script intercepted GetContractList. Find the contract matching the
-    // currently active contractId and store its display details.
     const contracts = msg.data?.response?.data?.contracts || [];
-    log("CONTRACT_LIST_CAPTURED —", contracts.length, "contracts");
-    if (contracts.length === 0) return { ok: true };
-
-    const stored = await new Promise((resolve) =>
-      chrome.storage.local.get(["masar_contract_id"], resolve)
-    );
-    // Match the active contract. If no contractId stored yet, take the first active one.
-    const active = contracts.find((c) => String(c.contractId) === stored.masar_contract_id)
-      || contracts.find((c) => c.contractStatus?.id === 0)
-      || contracts[0];
-
-    const now = new Date();
-    const end = active.contractEndDate ? new Date(active.contractEndDate) : null;
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    let contractState = "unknown";
-    if (end) {
-      const endDayStart = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-      if (todayStart > endDayStart) contractState = "expired";
-      else if (todayStart.getTime() === endDayStart.getTime()) contractState = "expires-today";
-      else contractState = "active";
-    }
-
-    chrome.storage.local.set({
-      masar_contract_id:          String(active.contractId),
-      masar_contract_number:      active.contractNumber || "",
-      masar_contract_name_en:     active.companyNameEn || "",
-      masar_contract_name_ar:     active.companyNameAr || "",
-      masar_contract_end_date:    active.contractEndDate || "",
-      masar_contract_status_name: active.contractStatus?.name || "",
-      masar_contract_state:       contractState,
-    });
-    log("CONTRACT_LIST_CAPTURED — stored contract:", active.companyNameEn, "state:", contractState);
+    await storeContractSnapshot(contracts);
     return { ok: true };
   }
 
   if (msg.type === "FETCH_GROUPS") {
     try {
-      // 1. Use cached response if available (captured via content script intercept)
-      const cached = await new Promise((resolve) =>
-        chrome.storage.local.get(["masar_groups_cache"], resolve)
-      );
+      const cached = await localGet(["masar_groups_cache"]);
       if (cached.masar_groups_cache) {
-        log("FETCH_GROUPS — using cached group list");
         return { ok: true, data: cached.masar_groups_cache };
       }
-      // 2. Fall back to direct API call (may fail with 520 due to Cloudflare)
-      const data = await fetchGroups();
-      log("FETCH_GROUPS — returning live data");
-      return { ok: true, data };
-    } catch (err) {
-      logError("FETCH_GROUPS — error:", err.message);
-      return { ok: false, error: err.message || S.ERR_UNEXPECTED, failureKind: err.failureKind || null };
+      return { ok: true, data: await fetchGroups() };
+    } catch (error) {
+      return { ok: false, error: error.message || S.ERR_UNEXPECTED, failureKind: error.failureKind || null };
     }
   }
 
-  if (msg.type === "FETCH_PENDING") {
+  if (msg.type === "FETCH_CONTRACTS") {
     try {
-      const res = await apiFetch("/records/masar/pending");
-      log("FETCH_PENDING — status:", res.status);
-      if (!res.ok) {
-        return { ok: false, status: res.status, failureKind: res.status === 401 ? "backend-auth" : null };
-      }
-      const data = await res.json();
-      log("FETCH_PENDING — count:", Array.isArray(data) ? data.length : data);
-      updateBadge(Array.isArray(data) ? data : []);
-      return { ok: true, data };
-    } catch (err) {
-      logError("FETCH_PENDING — error:", err.message);
-      return { ok: false, error: S.ERR_UNEXPECTED };
+      const contracts = await fetchContracts();
+      await storeContractSnapshot(contracts);
+      return { ok: true, contracts };
+    } catch (error) {
+      return { ok: false, error: error.message || S.ERR_UNEXPECTED, failureKind: error.failureKind || null };
     }
+  }
+
+  if (msg.type === "FETCH_ALL_RECORDS") {
+    return fetchAllRecords();
+  }
+
+  if (msg.type === "SUBMIT_BATCH") {
+    const uploadIds = Array.isArray(msg.uploadIds) ? msg.uploadIds : [];
+    serialiseSubmit(() => drainSubmissionBatch(uploadIds)).catch((error) => {
+      logError("SUBMIT_BATCH — unhandled submission failure:", error.message);
+    });
+    return { ok: true };
   }
 
   if (msg.type === "SUBMIT_RECORD") {
     const record = msg.record;
-    log("SUBMIT_RECORD — upload_id:", record.upload_id);
-    return serialiseSubmit(async () => {
-    if (record.review_status === "needs_review") {
-      return { ok: false, error: S.REVIEW_REQUIRED };
+    if (!record?.upload_id) {
+      return { ok: false, error: S.ERR_UNEXPECTED };
     }
-    try {
-      const { mutamerId, scanResult } = await submitToMasar(record);
-      const patchRes = await apiFetch(`/records/${record.upload_id}/masar-status`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          status: "submitted",
-          masar_mutamer_id: String(mutamerId),
-          masar_scan_result: scanResult,
-        }),
-      });
-      log("SUBMIT_RECORD — patch status:", patchRes.status);
-      if (!patchRes.ok) {
-        throw taggedError(
-          patchRes.status === 401 ? "backend-auth" : null,
-          S.ERR_PATCH_FAILED(patchRes.status),
-        );
-      }
-      // Refresh badge after successful submit — failure count may have dropped.
-      apiFetch("/records/masar/pending").then(async (r) => {
-        if (r.ok) updateBadge(await r.json());
-      }).catch(() => {});
-      return { ok: true, mutamerId };
-    } catch (err) {
-      logError("SUBMIT_RECORD — failed:", err.message);
-      apiFetch(`/records/${record.upload_id}/masar-status`, {
-        method: "PATCH",
-        body: JSON.stringify({ status: "failed", masar_mutamer_id: null, masar_scan_result: null }),
-      }).then(async () => {
-        // Refresh badge so the new failure shows immediately.
-        const r = await apiFetch("/records/masar/pending");
-        if (r.ok) updateBadge(await r.json());
-      }).catch(() => {});
-      return { ok: false, error: err.message, failureKind: err.failureKind || null };
-    }
-    }); // end serialiseSubmit
+    serialiseSubmit(() =>
+      drainSubmissionBatch([record.upload_id], { notifyComplete: false }),
+    ).catch((error) => {
+      logError("SUBMIT_RECORD — unhandled submission failure:", error.message);
+    });
+    return { ok: true };
+  }
+
+  if (msg.type === "APPLY_CONTEXT_CHANGE") {
+    await ContextChange.applyContextChange();
+    await localRemove(["masar_contract_manual_override"]);
+    await updateBadgeState();
+    return { ok: true };
   }
 
   if (msg.type === "MARK_REVIEWED") {
-    const uploadId = msg.uploadId;
-    const patchRes = await apiFetch(`/records/${uploadId}/review-status`, {
+    const patchRes = await apiFetch(`/records/${msg.uploadId}/review-status`, {
       method: "PATCH",
       body: JSON.stringify({ status: "reviewed" }),
     });
     if (!patchRes.ok) {
-      return { ok: false, status: patchRes.status, failureKind: patchRes.status === 401 ? "backend-auth" : null };
+      return {
+        ok: false,
+        status: patchRes.status,
+        failureKind: patchRes.status === 401 ? "backend-auth" : null,
+      };
     }
     return { ok: true };
   }
 
   if (msg.type === "OPEN_MASAR") {
-    chrome.tabs.create({ url: "https://masar.nusuk.sa/pub/login" });
+    await chrome.tabs.create({ url: "https://masar.nusuk.sa/pub/login" });
     return { ok: true };
   }
+
+  return { ok: false, error: "unsupported-message" };
+}
+
+function startBackground() {
+  chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+    handleMessage(msg)
+      .then(sendResponse)
+      .catch((error) => {
+        logError("handleMessage — unhandled rejection:", error.message);
+        sendResponse({ ok: false, error: error.message });
+      });
+    return true;
+  });
+
+  if (chrome.runtime.onInstalled) {
+    chrome.runtime.onInstalled.addListener(() => {
+      void clearSubmissionBatch();
+    });
+  }
+  if (chrome.runtime.onStartup) {
+    chrome.runtime.onStartup.addListener(() => {
+      void clearSubmissionBatch();
+    });
+  }
+}
+
+if (typeof module === "object" && module.exports) {
+  module.exports = {
+    buildContractSnapshotUpdate,
+    countFailedRecords,
+    handleMessage,
+    hasValidSessionSyncSignal,
+    shouldStopBatchAfterResult,
+    shouldSubmitRecord,
+  };
+}
+
+if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
+  startBackground();
 }

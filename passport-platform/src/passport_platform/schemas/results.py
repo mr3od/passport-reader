@@ -172,6 +172,7 @@ class UserRecord:
     masar_status: str | None
     masar_mutamer_id: str | None
     masar_scan_result: dict[str, Any] | None
+    masar_detail_id: str | None
 
 
 def _build_extraction_view(data: object | None) -> PassportExtractionView | None:

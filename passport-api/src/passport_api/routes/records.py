@@ -75,6 +75,18 @@ def list_masar_pending(
     return [_record_to_response(record) for record in records]
 
 
+@router.get("/records/{upload_id}", response_model=RecordResponse)
+def get_record(
+    upload_id: int,
+    authenticated: Annotated[AuthenticatedSession, Depends(get_authenticated_session)],
+    services: Annotated[ApiServices, Depends(get_api_services)],
+) -> RecordResponse:
+    record = services.records.get_user_record(authenticated.user.id, upload_id)
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=RECORD_NOT_FOUND)
+    return _record_to_response(record)
+
+
 @router.get("/records/{upload_id}/image")
 def get_record_image(
     upload_id: int,
@@ -119,6 +131,7 @@ def update_masar_status(
         status=body.status,
         masar_mutamer_id=body.masar_mutamer_id,
         masar_scan_result=body.masar_scan_result,
+        masar_detail_id=body.masar_detail_id,
     )
     if not updated:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=RECORD_NOT_FOUND)
@@ -175,6 +188,7 @@ def _record_to_response(record) -> RecordResponse:
         extraction_result=record.extraction_result,
         error_code=record.error_code,
         masar_status=record.masar_status,
+        masar_detail_id=record.masar_detail_id,
     )
 
 

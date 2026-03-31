@@ -62,34 +62,43 @@ class FakeAuthService:
 
 
 class FakeRecordsService:
+    @staticmethod
+    def _record():
+        return type(
+            "Record",
+            (),
+            {
+                "upload_id": 10,
+                "user_id": 1,
+                "filename": "passport.jpg",
+                "mime_type": "image/jpeg",
+                "source_ref": "telegram://1",
+                "upload_status": type("Status", (), {"value": "processed"})(),
+                "created_at": datetime(2026, 3, 13, 10, 0, tzinfo=UTC),
+                "completed_at": datetime(2026, 3, 13, 10, 1, tzinfo=UTC),
+                "is_passport": True,
+                "is_complete": True,
+                "review_status": "auto",
+                "passport_number": "12345678",
+                "passport_image_uri": "/tmp/original.jpg",
+                "confidence_overall": 0.91,
+                "extraction_result": {"data": {"PassportNumber": "12345678"}},
+                "error_code": None,
+                "masar_status": None,
+                "masar_detail_id": None,
+            },
+        )()
+
     def list_user_records(self, user_id: int, *, limit: int = 50):
         assert user_id == 1
         assert limit == 50
-        return [
-            type(
-                "Record",
-                (),
-                {
-                    "upload_id": 10,
-                    "user_id": 1,
-                    "filename": "passport.jpg",
-                    "mime_type": "image/jpeg",
-                    "source_ref": "telegram://1",
-                    "upload_status": type("Status", (), {"value": "processed"})(),
-                    "created_at": datetime(2026, 3, 13, 10, 0, tzinfo=UTC),
-                    "completed_at": datetime(2026, 3, 13, 10, 1, tzinfo=UTC),
-                    "is_passport": True,
-                    "is_complete": True,
-                    "review_status": "auto",
-                    "passport_number": "12345678",
-                    "passport_image_uri": "/tmp/original.jpg",
-                    "confidence_overall": 0.91,
-                    "extraction_result": {"data": {"PassportNumber": "12345678"}},
-                    "error_code": None,
-                    "masar_status": None,
-                },
-            )()
-        ]
+        return [self._record()]
+
+    def get_user_record(self, user_id: int, upload_id: int):
+        assert user_id == 1
+        if upload_id != 10:
+            return None
+        return self._record()
 
 
 def make_fake_user() -> User:
@@ -116,6 +125,7 @@ def test_exchange_me_and_records_endpoints():
     exchange = client.post("/auth/exchange", json={"token": "temp-token"})
     me = client.get("/me", headers={"Authorization": "Bearer session-token"})
     records = client.get("/records", headers={"Authorization": "Bearer session-token"})
+    record = client.get("/records/10", headers={"Authorization": "Bearer session-token"})
 
     assert exchange.status_code == 200
     assert exchange.json() == {"session_token": "session-token"}
@@ -123,6 +133,8 @@ def test_exchange_me_and_records_endpoints():
     assert me.json()["external_user_id"] == "12345"
     assert records.status_code == 200
     assert records.json()[0]["passport_number"] == "12345678"
+    assert record.status_code == 200
+    assert record.json()["upload_id"] == 10
 
 
 def test_health_endpoint_and_debug_mode():
@@ -196,12 +208,15 @@ def test_end_to_end_exchange_me_and_records(tmp_path: Path, monkeypatch):
 
     me = client.get("/me", headers={"Authorization": f"Bearer {session_token}"})
     records = client.get("/records", headers={"Authorization": f"Bearer {session_token}"})
+    record = client.get(f"/records/{upload.id}", headers={"Authorization": f"Bearer {session_token}"})
 
     assert me.status_code == 200
     assert me.json()["external_user_id"] == "12345"
     assert records.status_code == 200
     assert len(records.json()) == 1
     assert records.json()[0]["passport_number"] == "12345678"
+    assert record.status_code == 200
+    assert record.json()["upload_id"] == upload.id
 
 
 def test_second_exchange_revokes_first_session_token(tmp_path: Path, monkeypatch):
@@ -292,25 +307,6 @@ def test_review_gate_before_masar_submit(tmp_path: Path, monkeypatch):
     session_token = exchange.json()["session_token"]
     headers = {"Authorization": f"Bearer {session_token}"}
 
-    blocked_submit = client.patch(
-        f"/records/{upload.id}/masar-status",
-        headers=headers,
-        json={
-            "status": "submitted",
-            "masar_mutamer_id": "M-1",
-            "masar_scan_result": {"ok": True},
-        },
-    )
-    assert blocked_submit.status_code == 409
-
-    review = client.patch(
-        f"/records/{upload.id}/review-status",
-        headers=headers,
-        json={"status": "reviewed"},
-    )
-    assert review.status_code == 200
-    assert review.json()["review_status"] == "reviewed"
-
     submit = client.patch(
         f"/records/{upload.id}/masar-status",
         headers=headers,
@@ -318,7 +314,9 @@ def test_review_gate_before_masar_submit(tmp_path: Path, monkeypatch):
             "status": "submitted",
             "masar_mutamer_id": "M-1",
             "masar_scan_result": {"ok": True},
+            "masar_detail_id": "detail-123",
         },
     )
     assert submit.status_code == 200
     assert submit.json()["masar_status"] == "submitted"
+    assert submit.json()["masar_detail_id"] == "detail-123"

@@ -10,13 +10,14 @@ Monorepo workspace for the passport processing system.
 - `passport-telegram`: agency Telegram adapter
 - `passport-admin-bot`: admin Telegram adapter
 - `passport-benchmark`: evaluation and scoring tools
+- `passport-masar-extension`: browser extension for agency submission workflows (outside the Python `uv` workspace)
 
 ## Workspace contract
 
 - The maintained workspace is defined by the root `pyproject.toml`.
 - Use `uv` from the repository root.
 - Use the root `.env` for local development.
-- Use the root `.env.production` contract for production.
+- Production secrets are injected outside version control and should follow the root env/settings contract used by the deployed services.
 - Shared tooling is configured at the root:
   - `import-linter`
   - `ruff`

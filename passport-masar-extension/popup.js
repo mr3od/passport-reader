@@ -1,492 +1,1073 @@
-// ─── Utilities ────────────────────────────────────────────────────────────────
-
-function $(id) { return document.getElementById(id); }
-
-function showScreen(name) {
-  document.querySelectorAll(".screen").forEach((el) => el.classList.add("hidden"));
-  const el = $(`screen-${name}`);
-  if (el) {
-    el.classList.remove("hidden");
-  } else {
-    console.error("[masar-ext popup] showScreen: no element with id screen-" + name);
-  }
-}
-
-function showError(msg) {
-  $("error-detail").textContent = msg;
-  showScreen("error");
-}
-
-function showSetupError(msg) {
-  const el = $("setup-error");
-  if (!el) return;
-  el.textContent = msg || "";
-  el.classList.toggle("hidden", !msg);
-}
-
-function showMasarLoginRequired() {
-  $("session-expired-text").textContent = S.MASAR_LOGIN_REQUIRED;
-  $("btn-open-masar-expired").textContent = S.OPEN_MASAR_BUTTON;
-  showScreen("session-expired");
-}
-
-async function showRelinkRequired() {
-  await storageRemove(["api_token"]);
-  showSetupError(S.SETUP_RELINK_REQUIRED);
-  showScreen("setup");
-}
-
-function storageGet(keys) {
-  return new Promise((resolve) => chrome.storage.local.get(keys, resolve));
-}
-function storageSet(data) {
-  return new Promise((resolve) => chrome.storage.local.set(data, resolve));
-}
-function storageRemove(keys) {
-  return new Promise((resolve) => chrome.storage.local.remove(keys, resolve));
-}
-
-// sendMsg with a 15-second timeout so popup never hangs blank.
-function sendMsg(msg) {
-  return new Promise((resolve) => {
-    const timer = setTimeout(() => {
-      console.error("[masar-ext popup] sendMsg timeout for", msg.type);
-      resolve({ ok: false, error: S.ERR_TIMEOUT });
-    }, 15000);
-    chrome.runtime.sendMessage(msg, (resp) => {
-      clearTimeout(timer);
-      if (chrome.runtime.lastError) {
-        console.error("[masar-ext popup] sendMsg error:", chrome.runtime.lastError.message);
-        resolve({ ok: false, error: S.ERR_UNEXPECTED });
-        return;
-      }
-      resolve(resp);
-    });
+(function (root, factory) {
+  const api = factory({
+    Auth: root.MasarAuth || require("./auth.js"),
+    ContractSelect: root.MasarContractSelect || require("./contract-select.js"),
+    ContextChange: root.MasarContextChange || require("./context-change.js"),
+    Failure: root.MasarPopupFailure || require("./popup-failure.js"),
+    QueueFilter: root.MasarQueueFilter || require("./queue-filter.js"),
+    Status: root.MasarStatus || require("./status.js"),
+    Strings: root.MasarStrings || require("./strings.js"),
+    apiBaseUrl: root.API_BASE_URL || "",
   });
-}
-
-// ─── Name helpers ─────────────────────────────────────────────────────────────
-
-function buildDisplayName(record) {
-  const d = record.extraction_result?.data;
-  if (d) {
-    const givenTokens = Array.isArray(d.GivenNameTokensEn) ? d.GivenNameTokensEn : [];
-    const given = givenTokens.join(" ");
-    const parts = [given, d.SurnameEn].filter(Boolean);
-    if (parts.length) return parts.join(" — ");
+  if (typeof module === "object" && module.exports) {
+    module.exports = api;
   }
-  return record.passport_number || S.RECORD_FALLBACK(record.upload_id);
-}
-
-function buildNationality(record) {
-  return record.extraction_result?.data?.CountryCode || "";
-}
-
-function reviewLabel(record) {
-  if (record.review_status === "needs_review") return S.REVIEW_REQUIRED;
-  if (record.review_status === "reviewed") return S.REVIEW_DONE;
-  return S.REVIEW_AUTO;
-}
-
-// ─── Context panel ────────────────────────────────────────────────────────────
-
-async function populateContextPanel() {
-  const data = await storageGet([
+  root.MasarPopup = api;
+  if (typeof document !== "undefined" && typeof chrome !== "undefined") {
+    api.bootstrap().catch((error) => {
+      console.error("[masar-ext popup] bootstrap failed:", error);
+    });
+  }
+})(typeof globalThis !== "undefined" ? globalThis : this, function ({
+  Auth,
+  ContractSelect,
+  ContextChange,
+  Failure,
+  QueueFilter,
+  Status,
+  Strings,
+  apiBaseUrl,
+}) {
+  const state = {
+    activeTab: "pending",
+    hiddenContextBanner: false,
+    pendingRecords: [],
+    skippedIds: new Set(),
+    sectionData: null,
+    lastFetchedRecords: [],
+    isWorkspaceLoading: false,
+    hasQueuedWorkspaceReload: false,
+    pendingReloadTimer: null,
+    pendingReloadFetchRecords: false,
+    pendingReloadRefreshContracts: false,
+    contractsCache: null,
+    contractsCacheAt: 0,
+  };
+  const CONTRACT_CACHE_TTL_MS = 30000;
+  const WORKSPACE_LOCAL_REFRESH_KEYS = new Set([
     "masar_entity_id",
     "masar_user_name",
     "masar_contract_id",
-    "masar_contract_number",
+    "session_expired",
+    "submit_auth_required",
+    "masar_contract_name_ar",
     "masar_contract_name_en",
-    "masar_contract_end_date",
     "masar_contract_state",
     "masar_group_id",
     "masar_group_name",
-    "masar_group_number",
-    "masar_last_synced",
+  ]);
+  const WORKSPACE_SESSION_REFRESH_KEYS = new Set([
+    "submission_batch",
+    "active_submit_id",
+    "last_submit_result",
   ]);
 
-  // Account row
-  const entityParts = [data.masar_user_name, data.masar_entity_id ? `(${data.masar_entity_id})` : null].filter(Boolean);
-  $("ctx-entity").textContent = entityParts.join(" ") || "—";
-
-  // Contract row
-  const contractParts = [
-    data.masar_contract_number ? `#${data.masar_contract_number}` : null,
-    data.masar_contract_name_en,
-  ].filter(Boolean);
-  $("ctx-contract").textContent = contractParts.join(" · ") || (data.masar_contract_id || "—");
-
-  // Contract end date + state
-  const state = data.masar_contract_state || "unknown";
-  const endEl = $("ctx-contract-end");
-  if (data.masar_contract_end_date) {
-    const dateStr = data.masar_contract_end_date.slice(0, 10);
-    const labels = { active: S.CONTRACT_ACTIVE, "expires-today": S.CONTRACT_EXPIRES_TODAY, expired: S.CONTRACT_EXPIRED, unknown: "" };
-    const label = labels[state] || "";
-    endEl.innerHTML = `<span class="status-dot ${state}"></span>${dateStr}${label ? ` · ${label}` : ""}`;
-  } else {
-    endEl.innerHTML = "—";
+  function $(id, doc = document) {
+    return doc.getElementById(id);
   }
 
-  // Group row
-  const groupParts = [data.masar_group_number, data.masar_group_name].filter(Boolean);
-  $("ctx-group").textContent = groupParts.join(" · ") || (data.masar_group_id || "—");
-
-  // Last synced
-  if (data.masar_last_synced) {
-    const ago = Math.round((Date.now() - data.masar_last_synced) / 1000);
-    $("ctx-synced").textContent = ago < 60 ? S.CTX_SYNCED_NOW : S.CTX_SYNCED_AGO(Math.round(ago / 60));
-  } else {
-    $("ctx-synced").textContent = S.CTX_NOT_SYNCED;
+  function getScreenTheme(name) {
+    switch (name) {
+      case "setup":
+      case "group-select":
+      case "settings":
+        return { tone: "amber", surface: "editorial" };
+      case "activate":
+        return { tone: "green", surface: "editorial" };
+      case "session-expired":
+      case "error":
+        return { tone: "red", surface: "editorial" };
+      case "loading":
+        return { tone: "olive", surface: "editorial" };
+      case "main":
+        return { tone: "olive", surface: "workspace" };
+      default:
+        return { tone: "amber", surface: "editorial" };
+    }
   }
 
-  // Show/hide banners based on contract state
-  $("banner-contract-expired").classList.toggle("hidden", state !== "expired");
-  $("banner-contract-expiring").classList.toggle("hidden", state !== "expires-today");
-}
-
-// ─── Queue rendering ──────────────────────────────────────────────────────────
-
-let pendingRecords = [];
-let skippedIds = new Set();
-
-function renderQueue() {
-  const list = $("queue-list");
-  list.innerHTML = "";
-
-  const visible = pendingRecords.filter((r) => !skippedIds.has(r.upload_id));
-  $("pending-count").textContent = S.PENDING_COUNT(visible.length);
-
-  if (visible.length === 0) {
-    const emptyEl = document.createElement("div");
-    emptyEl.className = "empty-state";
-    emptyEl.textContent = S.QUEUE_EMPTY;
-    list.appendChild(emptyEl);
-    return;
+  function applyScreenTheme(name, doc = document) {
+    const shell = $("popup-shell", doc);
+    if (!shell) {
+      return;
+    }
+    const theme = getScreenTheme(name);
+    shell.dataset.screenTone = theme.tone;
+    shell.dataset.screenSurface = theme.surface;
   }
 
-  visible.forEach((record) => {
-    const item = document.createElement("div");
-    item.className = "queue-item";
-    item.dataset.id = record.upload_id;
+  function showScreen(name, doc = document) {
+    doc.querySelectorAll(".screen").forEach((element) => element.classList.add("hidden"));
+    const screen = $(`screen-${name}`, doc);
+    if (screen) {
+      screen.classList.remove("hidden");
+    }
+    applyScreenTheme(name, doc);
+  }
 
-    const name = buildDisplayName(record);
-    const nat = buildNationality(record);
-    const passNum = record.passport_number || "";
-    const reviewText = reviewLabel(record);
-    const reviewClass = record.review_status === "needs_review" ? "needs-review" : "ok";
+  function shouldRefreshWorkspaceForStorageChange({
+    areaName,
+    changes,
+    isMainScreenVisible,
+  }) {
+    if (!isMainScreenVisible || !changes || typeof changes !== "object") {
+      return false;
+    }
+    const refreshKeys =
+      areaName === "local"
+        ? WORKSPACE_LOCAL_REFRESH_KEYS
+        : areaName === "session"
+          ? WORKSPACE_SESSION_REFRESH_KEYS
+          : null;
+    if (!refreshKeys) {
+      return false;
+    }
+    return Object.keys(changes).some((key) => refreshKeys.has(key));
+  }
 
-    item.innerHTML = `
-      <div class="record-name">${name}</div>
-      <div class="record-meta">${nat}${nat && passNum ? " · " : ""}${passNum ? "#" + passNum : ""}</div>
-      <div class="record-review ${reviewClass}">${reviewText}</div>
-      <div class="record-actions">
-        <button class="btn-submit">${S.BTN_SUBMIT}</button>
-        <button class="btn-skip secondary">${S.BTN_SKIP}</button>
-      </div>
-      <div class="status-msg hidden"></div>
-    `;
+  function localGet(keys) {
+    return new Promise((resolve) => chrome.storage.local.get(keys, resolve));
+  }
 
-    item.querySelector(".btn-submit").addEventListener("click", () => submitRecord(record, item));
-    item.querySelector(".btn-skip").addEventListener("click", () => {
-      skippedIds.add(record.upload_id);
-      renderQueue();
+  function localSet(values) {
+    return new Promise((resolve) => chrome.storage.local.set(values, resolve));
+  }
+
+  function localRemove(keys) {
+    return new Promise((resolve) => chrome.storage.local.remove(keys, resolve));
+  }
+
+  function sessionGet(keys) {
+    return new Promise((resolve) => chrome.storage.session.get(keys, resolve));
+  }
+
+  function sendMsg(message, { timeoutMs = 15000 } = {}) {
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => resolve({ ok: false, error: Strings.ERR_TIMEOUT }), timeoutMs);
+      chrome.runtime.sendMessage(message, (response) => {
+        clearTimeout(timer);
+        if (chrome.runtime.lastError) {
+          resolve({ ok: false, error: chrome.runtime.lastError.message });
+          return;
+        }
+        resolve(response);
+      });
     });
+  }
 
-    list.appendChild(item);
-  });
-}
+  function setStaticCopy(doc = document) {
+    doc.title = Strings.TOPBAR_TITLE;
+    $("topbar-title", doc).textContent = Strings.TOPBAR_TITLE;
+    $("topbar-kicker", doc).textContent = Strings.TOPBAR_KICKER;
+    $("help-support-link", doc).textContent = "؟";
+    $("help-support-link", doc).title = Strings.HELP_LINK_LABEL;
+    $("help-support-link", doc).ariaLabel = Strings.HELP_LINK_LABEL;
+    $("help-support-link", doc).href = apiBaseUrl || "#";
+    $("btn-settings", doc).textContent = "⚙";
+    $("btn-settings", doc).title = Strings.ACTION_SETTINGS;
+    $("btn-settings", doc).ariaLabel = Strings.ACTION_SETTINGS;
+    $("loading-kicker", doc).textContent = Strings.LOADING_KICKER;
+    $("loading-title", doc).textContent = Strings.LOADING;
+    $("loading-subtitle", doc).textContent = Strings.LOADING_SUBTITLE;
+    $("loading-text", doc).textContent = Strings.LOADING_HINT;
+    $("error-kicker", doc).textContent = Strings.ERROR_KICKER;
+    $("error-title", doc).textContent = Strings.ERROR_TITLE;
+    $("error-subtitle", doc).textContent = Strings.ERROR_SUBTITLE;
+    $("setup-kicker", doc).textContent = Strings.SETUP_KICKER;
+    $("setup-title", doc).textContent = Strings.SETUP_TITLE;
+    $("setup-subtitle", doc).textContent = Strings.SETUP_SUBTITLE;
+    $("setup-token-label", doc).textContent = Strings.SETUP_TOKEN_LABEL;
+    $("api-token-input", doc).placeholder = Strings.SETUP_TOKEN_PLACEHOLDER;
+    $("btn-save-token", doc).textContent = Strings.SETUP_SAVE;
+    $("setup-helper", doc).textContent = Strings.SETUP_HELP;
+    $("activate-kicker", doc).textContent = Strings.ACTIVATE_KICKER;
+    $("activate-title", doc).textContent = Strings.ACTIVATE_TITLE;
+    $("activate-subtitle", doc).textContent = Strings.ACTIVATE_SUBTITLE;
+    $("activate-message", doc).textContent = Strings.ACTIVATE_MESSAGE;
+    $("btn-open-masar-activate", doc).textContent = Strings.OPEN_LOGIN;
+    $("session-kicker", doc).textContent = Strings.SESSION_KICKER;
+    $("session-title", doc).textContent = Strings.SESSION_EXPIRED;
+    $("session-subtitle", doc).textContent = Strings.SESSION_SUBTITLE;
+    $("btn-open-masar-expired", doc).textContent = Strings.OPEN_LOGIN;
+    $("group-kicker", doc).textContent = Strings.GROUP_KICKER;
+    $("group-title", doc).textContent = Strings.GROUP_TITLE;
+    $("group-subtitle", doc).textContent = Strings.GROUP_SUBTITLE;
+    $("group-select-label", doc).textContent = Strings.GROUP_SELECT_LABEL;
+    $("group-select-hint", doc).textContent = Strings.GROUP_HINT;
+    $("btn-confirm-group", doc).textContent = Strings.GROUP_CONFIRM;
+    $("main-kicker", doc).textContent = Strings.MAIN_KICKER;
+    $("main-title", doc).textContent = Strings.MAIN_TITLE;
+    $("main-subtitle", doc).textContent = Strings.MAIN_SUBTITLE;
+    $("workspace-summary-title", doc).textContent = Strings.MAIN_SUMMARY_TITLE;
+    $("workspace-summary-subtitle", doc).textContent = Strings.MAIN_SUMMARY_SUBTITLE;
+    $("home-office-label", doc).textContent = Strings.HOME_OFFICE_LABEL;
+    $("home-contract-label", doc).textContent = Strings.HOME_CONTRACT_LABEL;
+    $("home-group-label", doc).textContent = Strings.HOME_GROUP_LABEL;
+    $("home-pending-label", doc).textContent = Strings.HOME_PENDING_LABEL;
+    $("home-failed-label", doc).textContent = Strings.HOME_FAILED_LABEL;
+    $("contract-select-label", doc).textContent = Strings.CONTRACT_SELECT_LABEL;
+    $("btn-change-group", doc).textContent = Strings.GROUP_CHANGE;
+    $("btn-refresh-context", doc).textContent = Strings.ACTION_REFRESH;
+    $("tab-label-pending", doc).textContent = Strings.SECTION_PENDING;
+    $("tab-label-in-progress", doc).textContent = Strings.SECTION_IN_PROGRESS;
+    $("tab-label-submitted", doc).textContent = Strings.SECTION_SUBMITTED;
+    $("tab-label-failed", doc).textContent = Strings.SECTION_FAILED;
+    $("pending-title", doc).textContent = Strings.SECTION_PENDING;
+    $("in-progress-title", doc).textContent = Strings.SECTION_IN_PROGRESS;
+    $("submitted-title", doc).textContent = Strings.SECTION_SUBMITTED;
+    $("failed-title", doc).textContent = Strings.SECTION_FAILED;
+    $("submit-all-btn", doc).textContent = Strings.ACTION_SUBMIT_ALL;
+    $("ctx-change-confirm", doc).textContent = Strings.CTX_CHANGE_YES;
+    $("ctx-change-defer", doc).textContent = Strings.CTX_CHANGE_LATER;
+    $("workspace-empty-note", doc).textContent = Strings.SECTION_EMPTY_PENDING;
+    $("settings-kicker", doc).textContent = Strings.SETTINGS_KICKER;
+    $("settings-title", doc).textContent = Strings.SETTINGS_TITLE;
+    $("settings-subtitle", doc).textContent = Strings.SETTINGS_SUBTITLE;
+    $("btn-back", doc).textContent = Strings.ACTION_BACK;
+    $("settings-email-label", doc).textContent = Strings.SETTINGS_EMAIL_LABEL;
+    $("settings-email", doc).placeholder = Strings.SETTINGS_EMAIL_PLACEHOLDER;
+    $("settings-phone-cc-label", doc).textContent = Strings.SETTINGS_PHONE_CC_LABEL;
+    $("settings-phone-cc", doc).placeholder = Strings.SETTINGS_PHONE_CC_PLACEHOLDER;
+    $("settings-phone-label", doc).textContent = Strings.SETTINGS_PHONE_LABEL;
+    $("settings-phone", doc).placeholder = Strings.SETTINGS_PHONE_PLACEHOLDER;
+    $("btn-save-settings", doc).textContent = Strings.SETTINGS_SAVE;
+    $("btn-reset-token", doc).textContent = Strings.SETTINGS_RESET;
+  }
 
-async function submitRecord(record, item) {
-  const btnSubmit = item.querySelector(".btn-submit");
-  const btnSkip = item.querySelector(".btn-skip");
-  const statusEl = item.querySelector(".status-msg");
+  function buildDisplayName(record) {
+    const data = record.extraction_result?.data;
+    if (data) {
+      const nameParts = [];
+      if (typeof data.GivenNamesEn === "string" && data.GivenNamesEn.trim()) {
+        nameParts.push(data.GivenNamesEn.trim());
+      } else if (Array.isArray(data.GivenNameTokensEn)) {
+        nameParts.push(data.GivenNameTokensEn.filter(Boolean).join(" ").trim());
+      }
+      if (typeof data.SurnameEn === "string" && data.SurnameEn.trim()) {
+        nameParts.push(data.SurnameEn.trim());
+      }
+      const name = nameParts.filter(Boolean).join(" ");
+      if (name) {
+        return name;
+      }
+    }
+    return record.passport_number || Strings.RECORD_FALLBACK(record.upload_id);
+  }
 
-  if (record.review_status === "needs_review") {
-    const confirmed = window.confirm(S.REVIEW_CONFIRM);
-    if (!confirmed) return;
-    const reviewRes = await sendMsg({ type: "MARK_REVIEWED", uploadId: record.upload_id });
-    if (!reviewRes || !reviewRes.ok) {
-      const failure = MasarPopupFailure.classifyFailure(reviewRes);
-      if (failure.type === "relink") {
-        await showRelinkRequired();
+  function buildMeta(record) {
+    const parts = [];
+    const countryCode = record.extraction_result?.data?.CountryCode;
+    if (countryCode) {
+      parts.push(countryCode);
+    }
+    if (record.passport_number) {
+      parts.push(`#${record.passport_number}`);
+    }
+    return parts.join(" · ");
+  }
+
+  function getClickUrl(record) {
+    if (!record.masar_detail_id) {
+      return null;
+    }
+    return `https://masar.nusuk.sa/umrah/mutamer/mutamer-details/${encodeURIComponent(record.masar_detail_id)}`;
+  }
+
+  function getStatusTone({ upload_status, masar_status, review_status, inProgress }) {
+    if (upload_status === "failed" || masar_status === "failed") {
+      return "red";
+    }
+    if (masar_status === "submitted" && review_status === "needs_review") {
+      return "amber";
+    }
+    if (masar_status === "submitted") {
+      return "green";
+    }
+    if (inProgress) {
+      return "olive";
+    }
+    if (review_status === "needs_review") {
+      return "amber";
+    }
+    return "green";
+  }
+
+  function getRecordVisualState(record) {
+    if (record.upload_status === "failed" || record.masar_status === "failed") {
+      return "failed";
+    }
+    if (record._inProgressState) {
+      return "processing";
+    }
+    if (record.review_status === "needs_review") {
+      return "review";
+    }
+    if (record.masar_status === "submitted" || record._section === "submitted") {
+      return "success";
+    }
+    return "ready";
+  }
+
+  function getRecordNote(record) {
+    if (record.review_status === "needs_review") {
+      return Strings.REVIEW_SUMMARY;
+    }
+    if (record._section === "submitted") {
+      return Strings.STATUS_SUBMITTED;
+    }
+    if (record._section === "failed") {
+      return Strings.STATUS_FAILED;
+    }
+    if (record._inProgressState) {
+      return Status.getStatusLabel({
+        upload_status: record.upload_status,
+        masar_status: record.masar_status,
+        review_status: record.review_status,
+        inProgress: record._inProgressState,
+      });
+    }
+    return Strings.STATUS_READY;
+  }
+
+  function createStatusPill(doc, record, inProgressState) {
+    const pill = doc.createElement("span");
+    pill.className = `status-pill status-chip ${getStatusTone({
+      upload_status: record.upload_status,
+      masar_status: record.masar_status,
+      review_status: record.review_status,
+      inProgress: inProgressState,
+    })}`;
+    pill.textContent = Status.getStatusLabel({
+      upload_status: record.upload_status,
+      masar_status: record.masar_status,
+      review_status: record.review_status,
+      inProgress: inProgressState,
+    });
+    return pill;
+  }
+
+  function createPassportThumb(doc, record) {
+    const thumb = doc.createElement("div");
+    thumb.className = "passport-thumb";
+    const top = doc.createElement("span");
+    top.textContent = Strings.THUMBNAIL_LABEL;
+    const bottom = doc.createElement("span");
+    bottom.textContent = (record.passport_number || String(record.upload_id)).slice(-4);
+    thumb.append(top, bottom);
+    return thumb;
+  }
+
+  function renderHomeSummary(doc, { pendingCount, failedCount }) {
+    const pending = $("pending-count", doc);
+    const failed = $("failed-count", doc);
+    pending.textContent = Strings.HOME_COUNT_VALUE(pendingCount);
+    failed.textContent = Strings.HOME_COUNT_VALUE(failedCount);
+    failed.dataset.tone = failedCount > 0 ? "danger" : "normal";
+  }
+
+  async function handleCardClick({ clickUrl }) {
+    if (!clickUrl || typeof chrome === "undefined" || !chrome.tabs) {
+      return false;
+    }
+    await chrome.tabs.create({ url: clickUrl });
+    return true;
+  }
+
+  function createActionButton(doc, label, handler, options = {}) {
+    const button = doc.createElement("button");
+    button.type = "button";
+    button.textContent = label;
+    if (options.className) {
+      button.className = options.className;
+    }
+    if (options.disabled) {
+      button.disabled = true;
+    }
+    button.addEventListener("click", async () => {
+      if (button.disabled) {
         return;
       }
-      if (failure.type === "masar-login") {
+      button.disabled = true;
+      try {
+        await handler();
+      } catch {
+        // Ignore to preserve previous popup behavior.
+      }
+    });
+    return button;
+  }
+
+  function renderPendingCard(doc, record) {
+    const article = doc.createElement("article");
+    article.className = `record rich ${getRecordVisualState(record)}`;
+    article.dataset.uploadId = String(record.upload_id);
+
+    const body = doc.createElement("div");
+    body.className = "record-body record-main";
+
+    const header = doc.createElement("div");
+    header.className = "record-header";
+    const textWrap = doc.createElement("div");
+    const name = doc.createElement("div");
+    name.className = "record-name";
+    name.textContent = buildDisplayName(record);
+    const meta = doc.createElement("div");
+    meta.className = "record-meta";
+    meta.textContent = buildMeta(record);
+    textWrap.append(name, meta);
+    header.append(textWrap, createStatusPill(doc, record, record._inProgressState || false));
+
+    const review = doc.createElement("div");
+    review.className = "record-review";
+    review.textContent = getRecordNote(record);
+
+    const footer = doc.createElement("div");
+    footer.className = "record-footer";
+    const actions = doc.createElement("div");
+    actions.className = "record-actions";
+
+    if (record._section === "pending") {
+      actions.append(
+        createActionButton(doc, Strings.ACTION_SUBMIT, record._onSubmit, {
+          disabled: Boolean(record._submitDisabled),
+        }),
+        createActionButton(doc, Strings.ACTION_SKIP, record._onSkip, { className: "ghost-btn" }),
+      );
+    } else if (record._section === "failed") {
+      actions.append(
+        createActionButton(doc, Strings.ACTION_RETRY, record._onRetry, {
+          disabled: Boolean(record._submitDisabled),
+        }),
+      );
+    } else if (record._section === "submitted") {
+      const link = doc.createElement("a");
+      link.className = `detail-link${record._clickUrl ? "" : " muted"}`;
+      link.href = record._clickUrl || "#";
+      link.textContent = record._clickUrl ? Strings.VIEW_DETAILS : Strings.DETAILS_UNAVAILABLE;
+      link.addEventListener("click", (event) => {
+        event.preventDefault();
+        void handleCardClick({ clickUrl: record._clickUrl });
+      });
+      actions.append(link);
+    }
+
+    footer.append(actions);
+    body.append(header, review, footer);
+    article.append(createPassportThumb(doc, record), body);
+    return article;
+  }
+
+  async function initContextChangeBanner(doc = document) {
+    const banner = $("context-change-banner", doc);
+    const reason = await ContextChange.getContextChangeReason();
+    const pending = await ContextChange.hasContextChangePending();
+    const text = $("context-change-text", doc);
+    if (!pending || state.hiddenContextBanner) {
+      banner.classList.add("hidden");
+      return;
+    }
+    text.textContent =
+      reason === "entity_changed" ? Strings.CTX_CHANGE_ENTITY : Strings.CTX_CHANGE_CONTRACT;
+    banner.classList.remove("hidden");
+  }
+
+  function renderEmptyState(container, message) {
+    container.innerHTML = "";
+    const doc = container.ownerDocument;
+    const empty = container.ownerDocument.createElement("div");
+    empty.className = "empty-state";
+    const mark = doc.createElement("div");
+    mark.className = "empty-mark";
+    mark.textContent = "—";
+    const title = doc.createElement("div");
+    title.className = "empty-title";
+    title.textContent = message;
+    empty.append(mark, title);
+    container.appendChild(empty);
+  }
+
+  function setSectionVisibility(sectionName, doc = document) {
+    const emptyHint = $("workspace-empty-note", doc);
+    const title = $("pending-title", doc);
+    const submitAll = $("submit-all-btn", doc);
+    const titleMap = {
+      pending: Strings.SECTION_PENDING,
+      inProgress: Strings.SECTION_IN_PROGRESS,
+      submitted: Strings.SECTION_SUBMITTED,
+      failed: Strings.SECTION_FAILED,
+    };
+    if (title) {
+      title.textContent = titleMap[sectionName] || Strings.SECTION_PENDING;
+    }
+    if (submitAll) {
+      submitAll.classList.toggle("hidden", sectionName !== "pending");
+    }
+    if (!emptyHint) {
+      return;
+    }
+    emptyHint.textContent =
+      {
+        pending: Strings.SECTION_EMPTY_PENDING,
+        inProgress: Strings.SECTION_EMPTY_IN_PROGRESS,
+        submitted: Strings.SECTION_EMPTY_SUBMITTED,
+        failed: Strings.SECTION_EMPTY_FAILED,
+      }[sectionName] || Strings.SECTION_EMPTY_PENDING;
+  }
+
+  function activateTab(tabName, doc = document) {
+    state.activeTab = tabName;
+    doc.querySelectorAll(".tab").forEach((tab) => {
+      tab.classList.toggle("active", tab.dataset.tab === tabName);
+    });
+    const panels = {
+      pending: "pending-section",
+      inProgress: "in-progress-section",
+      submitted: "submitted-section",
+      failed: "failed-section",
+    };
+    Object.entries(panels).forEach(([name, id]) => {
+      $(id, doc).classList.toggle("hidden", name !== tabName);
+    });
+    setSectionVisibility(tabName, doc);
+  }
+
+  function applySummaryContext(localData, doc = document) {
+    $("ctx-entity", doc).textContent =
+      localData.masar_user_name || localData.masar_entity_id || "—";
+    $("ctx-contract", doc).textContent =
+      localData.masar_contract_name_ar ||
+      localData.masar_contract_name_en ||
+      localData.masar_contract_id ||
+      "—";
+    $("ctx-group", doc).textContent = localData.masar_group_name || localData.masar_group_id || "—";
+    const pill = $("contract-state-pill", doc);
+    if (!localData.masar_contract_id && !localData.masar_contract_name_ar && !localData.masar_contract_name_en) {
+      pill.classList.add("hidden");
+      pill.textContent = "";
+      pill.dataset.tone = "";
+      return;
+    }
+    if (localData.masar_contract_state === "expired") {
+      pill.textContent = Strings.CONTRACT_EXPIRED;
+      pill.dataset.tone = "amber";
+      pill.classList.remove("hidden");
+    } else {
+      pill.textContent = Strings.CONTRACT_ACTIVE;
+      pill.dataset.tone = "green";
+      pill.classList.remove("hidden");
+    }
+  }
+
+  function populateTabCounts(sections, doc = document) {
+    $("tab-count-pending", doc).textContent = String(sections.pending.length);
+    $("tab-count-in-progress", doc).textContent = String(sections.inProgress.length);
+    $("tab-count-submitted", doc).textContent = String(sections.submitted.length);
+    $("tab-count-failed", doc).textContent = String(sections.failed.length);
+  }
+
+  async function populateContractDropdown(currentContractId, doc = document, { forceRefresh = false } = {}) {
+    const container = $("contract-dropdown-container", doc);
+    const select = $("contract-select", doc);
+    select.innerHTML = "";
+    select.append(new Option(Strings.CONTRACT_SELECT_PLACEHOLDER, ""));
+    try {
+      const now = Date.now();
+      const shouldUseCache =
+        !forceRefresh
+        && Array.isArray(state.contractsCache)
+        && (now - state.contractsCacheAt) < CONTRACT_CACHE_TTL_MS;
+      const contracts = shouldUseCache ? state.contractsCache : await ContractSelect.fetchContracts();
+      if (!shouldUseCache) {
+        state.contractsCache = contracts;
+        state.contractsCacheAt = now;
+      }
+      const resolution = ContractSelect.resolveContractSelection(contracts, currentContractId);
+      const activeContracts = contracts.filter((contract) => contract?.contractStatus?.id === 0);
+      if (activeContracts.length === 0) {
+        container.classList.remove("hidden");
+        select.append(new Option(Strings.CONTRACT_NONE_AVAILABLE, ""));
+        select.disabled = true;
+        return;
+      }
+      activeContracts.forEach((contract) => {
+        const option = new Option(
+          contract.companyNameAr || contract.companyNameEn || String(contract.contractId),
+          String(contract.contractId),
+        );
+        select.append(option);
+      });
+      select.disabled = false;
+      container.classList.toggle("hidden", !resolution.showDropdown);
+      if (resolution.selectedContract) {
+        select.value = String(resolution.selectedContract.contractId);
+      } else if (currentContractId) {
+        select.value = String(currentContractId);
+      }
+    } catch {
+      container.classList.add("hidden");
+    }
+  }
+
+  function renderSection(containerId, records, sectionName, emptyText, doc = document) {
+    const container = $(containerId, doc);
+    container.innerHTML = "";
+    if (records.length === 0) {
+      renderEmptyState(container, emptyText);
+      return;
+    }
+    for (const record of records) {
+      const sectionRecord = { ...record, _section: sectionName };
+      container.appendChild(renderPendingCard(doc, sectionRecord));
+    }
+  }
+
+  function applyLastSubmitResult(records, result) {
+    if (!result || typeof result !== "object" || !result.upload_id) {
+      return records;
+    }
+    return (Array.isArray(records) ? records : []).map((record) => {
+      if (record.upload_id !== result.upload_id) {
+        return record;
+      }
+      if (result.status === "submitted") {
+        return {
+          ...record,
+          masar_status: "submitted",
+          masar_detail_id: result.masar_detail_id || record.masar_detail_id || null,
+        };
+      }
+      if (result.status === "failed") {
+        return {
+          ...record,
+          masar_status: "failed",
+        };
+      }
+      return record;
+    });
+  }
+
+  async function submitSingle(record) {
+    const response = await sendMsg({ type: "SUBMIT_RECORD", record }, { timeoutMs: 60000 });
+    await handleSubmitResponse({
+      response,
+      classifyFailure: Failure.classifyFailure,
+      onRelinkRequired: showRelinkRequired,
+      onMasarLoginRequired: async () => {
+        showMasarLoginRequired();
+        return "login";
+      },
+      onReload: async () => {
+        await loadMainWorkspace({ showLoading: false, fetchRecords: true });
+        return "reload";
+      },
+    });
+  }
+
+  async function submitBatch(uploadIds) {
+    if (!uploadIds.length) {
+      return;
+    }
+    const confirmed = window.confirm(Strings.SUBMIT_ALL_CONFIRM(uploadIds.length));
+    if (!confirmed) {
+      return;
+    }
+    const response = await sendMsg({ type: "SUBMIT_BATCH", uploadIds }, { timeoutMs: 30000 });
+    await handleSubmitResponse({
+      response,
+      classifyFailure: Failure.classifyFailure,
+      onRelinkRequired: showRelinkRequired,
+      onMasarLoginRequired: async () => {
+        showMasarLoginRequired();
+        return "login";
+      },
+      onReload: async () => {
+        await loadMainWorkspace({ showLoading: false, fetchRecords: true });
+        return "reload";
+      },
+    });
+  }
+
+  async function loadMainWorkspace({ showLoading = true, fetchRecords = true, refreshContracts = false } = {}) {
+    if (state.isWorkspaceLoading) {
+      state.hasQueuedWorkspaceReload = true;
+      return;
+    }
+    state.isWorkspaceLoading = true;
+    if (showLoading) {
+      showScreen("loading");
+    }
+    try {
+      const [localData, sessionData, recordsResponse] = await Promise.all([
+        localGet([
+          "masar_entity_id",
+          "masar_user_name",
+          "masar_contract_id",
+          "submit_auth_required",
+          "masar_contract_name_ar",
+          "masar_contract_name_en",
+          "masar_contract_state",
+          "masar_group_id",
+          "masar_group_name",
+        ]),
+        sessionGet(["submission_batch", "active_submit_id", "last_submit_result"]),
+        fetchRecords
+          ? sendMsg({ type: "FETCH_ALL_RECORDS" }, { timeoutMs: 30000 })
+          : Promise.resolve({ ok: true, data: state.lastFetchedRecords }),
+      ]);
+
+      if (!recordsResponse?.ok) {
+        const failure = Failure.classifyFailure(recordsResponse);
+        if (failure.type === "relink") {
+          await showRelinkRequired();
+          return;
+        }
+        showError(recordsResponse?.error || Strings.ERR_UNEXPECTED);
+        return;
+      }
+
+      if (localData.submit_auth_required === "masar-auth") {
         showMasarLoginRequired();
         return;
       }
-      statusEl.className = "status-msg error";
-      statusEl.classList.remove("hidden");
-      statusEl.textContent = S.REVIEW_UPDATE_FAILED(reviewRes?.status || reviewRes?.error || "?");
-      return;
+      if (localData.submit_auth_required === "backend-auth") {
+        await showRelinkRequired();
+        return;
+      }
+
+      const recordsData = Array.isArray(recordsResponse.data) ? recordsResponse.data : [];
+      state.lastFetchedRecords = fetchRecords
+        ? recordsData
+        : applyLastSubmitResult(recordsData, sessionData.last_submit_result);
+      const inProgressIds = new Set(sessionData.submission_batch || []);
+      const activeSubmitId = sessionData.active_submit_id || null;
+      const sections = QueueFilter.filterQueueSections(state.lastFetchedRecords, inProgressIds);
+      const pendingVisible = sections.pending.filter((record) => !state.skippedIds.has(record.upload_id));
+      const contractExpired = localData.masar_contract_state === "expired";
+      const canSubmit = Boolean(localData.masar_contract_id) && !contractExpired;
+
+      state.sectionData = sections;
+      applySummaryContext(localData);
+      renderHomeSummary(document, {
+        pendingCount: pendingVisible.length,
+        failedCount: sections.failed.length,
+      });
+      populateTabCounts({
+        pending: pendingVisible,
+        inProgress: sections.inProgress,
+        submitted: sections.submitted,
+        failed: sections.failed,
+      });
+
+      const pendingRecords = pendingVisible.map((record) => ({
+        ...record,
+        _submitDisabled: !canSubmit,
+        _onSubmit: () => submitSingle(record),
+        _onSkip: () => {
+          state.skippedIds.add(record.upload_id);
+          return loadMainWorkspace({ showLoading: false, fetchRecords: false });
+        },
+      }));
+      const inProgressRecords = sections.inProgress.map((record) => ({
+        ...record,
+        _inProgressState: record.upload_id === activeSubmitId ? "active" : "queued",
+      }));
+      const submittedRecords = sections.submitted.map((record) => ({
+        ...record,
+        _clickUrl: getClickUrl(record),
+      }));
+      const failedRecords = sections.failed.map((record) => ({
+        ...record,
+        _submitDisabled: !canSubmit,
+        _onRetry: () => submitSingle(record),
+      }));
+
+      renderSection("pending-list", pendingRecords, "pending", Strings.SECTION_EMPTY_PENDING);
+      renderSection(
+        "in-progress-list",
+        inProgressRecords,
+        "inProgress",
+        Strings.SECTION_EMPTY_IN_PROGRESS,
+      );
+      renderSection(
+        "submitted-list",
+        submittedRecords,
+        "submitted",
+        Strings.SECTION_EMPTY_SUBMITTED,
+      );
+      renderSection("failed-list", failedRecords, "failed", Strings.SECTION_EMPTY_FAILED);
+      $("submit-all-btn").disabled = !canSubmit || pendingRecords.length === 0;
+      $("submit-all-btn").onclick = () => void submitBatch(pendingRecords.map((record) => record.upload_id));
+      await populateContractDropdown(localData.masar_contract_id, document, { forceRefresh: refreshContracts });
+      await initContextChangeBanner();
+      showScreen("main");
+      activateTab(state.activeTab);
+    } finally {
+      state.isWorkspaceLoading = false;
+      if (state.hasQueuedWorkspaceReload) {
+        state.hasQueuedWorkspaceReload = false;
+        void loadMainWorkspace({ showLoading: false, fetchRecords: true, refreshContracts: false });
+      }
     }
-    record.review_status = "reviewed";
   }
 
-  btnSubmit.disabled = true;
-  btnSkip.disabled = true;
-  statusEl.className = "status-msg loading";
-  statusEl.classList.remove("hidden");
-  statusEl.textContent = S.SUBMITTING;
-
-  const res = await sendMsg({ type: "SUBMIT_RECORD", record });
-
-  // Always re-fetch from API — source of truth.
-  // This handles the case where Chrome closes the message port during a long
-  // retry wait and sendMsg returns null even though the submission succeeded.
-  const freshRes = await sendMsg({ type: "FETCH_PENDING" });
-  if (freshRes && freshRes.ok) {
-    pendingRecords = freshRes.data;
+  async function loadGroupPicker() {
+    showScreen("group-select");
+    const response = await sendMsg({ type: "FETCH_GROUPS" });
+    const select = $("group-select");
+    select.innerHTML = "";
+    if (!response?.ok) {
+      $("group-select-hint").classList.remove("hidden");
+      select.append(new Option(Strings.GROUP_LOAD_FAILED, ""));
+      return;
+    }
+    $("group-select-hint").classList.add("hidden");
+    const groups = response.data?.response?.data?.content || [];
+    if (!groups.length) {
+      $("group-select-hint").classList.remove("hidden");
+      select.append(new Option(Strings.GROUP_NONE_FOUND, ""));
+      return;
+    }
+    for (const group of groups) {
+      const option = new Option(group.groupName || group.groupNumber || String(group.id), String(group.id));
+      option.dataset.groupName = group.groupName || "";
+      option.dataset.groupNumber = group.groupNumber || "";
+      select.append(option);
+    }
   }
 
-  if (res && res.ok) {
-    statusEl.className = "status-msg success";
-    statusEl.textContent = S.SUBMIT_SUCCESS;
-    setTimeout(() => renderQueue(), 1200);
-  } else {
-    // Check if this record is actually gone from the API (succeeded despite lost port)
-    const stillPending = pendingRecords.some((r) => r.upload_id === record.upload_id);
-    if (!stillPending) {
-      statusEl.className = "status-msg success";
-      statusEl.textContent = S.SUBMIT_SUCCESS;
-      setTimeout(() => renderQueue(), 1200);
-      return;
-    }
-    const err = res?.error || "Unknown error";
-    statusEl.className = "status-msg error";
-    const failure = MasarPopupFailure.classifyFailure(res);
-    if (failure.type === "relink") {
-      await showRelinkRequired();
-      return;
-    }
-    if (failure.type === "masar-login") {
-      showMasarLoginRequired();
-      return;
-    }
-    statusEl.textContent = S.ERR_GENERIC(err);
-    btnSubmit.disabled = false;
-    btnSkip.disabled = false;
-    renderQueue();
+  function populateSettings(values) {
+    $("settings-email").value = values.agency_email || "";
+    $("settings-phone-cc").value = values.agency_phone_country_code || "966";
+    $("settings-phone").value = values.agency_phone || "";
   }
-}
 
-// ─── Init ─────────────────────────────────────────────────────────────────────
+  function showError(message) {
+    $("error-detail").textContent = message;
+    showScreen("error");
+  }
 
-async function init() {
-  showScreen("loading");
+  function showSetupError(message) {
+    const banner = $("setup-error");
+    banner.textContent = message || "";
+    banner.classList.toggle("hidden", !message);
+  }
 
-  const stored = await storageGet([
-    "api_token",
-    "masar_entity_id",
-    "masar_group_id",
-    "masar_auth_token",
-    "agency_email",
-    "agency_phone",
-    "agency_phone_country_code",
-  ]);
+  function showMasarLoginRequired() {
+    $("session-expired-text").textContent = Strings.MASAR_LOGIN_REQUIRED;
+    showScreen("session-expired");
+  }
 
-  console.log("[masar-ext popup] init — stored:", {
-    api_token: !!stored.api_token,
-    masar_entity_id: stored.masar_entity_id,
-    masar_auth_token: stored.masar_auth_token ? stored.masar_auth_token.slice(0, 20) + "..." : null,
-    masar_group_id: stored.masar_group_id,
-  });
-
-  // 1. No token → show setup
-  if (!stored.api_token) {
-    showSetupError("");
+  async function showRelinkRequired() {
+    await localRemove(["api_token", "submit_auth_required"]);
+    showSetupError(Strings.SETUP_RELINK_REQUIRED);
     showScreen("setup");
-    return;
   }
 
-  // 2. No entity IDs captured yet → prompt to open masar
-  if (!stored.masar_entity_id) {
-    showScreen("activate");
-    return;
-  }
+  async function init() {
+    showScreen("loading");
+    const stored = await localGet([
+      "api_token",
+      "masar_entity_id",
+      "masar_group_id",
+      "agency_email",
+      "agency_phone",
+      "agency_phone_country_code",
+    ]);
+    if (!stored.api_token) {
+      showSetupError("");
+      showScreen("setup");
+      return;
+    }
+    if (!stored.masar_entity_id) {
+      showScreen("activate");
+      return;
+    }
 
-  // 3. Sync session data from open masar tab (best-effort, don't block on failure)
-  const syncRes = await sendMsg({ type: "SYNC_SESSION" });
-  console.log("[masar-ext popup] SYNC_SESSION:", syncRes);
-
-  // 4. No group selected → show group picker
-  if (!stored.masar_group_id) {
-    // Re-read storage after sync in case group was captured
-    const refreshed = await storageGet(["masar_group_id"]);
+    await sendMsg({ type: "SYNC_SESSION" });
+    const refreshed = await localGet(["masar_group_id"]);
     if (!refreshed.masar_group_id) {
       await loadGroupPicker();
       return;
     }
+    await loadMainWorkspace({ showLoading: true, fetchRecords: true });
   }
 
-  // 5. Main queue
-  await loadMainQueue();
-}
-
-async function loadGroupPicker() {
-  showScreen("group-select");
-  const res = await sendMsg({ type: "FETCH_GROUPS" });
-  const select = $("group-select");
-  select.innerHTML = "";
-
-  console.log("[masar-ext popup] FETCH_GROUPS response:", JSON.stringify(res).slice(0, 500));
-
-  if (!res || !res.ok) {
-    const failure = MasarPopupFailure.classifyFailure(res);
-    if (failure.type === "relink") {
-      await showRelinkRequired();
-      return;
-    }
-    if (failure.type === "masar-login") {
-      showMasarLoginRequired();
-      return;
-    }
-    select.innerHTML = `<option value="">${S.GROUP_LOAD_FAILED}</option>`;
-    $("group-select-hint").classList.remove("hidden");
-    return;
-  }
-  $("group-select-hint").classList.add("hidden");
-
-  // Unwrap the masar envelope: { response: { data: { content: [...] } } }
-  const groups = res.data?.response?.data?.content || [];
-
-  console.log("[masar-ext popup] groups count:", groups.length, "first:", JSON.stringify(groups[0]).slice(0, 200));
-
-  if (groups.length === 0) {
-    select.innerHTML = `<option value="">${S.GROUP_NONE_FOUND}</option>`;
-    $("group-select-hint").classList.remove("hidden");
-    return;
-  }
-  $("group-select-hint").classList.add("hidden");
-
-  groups.forEach((g) => {
-    const opt = document.createElement("option");
-    opt.value = g.id;
-    opt.dataset.groupName = g.groupName || "";
-    opt.dataset.groupNumber = g.groupNumber || "";
-    const label = [g.groupNumber, g.groupName].filter(Boolean).join(" · ");
-    opt.textContent = label || String(g.id);
-    select.appendChild(opt);
-  });
-}
-
-async function loadMainQueue() {
-  showScreen("main");
-  await populateContextPanel();
-
-  const res = await sendMsg({ type: "FETCH_PENDING" });
-
-  if (!res || !res.ok) {
-    const failure = MasarPopupFailure.classifyFailure(res);
-    if (failure.type === "relink") {
-      await showRelinkRequired();
-      return;
-    }
-    if (failure.type === "masar-login") {
-      showMasarLoginRequired();
-      return;
-    }
-    $("queue-list").innerHTML = `<div class="status-msg error">${S.QUEUE_LOAD_FAILED(res?.status || res?.error || "?")}</div>`;
-    return;
-  }
-
-  pendingRecords = res.data || [];
-  renderQueue();
-}
-
-// ─── Event listeners ──────────────────────────────────────────────────────────
-
-// Setup screen
-$("btn-save-token").addEventListener("click", async () => {
-  const token = $("api-token-input").value.trim();
-  const btn = $("btn-save-token");
-  if (!token) return;
-  showSetupError("");
-  btn.disabled = true;
-  try {
-    const issued = await MasarAuth.exchangeTempToken({
-      apiBaseUrl: API_BASE_URL,
-      tempToken: token,
-      fetchImpl: fetch,
-    });
-    await storageSet({
-      api_token: issued.sessionToken,
-    });
-    $("api-token-input").value = "";
+  async function bootstrap() {
+    setStaticCopy();
+    bindEvents();
     await init();
-  } catch (err) {
-    showSetupError(S.SETUP_LOGIN_FAILED(err?.message || ""));
-  } finally {
-    btn.disabled = false;
   }
-});
 
-// Activate screen
-$("btn-open-masar-activate").addEventListener("click", () => {
-  sendMsg({ type: "OPEN_MASAR" });
-});
+  async function handleSubmitResponse({
+    response,
+    classifyFailure,
+    onRelinkRequired,
+    onMasarLoginRequired,
+    onReload,
+  }) {
+    if (response?.ok) {
+      return onReload();
+    }
+    const failure = classifyFailure(response);
+    if (failure.type === "relink") {
+      return onRelinkRequired();
+    }
+    if (failure.type === "masar-login") {
+      return onMasarLoginRequired();
+    }
+    return onReload();
+  }
 
-// Session expired screen
-$("btn-open-masar-expired").addEventListener("click", () => {
-  sendMsg({ type: "OPEN_MASAR" });
-});
+  async function handleContractSelectionChange({ value, writeSelection, reloadWorkspace }) {
+    await writeSelection({
+      masar_contract_id: value,
+      masar_contract_manual_override: true,
+    });
+    await reloadWorkspace();
+  }
 
-// Group picker
-$("btn-confirm-group").addEventListener("click", async () => {
-  const select = $("group-select");
-  const groupId = select.value;
-  if (!groupId) return;
-  const opt = select.options[select.selectedIndex];
-  await storageSet({
-    masar_group_id: groupId,
-    masar_group_name: opt?.dataset.groupName || "",
-    masar_group_number: opt?.dataset.groupNumber || "",
-  });
-  loadMainQueue();
-});
+  function scheduleWorkspaceReload({ fetchRecords = true, refreshContracts = false } = {}) {
+    state.pendingReloadFetchRecords = state.pendingReloadFetchRecords || fetchRecords;
+    state.pendingReloadRefreshContracts =
+      state.pendingReloadRefreshContracts || refreshContracts;
+    if (state.pendingReloadTimer) {
+      clearTimeout(state.pendingReloadTimer);
+    }
+    state.pendingReloadTimer = setTimeout(() => {
+      const shouldFetchRecords = state.pendingReloadFetchRecords;
+      const shouldRefreshContracts = state.pendingReloadRefreshContracts;
+      state.pendingReloadFetchRecords = false;
+      state.pendingReloadRefreshContracts = false;
+      state.pendingReloadTimer = null;
+      void loadMainWorkspace({
+        showLoading: false,
+        fetchRecords: shouldFetchRecords,
+        refreshContracts: shouldRefreshContracts,
+      });
+    }, 200);
+  }
 
-// Persistent settings button (always visible in topbar)
-$("btn-settings").addEventListener("click", async () => {
-  const stored = await storageGet(["agency_email", "agency_phone", "agency_phone_country_code"]);
-  $("settings-email").value = stored.agency_email || "";
-  $("settings-phone-cc").value = stored.agency_phone_country_code || "966";
-  $("settings-phone").value = stored.agency_phone || "";
-  showScreen("settings");
-});
+  function bindEvents() {
+    $("btn-save-token").addEventListener("click", async () => {
+      const button = $("btn-save-token");
+      button.disabled = true;
+      showSetupError("");
+      try {
+        const issued = await Auth.exchangeTempToken({
+          apiBaseUrl,
+          tempToken: $("api-token-input").value.trim(),
+          fetchImpl: fetch,
+        });
+        await localSet({ api_token: issued.sessionToken });
+        $("api-token-input").value = "";
+        await init();
+      } catch (error) {
+        showSetupError(Strings.SETUP_LOGIN_FAILED(error?.message || ""));
+      } finally {
+        button.disabled = false;
+      }
+    });
 
-$("btn-back").addEventListener("click", () => init());
+    $("btn-open-masar-activate").addEventListener("click", () => {
+      void sendMsg({ type: "OPEN_MASAR" });
+    });
+    $("btn-open-masar-expired").addEventListener("click", () => {
+      void sendMsg({ type: "OPEN_MASAR" });
+    });
+    $("btn-confirm-group").addEventListener("click", async () => {
+      const select = $("group-select");
+      if (!select.value) {
+        return;
+      }
+      const button = $("btn-confirm-group");
+      button.disabled = true;
+      const option = select.options[select.selectedIndex];
+      try {
+        await localSet({
+          masar_group_id: select.value,
+          masar_group_name: option?.dataset.groupName || "",
+          masar_group_number: option?.dataset.groupNumber || "",
+        });
+        await loadMainWorkspace({ showLoading: true, fetchRecords: true });
+      } finally {
+        button.disabled = false;
+      }
+    });
+    $("btn-settings").addEventListener("click", async () => {
+      populateSettings(
+        await localGet(["agency_email", "agency_phone", "agency_phone_country_code"]),
+      );
+      showScreen("settings");
+    });
+    $("btn-back").addEventListener("click", () => {
+      void init();
+    });
+    $("btn-save-settings").addEventListener("click", async () => {
+      await localSet({
+        agency_email: $("settings-email").value.trim(),
+        agency_phone_country_code: $("settings-phone-cc").value.trim(),
+        agency_phone: $("settings-phone").value.trim(),
+      });
+      await init();
+    });
+    $("btn-reset-token").addEventListener("click", async () => {
+      await localRemove(["api_token", "masar_group_id"]);
+      showScreen("setup");
+    });
+    $("btn-change-group").addEventListener("click", async () => {
+      await localRemove(["masar_group_id", "masar_group_name", "masar_group_number"]);
+      await loadGroupPicker();
+    });
+    $("btn-refresh-context").addEventListener("click", async () => {
+      await sendMsg({ type: "SYNC_SESSION" });
+      await init();
+    });
+    $("ctx-change-confirm").addEventListener("click", async () => {
+      state.hiddenContextBanner = false;
+      await sendMsg({ type: "APPLY_CONTEXT_CHANGE" });
+      await init();
+    });
+    $("ctx-change-defer").addEventListener("click", async () => {
+      state.hiddenContextBanner = true;
+      await initContextChangeBanner();
+    });
+    $("contract-select").addEventListener("change", async (event) => {
+      if (!event.target.value) {
+        return;
+      }
+      await handleContractSelectionChange({
+        value: event.target.value,
+        writeSelection: localSet,
+        reloadWorkspace: () => loadMainWorkspace({ showLoading: false, fetchRecords: true }),
+      });
+    });
+    document.querySelectorAll(".tab").forEach((tab) => {
+      tab.addEventListener("click", () => activateTab(tab.dataset.tab));
+    });
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+      const isMainScreenVisible = !$("screen-main").classList.contains("hidden");
+      if (shouldRefreshWorkspaceForStorageChange({ areaName, changes, isMainScreenVisible })) {
+        const fetchRecords = false;
+        const refreshContracts =
+          areaName === "local"
+          && (
+            Object.prototype.hasOwnProperty.call(changes, "masar_contract_id")
+            || Object.prototype.hasOwnProperty.call(changes, "masar_contract_state")
+          );
+        scheduleWorkspaceReload({ fetchRecords, refreshContracts });
+      }
+    });
+  }
 
-$("btn-save-settings").addEventListener("click", async () => {
-  await storageSet({
-    agency_email: $("settings-email").value.trim(),
-    agency_phone_country_code: $("settings-phone-cc").value.trim(),
-    agency_phone: $("settings-phone").value.trim(),
-  });
-  init();
-});
-
-$("btn-change-group").addEventListener("click", async () => {
-  await storageRemove(["masar_group_id", "masar_group_name", "masar_group_number"]);
-  loadGroupPicker();
-});
-
-// Context panel refresh — re-sync from the open Masar tab then re-init
-// so any context change (account switch, contract change) is picked up.
-$("btn-refresh-context").addEventListener("click", async () => {
-  $("ctx-synced").textContent = S.CTX_SYNCING;
-  await sendMsg({ type: "SYNC_SESSION" });
-  init();
-});
-
-$("btn-reset-token").addEventListener("click", async () => {
-  await storageRemove(["api_token", "masar_group_id"]);
-  showSetupError("");
-  showScreen("setup");
-});
-
-// ─── Boot ──────────────────────────────────────────────────────────────────────
-init().catch((err) => {
-  console.error("[masar-ext popup] init failed:", err);
-  showError(err.message || String(err));
+  return {
+    bootstrap,
+    getScreenTheme,
+    handleCardClick,
+    handleContractSelectionChange,
+    handleSubmitResponse,
+    initContextChangeBanner,
+    renderHomeSummary,
+    renderPendingCard,
+    shouldRefreshWorkspaceForStorageChange,
+  };
 });

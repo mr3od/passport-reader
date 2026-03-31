@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS masar_submissions (
     status TEXT NOT NULL DEFAULT 'pending',
     mutamer_id TEXT,
     scan_result_json TEXT,
+    masar_detail_id TEXT,
     submitted_at TEXT,
     created_at TEXT NOT NULL,
     FOREIGN KEY (upload_id) REFERENCES uploads(id) ON DELETE CASCADE
@@ -165,4 +166,8 @@ class Database:
 
     @staticmethod
     def _upgrade_schema(conn: sqlite3.Connection) -> None:
-        del conn
+        masar_columns = {
+            row["name"] for row in conn.execute("PRAGMA table_info(masar_submissions)").fetchall()
+        }
+        if "masar_detail_id" not in masar_columns:
+            conn.execute("ALTER TABLE masar_submissions ADD COLUMN masar_detail_id TEXT")

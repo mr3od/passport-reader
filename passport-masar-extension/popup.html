@@ -3,124 +3,275 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>تسجيل المعتمرين</title>
+  <title></title>
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
-  <!-- Persistent top bar — always visible -->
-  <div id="topbar">
-    <span id="topbar-title">تسجيل المعتمرين</span>
-    <button id="btn-settings" class="icon-btn" title="الإعدادات">&#9881;</button>
+  <div id="popup-shell" class="popup-shell">
+    <header id="topbar" class="topbar">
+      <div class="topbar-copy">
+        <span id="topbar-kicker" class="topbar-kicker"></span>
+        <span id="topbar-title" class="topbar-title"></span>
+      </div>
+      <div class="topbar-actions">
+        <a id="help-support-link" class="topbar-link" target="_blank" rel="noreferrer"></a>
+        <button id="btn-settings" class="icon-btn" type="button"></button>
+      </div>
+    </header>
+
+    <main id="app" class="app-shell">
+      <section id="screen-loading" class="screen hidden">
+        <div class="state-header olive">
+          <div id="loading-kicker" class="header-kicker"></div>
+          <h2 id="loading-title" class="header-title"></h2>
+          <p id="loading-subtitle" class="header-subtitle"></p>
+        </div>
+        <div class="screen-body">
+          <div class="banner soft">
+            <span id="loading-text"></span>
+          </div>
+          <div class="skeleton-stack" aria-hidden="true">
+            <div class="skeleton-card">
+              <div class="skeleton-line wide"></div>
+              <div class="skeleton-line med"></div>
+              <div class="skeleton-line short"></div>
+            </div>
+            <div class="skeleton-card">
+              <div class="skeleton-line med"></div>
+              <div class="skeleton-line wide"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="screen-error" class="screen hidden">
+        <div class="state-header red">
+          <div id="error-kicker" class="header-kicker"></div>
+          <h2 id="error-title" class="header-title"></h2>
+          <p id="error-subtitle" class="header-subtitle"></p>
+        </div>
+        <div class="screen-body">
+          <div class="banner error">
+            <span id="error-detail"></span>
+          </div>
+        </div>
+      </section>
+
+      <section id="screen-setup" class="screen hidden">
+        <div class="state-header amber">
+          <div id="setup-kicker" class="header-kicker"></div>
+          <h2 id="setup-title" class="header-title"></h2>
+          <p id="setup-subtitle" class="header-subtitle"></p>
+        </div>
+        <div class="screen-body">
+          <div class="action-stack">
+            <label class="field" for="api-token-input">
+              <span id="setup-token-label"></span>
+              <input id="api-token-input" class="input" type="password" />
+            </label>
+            <button id="btn-save-token" class="button primary" type="button"></button>
+          </div>
+          <div id="setup-helper" class="banner soft"></div>
+          <div id="setup-error" class="banner error hidden"></div>
+        </div>
+      </section>
+
+      <section id="screen-activate" class="screen hidden">
+        <div class="state-header green">
+          <div id="activate-kicker" class="header-kicker"></div>
+          <h2 id="activate-title" class="header-title"></h2>
+          <p id="activate-subtitle" class="header-subtitle"></p>
+        </div>
+        <div class="screen-body">
+          <div id="activate-message" class="banner soft"></div>
+          <button id="btn-open-masar-activate" class="button primary" type="button"></button>
+        </div>
+      </section>
+
+      <section id="screen-session-expired" class="screen hidden">
+        <div class="state-header red">
+          <div id="session-kicker" class="header-kicker"></div>
+          <h2 id="session-title" class="header-title"></h2>
+          <p id="session-subtitle" class="header-subtitle"></p>
+        </div>
+        <div class="screen-body">
+          <div id="session-expired-text" class="banner error"></div>
+          <button id="btn-open-masar-expired" class="button primary" type="button"></button>
+        </div>
+      </section>
+
+      <section id="screen-group-select" class="screen hidden">
+        <div class="state-header amber">
+          <div id="group-kicker" class="header-kicker"></div>
+          <h2 id="group-title" class="header-title"></h2>
+          <p id="group-subtitle" class="header-subtitle"></p>
+        </div>
+        <div class="screen-body">
+          <div id="group-select-hint" class="banner soft hidden"></div>
+          <label class="field" for="group-select">
+            <span id="group-select-label"></span>
+            <select id="group-select" class="select"></select>
+          </label>
+          <button id="btn-confirm-group" class="button primary" type="button"></button>
+        </div>
+      </section>
+
+      <section id="screen-main" class="screen hidden">
+        <div class="state-header olive">
+          <div id="main-kicker" class="header-kicker"></div>
+          <h2 id="main-title" class="header-title"></h2>
+          <p id="main-subtitle" class="header-subtitle"></p>
+        </div>
+        <div class="screen-body workspace-body">
+          <div id="context-change-banner" class="banner warn hidden">
+            <span id="context-change-text"></span>
+            <div class="banner-actions">
+              <button id="ctx-change-confirm" class="mini-btn primary" type="button"></button>
+              <button id="ctx-change-defer" class="mini-btn ghost" type="button"></button>
+            </div>
+          </div>
+
+          <div id="home-summary" class="summary-strip">
+            <div class="summary-head">
+              <div>
+                <div id="workspace-summary-title" class="summary-title"></div>
+                <div id="workspace-summary-subtitle" class="summary-meta"></div>
+              </div>
+              <div id="contract-state-pill" class="pill hidden"></div>
+            </div>
+            <div class="summary-grid">
+              <div class="summary-cell">
+                <div id="home-office-label" class="key"></div>
+                <div id="ctx-entity" class="value"></div>
+              </div>
+              <div class="summary-cell">
+                <div id="home-contract-label" class="key"></div>
+                <div id="ctx-contract" class="value"></div>
+              </div>
+              <div class="summary-cell">
+                <div id="home-group-label" class="key"></div>
+                <div id="ctx-group" class="value"></div>
+              </div>
+              <div class="summary-cell metrics-cell">
+                <div class="metric-grid">
+                  <div class="metric-box">
+                    <div id="home-pending-label" class="key"></div>
+                    <div id="pending-count" class="metric-value"></div>
+                  </div>
+                  <div class="metric-box">
+                    <div id="home-failed-label" class="key"></div>
+                    <div id="failed-count" class="metric-value"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="contract-dropdown-container" class="contract-box hidden">
+            <label class="field" for="contract-select">
+              <span id="contract-select-label"></span>
+              <select id="contract-select" class="select"></select>
+            </label>
+          </div>
+
+          <div class="toolbar button-row">
+            <button id="btn-change-group" class="button secondary" type="button"></button>
+            <button id="btn-refresh-context" class="button secondary" type="button"></button>
+          </div>
+
+          <div class="tabs" role="tablist">
+            <button class="tab active" data-tab="pending" type="button">
+              <span class="tab-label" id="tab-label-pending"></span>
+              <span class="tab-count" id="tab-count-pending"></span>
+            </button>
+            <button class="tab" data-tab="inProgress" type="button">
+              <span class="tab-label" id="tab-label-in-progress"></span>
+              <span class="tab-count" id="tab-count-in-progress"></span>
+            </button>
+            <button class="tab" data-tab="submitted" type="button">
+              <span class="tab-label" id="tab-label-submitted"></span>
+              <span class="tab-count" id="tab-count-submitted"></span>
+            </button>
+            <button class="tab" data-tab="failed" type="button">
+              <span class="tab-label" id="tab-label-failed"></span>
+              <span class="tab-count" id="tab-count-failed"></span>
+            </button>
+          </div>
+
+          <div class="queue">
+            <div class="queue-head">
+              <div>
+                <div id="pending-title" class="queue-title"></div>
+                <div id="workspace-empty-note" class="queue-sub"></div>
+              </div>
+              <button id="submit-all-btn" class="button secondary" type="button"></button>
+            </div>
+
+            <section id="pending-section" class="tab-panel section-block">
+              <div id="pending-list" class="records-grid"></div>
+            </section>
+
+            <section id="in-progress-section" class="tab-panel section-block hidden">
+              <div class="section-header">
+                <h3 id="in-progress-title" class="section-title"></h3>
+              </div>
+              <div id="in-progress-list" class="records-grid"></div>
+            </section>
+
+            <section id="submitted-section" class="tab-panel section-block hidden">
+              <div class="section-header">
+                <h3 id="submitted-title" class="section-title"></h3>
+              </div>
+              <div id="submitted-list" class="records-grid"></div>
+            </section>
+
+            <section id="failed-section" class="tab-panel section-block hidden">
+              <div class="section-header">
+                <h3 id="failed-title" class="section-title"></h3>
+              </div>
+              <div id="failed-list" class="records-grid"></div>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <section id="screen-settings" class="screen hidden">
+        <div class="state-header amber">
+          <div id="settings-kicker" class="header-kicker"></div>
+          <h2 id="settings-title" class="header-title"></h2>
+          <p id="settings-subtitle" class="header-subtitle"></p>
+        </div>
+        <div class="screen-body">
+          <div class="button-row settings-nav">
+            <button id="btn-back" class="button secondary" type="button"></button>
+          </div>
+          <label class="field" for="settings-email">
+            <span id="settings-email-label"></span>
+            <input id="settings-email" class="input" type="email" />
+          </label>
+          <label class="field" for="settings-phone-cc">
+            <span id="settings-phone-cc-label"></span>
+            <input id="settings-phone-cc" class="input" type="text" maxlength="5" />
+          </label>
+          <label class="field" for="settings-phone">
+            <span id="settings-phone-label"></span>
+            <input id="settings-phone" class="input" type="tel" />
+          </label>
+          <button id="btn-save-settings" class="button primary" type="button"></button>
+          <button id="btn-reset-token" class="button danger" type="button"></button>
+        </div>
+      </section>
+    </main>
   </div>
 
-  <div id="app">
-    <!-- Loading -->
-    <div id="screen-loading" class="screen hidden">
-      <div class="status-banner" style="background:#f0f4ff;border:1px solid #c0d0f0;color:#333;">جارٍ التحميل…</div>
-    </div>
-
-    <!-- Error fallback -->
-    <div id="screen-error" class="screen hidden">
-      <div class="status-banner error">
-        <strong>خطأ</strong><br /><span id="error-detail"></span>
-      </div>
-    </div>
-
-    <!-- Token setup screen -->
-    <div id="screen-setup" class="screen hidden">
-      <h2>ربط الحساب</h2>
-      <label for="api-token-input">رمز الدخول</label>
-      <input id="api-token-input" type="password" placeholder="الصق الرمز من أمر /token" />
-      <button id="btn-save-token">حفظ</button>
-      <div id="setup-error" class="status-banner error hidden"></div>
-    </div>
-
-    <!-- Entity IDs not yet captured -->
-    <div id="screen-activate" class="screen hidden">
-      <div class="status-banner warning">
-        افتح <strong>masar.nusuk.sa</strong> في هذا المتصفح للتفعيل.
-      </div>
-      <button id="btn-open-masar-activate">افتح منصة نسك</button>
-    </div>
-
-    <!-- Session expired -->
-    <div id="screen-session-expired" class="screen hidden">
-      <div id="session-expired-text" class="status-banner error"></div>
-      <button id="btn-open-masar-expired"></button>
-    </div>
-
-    <!-- Group selection (first launch) -->
-    <div id="screen-group-select" class="screen hidden">
-      <h2>اختر المجموعة</h2>
-      <div id="group-select-hint" class="status-banner warning hidden">
-        افتح قائمة المجموعات على منصة نسك — ستظهر هنا تلقائيًا.
-      </div>
-      <select id="group-select"></select>
-      <button id="btn-confirm-group">تأكيد</button>
-    </div>
-
-    <!-- Main queue screen -->
-    <div id="screen-main" class="screen hidden">
-      <!-- Context panel: who am I · which contract · which group -->
-      <div id="context-panel" class="context-panel">
-        <div class="context-row">
-          <span class="context-label">الحساب</span>
-          <span id="ctx-entity" class="context-value">—</span>
-        </div>
-        <div class="context-row">
-          <span class="context-label">العقد</span>
-          <span id="ctx-contract" class="context-value">—</span>
-        </div>
-        <div class="context-row">
-          <span class="context-label">ينتهي</span>
-          <span id="ctx-contract-end" class="context-value">—</span>
-        </div>
-        <div class="context-row">
-          <span class="context-label">المجموعة</span>
-          <span id="ctx-group" class="context-value">—</span>
-        </div>
-        <div class="context-footer">
-          <span id="ctx-synced" class="context-synced-text">لم يتم التحديث</span>
-          <button id="btn-refresh-context" class="icon-btn small" title="تحديث البيانات">&#8635;</button>
-        </div>
-      </div>
-
-      <!-- Contract expired / expiring warning -->
-      <div id="banner-contract-expired" class="status-banner error hidden">
-        &#9888; انتهى العقد — لن تقبل منصة نسك أي تسجيلات.
-      </div>
-      <div id="banner-contract-expiring" class="status-banner warning hidden">
-        &#9888; العقد ينتهي اليوم — قد لا تُقبل بعض التسجيلات.
-      </div>
-
-      <div class="header">
-        <span id="pending-count" class="pending-label"></span>
-        <button id="btn-change-group" class="icon-btn" title="تغيير المجموعة">&#8597;</button>
-      </div>
-      <div id="queue-list"></div>
-    </div>
-
-    <!-- Settings panel -->
-    <div id="screen-settings" class="screen hidden">
-      <div class="header">
-        <button id="btn-back" class="icon-btn" title="رجوع">&rarr;</button>
-        <h2>الإعدادات</h2>
-      </div>
-      <label for="settings-email">البريد الإلكتروني</label>
-      <input id="settings-email" type="email" placeholder="agency@example.com" />
-      <label for="settings-phone-cc">رمز الدولة</label>
-      <input id="settings-phone-cc" type="text" placeholder="966" maxlength="5" />
-      <label for="settings-phone">رقم الجوال</label>
-      <input id="settings-phone" type="tel" placeholder="5XXXXXXXX" />
-      <button id="btn-save-settings">حفظ</button>
-      <hr />
-      <button id="btn-reset-token" class="danger">إعادة ربط الحساب</button>
-    </div>
-  </div>
   <script src="config.js"></script>
   <script src="auth.js"></script>
   <script src="popup-failure.js"></script>
   <script src="strings.js"></script>
+  <script src="status.js"></script>
+  <script src="queue-filter.js"></script>
+  <script src="context-change.js"></script>
+  <script src="contract-select.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>
