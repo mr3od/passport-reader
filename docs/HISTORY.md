@@ -2,6 +2,13 @@
 
 Agent-maintained log of significant changes. Each entry records what was done and who did it.
 
+## 2026-03-31 — submission stability follow-up and record lookup optimization [codex]
+
+- Added `GET /records/{upload_id}` to `passport-api` so extension flows can fetch a specific record without reloading the full `/records?limit=200` list
+- Updated extension background batch lookup to fetch records by `upload_id` instead of full-list pulls during submission loops
+- Hardened popup session sync by requiring a valid session signal (`entityId` or `jwt`) before clearing `session_expired` / `submit_auth_required`
+- Added and updated tests to cover single-record API retrieval and session-sync signal validation
+
 ## 2026-03-31 — extension UI redesign and Masar detail tracking [codex]
 
 - Added `masar_detail_id` to platform persistence, records projections, API schemas, and Masar status updates so submitted records can open the Nusuk detail page directly
