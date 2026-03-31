@@ -7,161 +7,261 @@
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
-  <div id="topbar">
-    <span id="topbar-title"></span>
-    <div class="topbar-actions">
-      <a id="help-support-link" class="text-link" target="_blank" rel="noreferrer"></a>
-      <button id="btn-settings" class="icon-btn" type="button"></button>
-    </div>
-  </div>
-
-  <div id="app">
-    <section id="screen-loading" class="screen hidden">
-      <div class="status-banner info">
-        <span id="loading-text"></span>
+  <div id="popup-shell" class="popup-shell">
+    <header id="topbar" class="topbar">
+      <div class="topbar-copy">
+        <span id="topbar-kicker" class="topbar-kicker"></span>
+        <span id="topbar-title" class="topbar-title"></span>
       </div>
-    </section>
-
-    <section id="screen-error" class="screen hidden">
-      <div class="status-banner error">
-        <strong id="error-title"></strong>
-        <span id="error-detail"></span>
+      <div class="topbar-actions">
+        <a id="help-support-link" class="topbar-link" target="_blank" rel="noreferrer"></a>
+        <button id="btn-settings" class="icon-btn" type="button"></button>
       </div>
-    </section>
+    </header>
 
-    <section id="screen-setup" class="screen hidden">
-      <h2 id="setup-title"></h2>
-      <label id="setup-token-label" for="api-token-input"></label>
-      <input id="api-token-input" type="password" />
-      <button id="btn-save-token" type="button"></button>
-      <div id="setup-error" class="status-banner error hidden"></div>
-    </section>
-
-    <section id="screen-activate" class="screen hidden">
-      <div id="activate-message" class="status-banner warning"></div>
-      <button id="btn-open-masar-activate" type="button"></button>
-    </section>
-
-    <section id="screen-session-expired" class="screen hidden">
-      <div id="session-expired-text" class="status-banner error"></div>
-      <button id="btn-open-masar-expired" type="button"></button>
-    </section>
-
-    <section id="screen-group-select" class="screen hidden">
-      <h2 id="group-title"></h2>
-      <div id="group-select-hint" class="status-banner warning hidden"></div>
-      <select id="group-select"></select>
-      <button id="btn-confirm-group" type="button"></button>
-    </section>
-
-    <section id="screen-main" class="screen hidden">
-      <div id="context-change-banner" class="status-banner warning hidden">
-        <span id="context-change-text"></span>
-        <div class="banner-actions">
-          <button id="ctx-change-confirm" type="button"></button>
-          <button id="ctx-change-defer" class="ghost-btn" type="button"></button>
+    <main id="app" class="app-shell">
+      <section id="screen-loading" class="screen hidden">
+        <div class="state-header olive">
+          <div id="loading-kicker" class="header-kicker"></div>
+          <h2 id="loading-title" class="header-title"></h2>
+          <p id="loading-subtitle" class="header-subtitle"></p>
         </div>
-      </div>
-
-      <div id="home-summary" class="summary-strip">
-        <div class="summary-primary">
-          <div class="summary-block">
-            <span class="summary-label" id="home-office-label"></span>
-            <strong id="ctx-entity"></strong>
+        <div class="screen-body">
+          <div class="banner soft">
+            <span id="loading-text"></span>
           </div>
-          <div class="summary-block">
-            <span class="summary-label" id="home-contract-label"></span>
-            <strong id="ctx-contract"></strong>
+          <div class="skeleton-stack" aria-hidden="true">
+            <div class="skeleton-card">
+              <div class="skeleton-line wide"></div>
+              <div class="skeleton-line med"></div>
+              <div class="skeleton-line short"></div>
+            </div>
+            <div class="skeleton-card">
+              <div class="skeleton-line med"></div>
+              <div class="skeleton-line wide"></div>
+            </div>
           </div>
         </div>
-        <div class="summary-secondary">
-          <span id="ctx-group" class="summary-pill"></span>
-          <span id="contract-state-pill" class="summary-pill hidden"></span>
+      </section>
+
+      <section id="screen-error" class="screen hidden">
+        <div class="state-header red">
+          <div id="error-kicker" class="header-kicker"></div>
+          <h2 id="error-title" class="header-title"></h2>
+          <p id="error-subtitle" class="header-subtitle"></p>
         </div>
-        <div class="summary-metrics">
-          <div class="metric">
-            <span class="metric-label" id="home-pending-label"></span>
-            <strong id="pending-count"></strong>
+        <div class="screen-body">
+          <div class="banner error">
+            <span id="error-detail"></span>
           </div>
-          <div class="metric">
-            <span class="metric-label" id="home-failed-label"></span>
-            <strong id="failed-count"></strong>
+        </div>
+      </section>
+
+      <section id="screen-setup" class="screen hidden">
+        <div class="state-header amber">
+          <div id="setup-kicker" class="header-kicker"></div>
+          <h2 id="setup-title" class="header-title"></h2>
+          <p id="setup-subtitle" class="header-subtitle"></p>
+        </div>
+        <div class="screen-body">
+          <div class="action-stack">
+            <label class="field" for="api-token-input">
+              <span id="setup-token-label"></span>
+              <input id="api-token-input" class="input" type="password" />
+            </label>
+            <button id="btn-save-token" class="button primary" type="button"></button>
+          </div>
+          <div id="setup-helper" class="banner soft"></div>
+          <div id="setup-error" class="banner error hidden"></div>
+        </div>
+      </section>
+
+      <section id="screen-activate" class="screen hidden">
+        <div class="state-header green">
+          <div id="activate-kicker" class="header-kicker"></div>
+          <h2 id="activate-title" class="header-title"></h2>
+          <p id="activate-subtitle" class="header-subtitle"></p>
+        </div>
+        <div class="screen-body">
+          <div id="activate-message" class="banner soft"></div>
+          <button id="btn-open-masar-activate" class="button primary" type="button"></button>
+        </div>
+      </section>
+
+      <section id="screen-session-expired" class="screen hidden">
+        <div class="state-header red">
+          <div id="session-kicker" class="header-kicker"></div>
+          <h2 id="session-title" class="header-title"></h2>
+          <p id="session-subtitle" class="header-subtitle"></p>
+        </div>
+        <div class="screen-body">
+          <div id="session-expired-text" class="banner error"></div>
+          <button id="btn-open-masar-expired" class="button primary" type="button"></button>
+        </div>
+      </section>
+
+      <section id="screen-group-select" class="screen hidden">
+        <div class="state-header amber">
+          <div id="group-kicker" class="header-kicker"></div>
+          <h2 id="group-title" class="header-title"></h2>
+          <p id="group-subtitle" class="header-subtitle"></p>
+        </div>
+        <div class="screen-body">
+          <div id="group-select-hint" class="banner soft hidden"></div>
+          <label class="field" for="group-select">
+            <span id="group-select-label"></span>
+            <select id="group-select" class="select"></select>
+          </label>
+          <button id="btn-confirm-group" class="button primary" type="button"></button>
+        </div>
+      </section>
+
+      <section id="screen-main" class="screen hidden">
+        <div class="state-header olive">
+          <div id="main-kicker" class="header-kicker"></div>
+          <h2 id="main-title" class="header-title"></h2>
+          <p id="main-subtitle" class="header-subtitle"></p>
+        </div>
+        <div class="screen-body workspace-body">
+          <div id="context-change-banner" class="banner warn hidden">
+            <span id="context-change-text"></span>
+            <div class="banner-actions">
+              <button id="ctx-change-confirm" class="mini-btn primary" type="button"></button>
+              <button id="ctx-change-defer" class="mini-btn ghost" type="button"></button>
+            </div>
+          </div>
+
+          <div id="home-summary" class="summary-strip">
+            <div class="summary-head">
+              <div>
+                <div id="workspace-summary-title" class="summary-title"></div>
+                <div id="workspace-summary-subtitle" class="summary-meta"></div>
+              </div>
+              <div id="contract-state-pill" class="pill hidden"></div>
+            </div>
+            <div class="summary-grid">
+              <div class="summary-cell">
+                <div id="home-office-label" class="key"></div>
+                <div id="ctx-entity" class="value"></div>
+              </div>
+              <div class="summary-cell">
+                <div id="home-contract-label" class="key"></div>
+                <div id="ctx-contract" class="value"></div>
+              </div>
+              <div class="summary-cell">
+                <div id="home-group-label" class="key"></div>
+                <div id="ctx-group" class="value"></div>
+              </div>
+              <div class="summary-cell metrics-cell">
+                <div class="metric-grid">
+                  <div class="metric-box">
+                    <div id="home-pending-label" class="key"></div>
+                    <div id="pending-count" class="metric-value"></div>
+                  </div>
+                  <div class="metric-box">
+                    <div id="home-failed-label" class="key"></div>
+                    <div id="failed-count" class="metric-value"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="contract-dropdown-container" class="contract-box hidden">
+            <label class="field" for="contract-select">
+              <span id="contract-select-label"></span>
+              <select id="contract-select" class="select"></select>
+            </label>
+          </div>
+
+          <div class="toolbar button-row">
+            <button id="btn-change-group" class="button secondary" type="button"></button>
+            <button id="btn-refresh-context" class="button secondary" type="button"></button>
+          </div>
+
+          <div class="tabs" role="tablist">
+            <button class="tab active" data-tab="pending" type="button">
+              <span class="tab-label" id="tab-label-pending"></span>
+              <span class="tab-count" id="tab-count-pending"></span>
+            </button>
+            <button class="tab" data-tab="inProgress" type="button">
+              <span class="tab-label" id="tab-label-in-progress"></span>
+              <span class="tab-count" id="tab-count-in-progress"></span>
+            </button>
+            <button class="tab" data-tab="submitted" type="button">
+              <span class="tab-label" id="tab-label-submitted"></span>
+              <span class="tab-count" id="tab-count-submitted"></span>
+            </button>
+            <button class="tab" data-tab="failed" type="button">
+              <span class="tab-label" id="tab-label-failed"></span>
+              <span class="tab-count" id="tab-count-failed"></span>
+            </button>
+          </div>
+
+          <div class="queue">
+            <div class="queue-head">
+              <div>
+                <div id="pending-title" class="queue-title"></div>
+                <div id="workspace-empty-note" class="queue-sub"></div>
+              </div>
+              <button id="submit-all-btn" class="button secondary" type="button"></button>
+            </div>
+
+            <section id="pending-section" class="tab-panel section-block">
+              <div id="pending-list" class="records-grid"></div>
+            </section>
+
+            <section id="in-progress-section" class="tab-panel section-block hidden">
+              <div class="section-header">
+                <h3 id="in-progress-title" class="section-title"></h3>
+              </div>
+              <div id="in-progress-list" class="records-grid"></div>
+            </section>
+
+            <section id="submitted-section" class="tab-panel section-block hidden">
+              <div class="section-header">
+                <h3 id="submitted-title" class="section-title"></h3>
+              </div>
+              <div id="submitted-list" class="records-grid"></div>
+            </section>
+
+            <section id="failed-section" class="tab-panel section-block hidden">
+              <div class="section-header">
+                <h3 id="failed-title" class="section-title"></h3>
+              </div>
+              <div id="failed-list" class="records-grid"></div>
+            </section>
           </div>
         </div>
-      </div>
-
-      <div id="contract-dropdown-container" class="contract-selector hidden">
-        <select id="contract-select"></select>
-      </div>
-
-      <div class="toolbar">
-        <button id="btn-change-group" class="ghost-btn" type="button"></button>
-        <button id="btn-refresh-context" class="ghost-btn" type="button"></button>
-      </div>
-
-      <div class="tabs" role="tablist">
-        <button class="tab active" data-tab="pending" type="button">
-          <span class="tab-label" id="tab-label-pending"></span>
-          <span class="tab-count" id="tab-count-pending"></span>
-        </button>
-        <button class="tab" data-tab="inProgress" type="button">
-          <span class="tab-label" id="tab-label-in-progress"></span>
-          <span class="tab-count" id="tab-count-in-progress"></span>
-        </button>
-        <button class="tab" data-tab="submitted" type="button">
-          <span class="tab-label" id="tab-label-submitted"></span>
-          <span class="tab-count" id="tab-count-submitted"></span>
-        </button>
-        <button class="tab" data-tab="failed" type="button">
-          <span class="tab-label" id="tab-label-failed"></span>
-          <span class="tab-count" id="tab-count-failed"></span>
-        </button>
-      </div>
-
-      <section id="pending-section" class="tab-panel">
-        <div class="section-header">
-          <h3 id="pending-title"></h3>
-          <button id="submit-all-btn" type="button"></button>
-        </div>
-        <div id="pending-list" class="records-grid"></div>
       </section>
 
-      <section id="in-progress-section" class="tab-panel hidden">
-        <div class="section-header">
-          <h3 id="in-progress-title"></h3>
+      <section id="screen-settings" class="screen hidden">
+        <div class="state-header amber">
+          <div id="settings-kicker" class="header-kicker"></div>
+          <h2 id="settings-title" class="header-title"></h2>
+          <p id="settings-subtitle" class="header-subtitle"></p>
         </div>
-        <div id="in-progress-list" class="records-grid"></div>
-      </section>
-
-      <section id="submitted-section" class="tab-panel hidden">
-        <div class="section-header">
-          <h3 id="submitted-title"></h3>
+        <div class="screen-body">
+          <div class="button-row settings-nav">
+            <button id="btn-back" class="button secondary" type="button"></button>
+          </div>
+          <label class="field" for="settings-email">
+            <span id="settings-email-label"></span>
+            <input id="settings-email" class="input" type="email" />
+          </label>
+          <label class="field" for="settings-phone-cc">
+            <span id="settings-phone-cc-label"></span>
+            <input id="settings-phone-cc" class="input" type="text" maxlength="5" />
+          </label>
+          <label class="field" for="settings-phone">
+            <span id="settings-phone-label"></span>
+            <input id="settings-phone" class="input" type="tel" />
+          </label>
+          <button id="btn-save-settings" class="button primary" type="button"></button>
+          <button id="btn-reset-token" class="button danger" type="button"></button>
         </div>
-        <div id="submitted-list" class="records-grid"></div>
       </section>
-
-      <section id="failed-section" class="tab-panel hidden">
-        <div class="section-header">
-          <h3 id="failed-title"></h3>
-        </div>
-        <div id="failed-list" class="records-grid"></div>
-      </section>
-    </section>
-
-    <section id="screen-settings" class="screen hidden">
-      <div class="section-header">
-        <button id="btn-back" class="ghost-btn" type="button"></button>
-        <h2 id="settings-title"></h2>
-      </div>
-      <label id="settings-email-label" for="settings-email"></label>
-      <input id="settings-email" type="email" />
-      <label id="settings-phone-cc-label" for="settings-phone-cc"></label>
-      <input id="settings-phone-cc" type="text" maxlength="5" />
-      <label id="settings-phone-label" for="settings-phone"></label>
-      <input id="settings-phone" type="tel" />
-      <button id="btn-save-settings" type="button"></button>
-      <button id="btn-reset-token" class="danger-btn" type="button"></button>
-    </section>
+    </main>
   </div>
 
   <script src="config.js"></script>

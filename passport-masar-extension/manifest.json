@@ -14,7 +14,7 @@
   "host_permissions": [
     "https://masar.nusuk.sa/*",
     "https://*.nusuk.sa/*",
-    "https://passport-api.mr3od.dev/*"
+    "https://*.mr3od.dev/*"
   ],
   "content_scripts": [
     {

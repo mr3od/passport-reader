@@ -72,6 +72,7 @@ function taggedError(failureKind, message) {
 // current one — prevents parallel Attachment/Upload 429s from Cloudflare and
 // ensures no orphaned partial mutamers are left in Masar.
 let _submitChain = Promise.resolve();
+let _isDrainingSubmissions = false;
 function serialiseSubmit(fn) {
   const next = _submitChain.then(() => fn());
   _submitChain = next.catch(() => {}); // keep chain alive on failure
@@ -181,38 +182,58 @@ async function masarFetchMultipart(url, formData) {
   return res;
 }
 
+function hasValidSessionSyncSignal(snapshot) {
+  if (!snapshot || typeof snapshot !== "object") {
+    return false;
+  }
+  const entityId = typeof snapshot.entityId === "string" ? snapshot.entityId.trim() : "";
+  const jwt = typeof snapshot.jwt === "string" ? snapshot.jwt.trim() : "";
+  return Boolean(entityId || jwt);
+}
+
 // Read all session values directly from the open masar tab's storage.
 // sessionStorage: pms-ac_En_Id (entityId), pms-ac_En_Type_Id (entityTypeId), pms-tk_session (JWT)
 // localStorage:   currentContract.contractId
 async function syncSessionFromMasar() {
   try {
-    const tabs = await chrome.tabs.query({ url: "https://masar.nusuk.sa/*" });
+    const tabs = await chrome.tabs.query({ url: ["https://masar.nusuk.sa/*", "https://*.nusuk.sa/*"] });
     if (tabs.length === 0) {
       log("syncSessionFromMasar — no open masar tab");
-      return;
+      return false;
     }
-    const results = await chrome.scripting.executeScript({
-      target: { tabId: tabs[0].id },
-      func: () => {
-        const contract = (() => {
-          try { return JSON.parse(localStorage.getItem("currentContract") || "null"); } catch { return null; }
-        })();
-        // User name is decoded from the webRequest-captured JWT — no need to re-read here.
-        return {
-          entityId:           sessionStorage.getItem("pms-ac_En_Id"),
-          entityTypeId:       sessionStorage.getItem("pms-ac_En_Type_Id"),
-          jwt:                sessionStorage.getItem("pms-tk_session"),
-          contractId:         contract?.contractId ? String(contract.contractId) : null,
-          contractNumber:     contract?.contractNumber ? String(contract.contractNumber) : null,
-          contractNameEn:     contract?.companyNameEn || null,
-          contractNameAr:     contract?.companyNameAr || null,
-          contractEndDate:    contract?.contractEndDate || null,
-          contractStatusName: contract?.contractStatus?.name || null,
-        };
-      },
-    });
-    const s = results?.[0]?.result;
-    if (!s) return;
+    let s = null;
+    for (const tab of tabs) {
+      try {
+        const results = await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: () => {
+            const contract = (() => {
+              try { return JSON.parse(localStorage.getItem("currentContract") || "null"); } catch { return null; }
+            })();
+            // User name is decoded from the webRequest-captured JWT — no need to re-read here.
+            return {
+              entityId:           sessionStorage.getItem("pms-ac_En_Id"),
+              entityTypeId:       sessionStorage.getItem("pms-ac_En_Type_Id"),
+              jwt:                sessionStorage.getItem("pms-tk_session"),
+              contractId:         contract?.contractId ? String(contract.contractId) : null,
+              contractNumber:     contract?.contractNumber ? String(contract.contractNumber) : null,
+              contractNameEn:     contract?.companyNameEn || null,
+              contractNameAr:     contract?.companyNameAr || null,
+              contractEndDate:    contract?.contractEndDate || null,
+              contractStatusName: contract?.contractStatus?.name || null,
+            };
+          },
+        });
+        const candidate = results?.[0]?.result || null;
+        if (hasValidSessionSyncSignal(candidate)) {
+          s = candidate;
+          break;
+        }
+      } catch {
+        // Try another nusuk tab.
+      }
+    }
+    if (!s) return false;
 
     // Determine contract state.
     // contractEndDate is midnight that starts the end day; treat same-day as "expires today".
@@ -233,19 +254,10 @@ async function syncSessionFromMasar() {
       userNameEn: s.userNameEn, hasJwt: !!s.jwt,
     });
 
-    const stored = await localGet(["masar_contract_manual_override"]);
     const update = {};
     if (s.entityId)           update.masar_entity_id            = s.entityId;
     if (s.entityTypeId)       update.masar_entity_type_id       = s.entityTypeId;
-    if (!stored.masar_contract_manual_override) {
-      if (s.contractId)         update.masar_contract_id          = s.contractId;
-      if (s.contractNumber)     update.masar_contract_number      = s.contractNumber;
-      if (s.contractNameEn)     update.masar_contract_name_en     = s.contractNameEn;
-      if (s.contractNameAr)     update.masar_contract_name_ar     = s.contractNameAr;
-      if (s.contractEndDate)    update.masar_contract_end_date    = s.contractEndDate;
-      if (s.contractStatusName) update.masar_contract_status_name = s.contractStatusName;
-      update.masar_contract_state = contractState;
-    }
+    // Contract selection is user-controlled and should not auto-switch.
     // masar_user_name is decoded from JWT in the webRequest listener — not sourced here.
     await captureObservedContext({
       entity_id: s.entityId,
@@ -257,6 +269,7 @@ async function syncSessionFromMasar() {
     if (Object.keys(update).length) {
       chrome.storage.local.set(update);
     }
+    return true;
   } catch (err) {
     // "Frame with ID 0 is showing error page" — masar tab is closed or on an error page.
     // Non-fatal: webRequest-captured values remain in storage and are used instead.
@@ -265,6 +278,7 @@ async function syncSessionFromMasar() {
     } else {
       logError("syncSessionFromMasar — error:", err.message);
     }
+    return false;
   }
 }
 
@@ -272,8 +286,11 @@ async function syncSessionFromMasar() {
 // Returns { ok: true } always — errors are non-fatal.
 async function syncSession() {
   try {
-    await syncSessionFromMasar();
-    chrome.storage.local.set({ masar_last_synced: Date.now(), session_expired: false });
+    const synced = await syncSessionFromMasar();
+    chrome.storage.local.set({
+      masar_last_synced: Date.now(),
+      ...(synced ? { session_expired: false, submit_auth_required: null } : {}),
+    });
     const stored = await getMasarEntityHeaders();
     log("syncSession — entityId:", stored.masar_entity_id, "contractId:", stored.masar_contract_id, "hasAuthToken:", !!stored.masar_auth_token);
     await updateBadgeState();
@@ -285,17 +302,11 @@ async function syncSession() {
 }
 
 async function captureObservedContext(context) {
-  const stored = await localGet([
-    "masar_entity_id",
-    "masar_contract_id",
-    "masar_contract_manual_override",
-  ]);
+  const stored = await localGet(["masar_entity_id", "masar_contract_id"]);
   const hasCurrentContext = Boolean(stored.masar_entity_id || stored.masar_contract_id);
-  const effectiveContractId = stored.masar_contract_manual_override ? null : context.contract_id;
   const update = {};
   if (context.entity_id) update.masar_entity_id = context.entity_id;
   if (context.entity_type_id) update.masar_entity_type_id = context.entity_type_id;
-  if (effectiveContractId) update.masar_contract_id = effectiveContractId;
   if (context.auth_token) update.masar_auth_token = context.auth_token;
   if (context.user_name) update.masar_user_name = context.user_name;
   if (!hasCurrentContext) {
@@ -303,10 +314,7 @@ async function captureObservedContext(context) {
     return;
   }
   if (debouncedContextChecker) {
-    debouncedContextChecker({
-      ...context,
-      contract_id: effectiveContractId,
-    });
+    debouncedContextChecker(context);
   }
 }
 
@@ -316,7 +324,6 @@ async function handleStableContextChange(context) {
     const update = {};
     if (context.entity_id) update.masar_entity_id = context.entity_id;
     if (context.entity_type_id) update.masar_entity_type_id = context.entity_type_id;
-    if (context.contract_id) update.masar_contract_id = context.contract_id;
     if (context.auth_token) update.masar_auth_token = context.auth_token;
     if (context.user_name) update.masar_user_name = context.user_name;
     if (Object.keys(update).length) {
@@ -398,6 +405,23 @@ async function fetchAllRecords() {
   return { ok: true, data: Array.isArray(data) ? data : [] };
 }
 
+async function fetchRecordById(uploadId) {
+  const response = await apiFetch(`/records/${uploadId}`);
+  if (!response.ok) {
+    if (response.status === 401) {
+      await localSet({ session_expired: true });
+      await updateBadgeState({ failedCount: 0 });
+      throw taggedError("backend-auth", `record ${response.status}`);
+    }
+    if (response.status === 404) {
+      return null;
+    }
+    throw taggedError(null, `record ${response.status}`);
+  }
+  await localSet({ session_expired: false });
+  return response.json();
+}
+
 function shouldSubmitRecord(record) {
   return record?.upload_status === "processed" && (!record?.masar_status || record.masar_status === "failed");
 }
@@ -442,20 +466,35 @@ async function patchRecordStatus(uploadId, body) {
   }
 }
 
-async function getRecordById(uploadId) {
-  const records = await fetchAllRecords();
-  if (!records.ok) {
-    throw taggedError(records.status === 401 ? "backend-auth" : null, S.ERR_UNEXPECTED);
+async function buildRecordLookup(uploadIds) {
+  const lookup = new Map();
+  for (const uploadId of uploadIds) {
+    const record = await fetchRecordById(uploadId);
+    if (record?.upload_id === uploadId) {
+      lookup.set(uploadId, record);
+    }
   }
-  return records.data.find((record) => record.upload_id === uploadId) || null;
+  return lookup;
 }
 
 async function clearSubmissionBatch() {
   await sessionSet({
     submission_batch: [],
     active_submit_id: null,
+    last_submit_result: null,
     submission_state: ContextChange.SUBMISSION_STATES.IDLE,
   });
+}
+
+async function ensureSubmissionSessionConsistency() {
+  if (_isDrainingSubmissions) {
+    return;
+  }
+  const session = await sessionGet(["submission_batch", "active_submit_id"]);
+  const batch = Array.isArray(session.submission_batch) ? session.submission_batch : [];
+  if (batch.length > 0 || session.active_submit_id) {
+    await clearSubmissionBatch();
+  }
 }
 
 async function removeFromBatch(uploadId) {
@@ -842,23 +881,38 @@ function getContractState(contractEndDate) {
   return "active";
 }
 
+function buildContractSnapshotUpdate(contracts, selectedContractId) {
+  const selected = (Array.isArray(contracts) ? contracts : []).find(
+    (contract) => String(contract.contractId) === String(selectedContractId),
+  );
+  if (!selected) {
+    return {
+      masar_contract_id: "",
+      masar_contract_name_en: "",
+      masar_contract_name_ar: "",
+      masar_contract_number: "",
+      masar_contract_end_date: "",
+      masar_contract_status_name: "",
+      masar_contract_state: "unknown",
+    };
+  }
+  return {
+    masar_contract_id: String(selected.contractId),
+    masar_contract_name_en: selected.companyNameEn || "",
+    masar_contract_name_ar: selected.companyNameAr || "",
+    masar_contract_number: selected.contractNumber || "",
+    masar_contract_end_date: selected.contractEndDate || "",
+    masar_contract_status_name: selected.contractStatus?.name || "",
+    masar_contract_state: getContractState(selected.contractEndDate),
+  };
+}
+
 async function storeContractSnapshot(contracts) {
-  if (!contracts.length) {
+  if (!Array.isArray(contracts) || contracts.length === 0) {
     return;
   }
   const stored = await localGet(["masar_contract_id"]);
-  const active = contracts.find((contract) => String(contract.contractId) === stored.masar_contract_id)
-    || contracts.find((contract) => contract.contractStatus?.id === 0)
-    || contracts[0];
-  await localSet({
-    masar_contract_id: String(active.contractId),
-    masar_contract_number: active.contractNumber || "",
-    masar_contract_name_en: active.companyNameEn || "",
-    masar_contract_name_ar: active.companyNameAr || "",
-    masar_contract_end_date: active.contractEndDate || "",
-    masar_contract_status_name: active.contractStatus?.name || "",
-    masar_contract_state: getContractState(active.contractEndDate),
-  });
+  await localSet(buildContractSnapshotUpdate(contracts, stored.masar_contract_id));
 }
 
 async function processRecordSubmission(record) {
@@ -870,12 +924,18 @@ async function processRecordSubmission(record) {
       masar_scan_result: scanResult,
       masar_detail_id: masarDetailId ? String(masarDetailId) : null,
     });
-    await localSet({ session_expired: false });
-    return { ok: true, mutamerId, masarDetailId };
+    await localSet({ session_expired: false, submit_auth_required: null });
+    return {
+      ok: true,
+      uploadId: record.upload_id,
+      status: "submitted",
+      mutamerId,
+      masarDetailId,
+    };
   } catch (error) {
     logError("processRecordSubmission — failed:", error.message);
     if (error.failureKind === "backend-auth" || error.failureKind === "masar-auth") {
-      await localSet({ session_expired: true });
+      await localSet({ session_expired: true, submit_auth_required: error.failureKind });
       await Notifications.notify(Notifications.NOTIFICATION_TYPES.SESSION_EXPIRED, S.NOTIF_SESSION_EXPIRED);
     }
     try {
@@ -888,7 +948,13 @@ async function processRecordSubmission(record) {
     } catch (patchError) {
       logError("processRecordSubmission — failed to patch failed status:", patchError.message);
     }
-    return { ok: false, error: error.message, failureKind: error.failureKind || null };
+    return {
+      ok: false,
+      uploadId: record.upload_id,
+      status: "failed",
+      error: error.message,
+      failureKind: error.failureKind || null,
+    };
   }
 }
 
@@ -896,71 +962,87 @@ function shouldStopBatchAfterResult(result) {
   return result?.ok === false && (result.failureKind === "backend-auth" || result.failureKind === "masar-auth");
 }
 
-async function drainSubmissionBatch(uploadIds, providedRecords = new Map(), { notifyComplete = true } = {}) {
+async function drainSubmissionBatch(uploadIds, { notifyComplete = true } = {}) {
+  _isDrainingSubmissions = true;
   const uniqueIds = [...new Set(uploadIds)];
-  await sessionSet({
-    submission_batch: uniqueIds,
-    active_submit_id: null,
-    submission_state:
-      uniqueIds.length > 1 ? ContextChange.SUBMISSION_STATES.QUEUED_MORE : ContextChange.SUBMISSION_STATES.IDLE,
-  });
+  try {
+    await localSet({ submit_auth_required: null });
+    await sessionSet({
+      submission_batch: uniqueIds,
+      active_submit_id: null,
+      submission_state:
+        uniqueIds.length > 1 ? ContextChange.SUBMISSION_STATES.QUEUED_MORE : ContextChange.SUBMISSION_STATES.IDLE,
+    });
+    const recordsLookup = await buildRecordLookup(uniqueIds);
 
-  let processedCount = 0;
-  let terminalFailure = null;
-  for (const uploadId of uniqueIds) {
-    const pendingStop = await ContextChange.shouldStopSubmission();
-    if (pendingStop) {
-      break;
-    }
-
-    const record = providedRecords.get(uploadId) || (await getRecordById(uploadId));
-    if (!record || !shouldSubmitRecord(record)) {
-      await removeFromBatch(uploadId);
-      continue;
-    }
-
-    await sessionSet({ active_submit_id: uploadId });
-    await ContextChange.setSubmissionState(ContextChange.SUBMISSION_STATES.SUBMITTING_CURRENT);
-    const result = await processRecordSubmission(record);
-    processedCount += 1;
-
-    const remaining = await removeFromBatch(uploadId);
-    await sessionSet({ active_submit_id: null });
-    if (shouldStopBatchAfterResult(result)) {
-      terminalFailure = result;
-      break;
-    }
-    if (remaining.length > 0) {
-      await ContextChange.setSubmissionState(ContextChange.SUBMISSION_STATES.QUEUED_MORE);
-      if (await ContextChange.shouldStopSubmission()) {
+    let processedCount = 0;
+    let terminalFailure = null;
+    for (const uploadId of uniqueIds) {
+      const pendingStop = await ContextChange.shouldStopSubmission();
+      if (pendingStop) {
         break;
       }
-    }
-  }
 
-  const tail = await sessionGet(["submission_batch"]);
-  if ((tail.submission_batch || []).length > 0) {
-    await clearSubmissionBatch();
-  } else {
-    await ContextChange.setSubmissionState(ContextChange.SUBMISSION_STATES.IDLE);
+      const record = recordsLookup.get(uploadId) || null;
+      if (!record || !shouldSubmitRecord(record)) {
+        await removeFromBatch(uploadId);
+        continue;
+      }
+
+      await sessionSet({ active_submit_id: uploadId });
+      await ContextChange.setSubmissionState(ContextChange.SUBMISSION_STATES.SUBMITTING_CURRENT);
+      const result = await processRecordSubmission(record);
+      processedCount += 1;
+      await sessionSet({
+        last_submit_result: {
+          upload_id: uploadId,
+          status: result?.status || (result?.ok ? "submitted" : "failed"),
+          masar_detail_id: result?.masarDetailId ? String(result.masarDetailId) : null,
+          at: Date.now(),
+        },
+      });
+
+      const remaining = await removeFromBatch(uploadId);
+      await sessionSet({ active_submit_id: null });
+      if (shouldStopBatchAfterResult(result)) {
+        terminalFailure = result;
+        break;
+      }
+      if (remaining.length > 0) {
+        await ContextChange.setSubmissionState(ContextChange.SUBMISSION_STATES.QUEUED_MORE);
+        if (await ContextChange.shouldStopSubmission()) {
+          break;
+        }
+      }
+    }
+
+    const tail = await sessionGet(["submission_batch"]);
+    if ((tail.submission_batch || []).length > 0) {
+      await clearSubmissionBatch();
+    } else {
+      await ContextChange.setSubmissionState(ContextChange.SUBMISSION_STATES.IDLE);
+    }
+    const records = await fetchAllRecords();
+    if (records.ok) {
+      await updateBadge(records.data);
+    } else {
+      await updateBadgeState({ failedCount: 0 });
+    }
+    if (notifyComplete && processedCount > 0) {
+      await Notifications.notify(Notifications.NOTIFICATION_TYPES.BATCH_COMPLETE, S.NOTIF_BATCH_COMPLETE);
+    }
+    if (terminalFailure) {
+      return terminalFailure;
+    }
+    return { ok: true };
+  } finally {
+    _isDrainingSubmissions = false;
   }
-  const records = await fetchAllRecords();
-  if (records.ok) {
-    await updateBadge(records.data);
-  } else {
-    await updateBadgeState({ failedCount: 0 });
-  }
-  if (notifyComplete && processedCount > 0) {
-    await Notifications.notify(Notifications.NOTIFICATION_TYPES.BATCH_COMPLETE, S.NOTIF_BATCH_COMPLETE);
-  }
-  if (terminalFailure) {
-    return terminalFailure;
-  }
-  return { ok: true };
 }
 
 async function handleMessage(msg) {
   log("handleMessage — type:", msg.type);
+  await ensureSubmissionSessionConsistency();
 
   if (msg.type === "SYNC_SESSION") {
     return syncSession();
@@ -1005,7 +1087,10 @@ async function handleMessage(msg) {
 
   if (msg.type === "SUBMIT_BATCH") {
     const uploadIds = Array.isArray(msg.uploadIds) ? msg.uploadIds : [];
-    return serialiseSubmit(() => drainSubmissionBatch(uploadIds, new Map()));
+    serialiseSubmit(() => drainSubmissionBatch(uploadIds)).catch((error) => {
+      logError("SUBMIT_BATCH — unhandled submission failure:", error.message);
+    });
+    return { ok: true };
   }
 
   if (msg.type === "SUBMIT_RECORD") {
@@ -1013,9 +1098,12 @@ async function handleMessage(msg) {
     if (!record?.upload_id) {
       return { ok: false, error: S.ERR_UNEXPECTED };
     }
-    return serialiseSubmit(() =>
-      drainSubmissionBatch([record.upload_id], new Map([[record.upload_id, record]]), { notifyComplete: false }),
-    );
+    serialiseSubmit(() =>
+      drainSubmissionBatch([record.upload_id], { notifyComplete: false }),
+    ).catch((error) => {
+      logError("SUBMIT_RECORD — unhandled submission failure:", error.message);
+    });
+    return { ok: true };
   }
 
   if (msg.type === "APPLY_CONTEXT_CHANGE") {
@@ -1073,8 +1161,10 @@ function startBackground() {
 
 if (typeof module === "object" && module.exports) {
   module.exports = {
+    buildContractSnapshotUpdate,
     countFailedRecords,
     handleMessage,
+    hasValidSessionSyncSignal,
     shouldStopBatchAfterResult,
     shouldSubmitRecord,
   };

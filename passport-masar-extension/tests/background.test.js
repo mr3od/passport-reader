@@ -1,7 +1,13 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { shouldSubmitRecord, countFailedRecords, shouldStopBatchAfterResult } = require("../background.js");
+const {
+  buildContractSnapshotUpdate,
+  shouldSubmitRecord,
+  countFailedRecords,
+  hasValidSessionSyncSignal,
+  shouldStopBatchAfterResult,
+} = require("../background.js");
 
 test("shouldSubmitRecord allows processed records that still need review", () => {
   assert.equal(
@@ -40,4 +46,21 @@ test("shouldStopBatchAfterResult aborts the batch when auth recovery is needed",
   assert.equal(shouldStopBatchAfterResult({ ok: false, failureKind: "backend-auth" }), true);
   assert.equal(shouldStopBatchAfterResult({ ok: false, failureKind: "masar-auth" }), true);
   assert.equal(shouldStopBatchAfterResult({ ok: false, failureKind: null }), false);
+});
+
+test("buildContractSnapshotUpdate clears stale contract selection when selected contract disappears", () => {
+  const update = buildContractSnapshotUpdate(
+    [{ contractId: 9, contractStatus: { id: 0 }, companyNameAr: "x" }],
+    "42",
+  );
+  assert.equal(update.masar_contract_id, "");
+  assert.equal(update.masar_contract_state, "unknown");
+});
+
+test("hasValidSessionSyncSignal requires a real session marker", () => {
+  assert.equal(hasValidSessionSyncSignal(null), false);
+  assert.equal(hasValidSessionSyncSignal({}), false);
+  assert.equal(hasValidSessionSyncSignal({ entityId: null, jwt: null }), false);
+  assert.equal(hasValidSessionSyncSignal({ entityId: "819868", jwt: null }), true);
+  assert.equal(hasValidSessionSyncSignal({ entityId: "", jwt: "Bearer abc" }), true);
 });

@@ -28,9 +28,6 @@
     if (activeContracts.length === 0) {
       return { selectedContract: null, showDropdown: false };
     }
-    if (activeContracts.length === 1) {
-      return { selectedContract: activeContracts[0], showDropdown: false };
-    }
     if (currentContractId) {
       const selectedContract = activeContracts.find(
         (contract) => String(contract.contractId) === String(currentContractId),

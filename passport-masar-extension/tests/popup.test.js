@@ -2,11 +2,32 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
+  getScreenTheme,
   renderHomeSummary,
   handleCardClick,
   handleSubmitResponse,
   handleContractSelectionChange,
+  shouldRefreshWorkspaceForStorageChange,
 } = require("../popup.js");
+
+test("getScreenTheme maps popup screens to proposal-aligned visual tones", () => {
+  assert.deepEqual(getScreenTheme("setup"), {
+    tone: "amber",
+    surface: "editorial",
+  });
+  assert.deepEqual(getScreenTheme("activate"), {
+    tone: "green",
+    surface: "editorial",
+  });
+  assert.deepEqual(getScreenTheme("session-expired"), {
+    tone: "red",
+    surface: "editorial",
+  });
+  assert.deepEqual(getScreenTheme("main"), {
+    tone: "olive",
+    surface: "workspace",
+  });
+});
 
 test("renderHomeSummary updates pending and failed counters", () => {
   const pending = { textContent: "" };
@@ -85,4 +106,34 @@ test("handleContractSelectionChange writes a manual override without forcing syn
     masar_contract_manual_override: true,
   });
   assert.equal(reloaded, true);
+});
+
+test("shouldRefreshWorkspaceForStorageChange ignores unrelated local cache updates", () => {
+  const shouldRefresh = shouldRefreshWorkspaceForStorageChange({
+    areaName: "local",
+    changes: {
+      masar_groups_cache: {
+        oldValue: null,
+        newValue: { response: { data: { content: [] } } },
+      },
+    },
+    isMainScreenVisible: true,
+  });
+
+  assert.equal(shouldRefresh, false);
+});
+
+test("shouldRefreshWorkspaceForStorageChange refreshes for visible workspace state updates", () => {
+  const shouldRefresh = shouldRefreshWorkspaceForStorageChange({
+    areaName: "session",
+    changes: {
+      submission_batch: {
+        oldValue: [],
+        newValue: ["u1"],
+      },
+    },
+    isMainScreenVisible: true,
+  });
+
+  assert.equal(shouldRefresh, true);
 });
