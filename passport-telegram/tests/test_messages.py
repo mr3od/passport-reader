@@ -25,6 +25,7 @@ from passport_telegram.messages import (
     format_user_plan_text,
     format_user_usage_report,
     help_text,
+    processing_busy_text,
     processing_error_text,
     quota_exceeded_text,
     temp_token_text,
@@ -115,6 +116,11 @@ def test_processing_error_text_includes_support_contacts():
 
     assert "@mr3od" in text
     assert "@naaokun" in text
+
+
+def test_processing_busy_text_is_arabic():
+    text = processing_busy_text()
+    assert "ضغط" in text
 
 
 def test_usage_help_text_is_self_service_only():

@@ -11,6 +11,8 @@ def test_agency_bot_settings_keep_batch_and_logging_defaults():
 
     assert settings.album_collection_window_seconds == 1.5
     assert settings.max_images_per_batch == 10
+    assert settings.max_inflight_upload_batches == 20
+    assert settings.inflight_acquire_timeout_seconds == 3.0
     assert settings.log_level == "INFO"
 
 

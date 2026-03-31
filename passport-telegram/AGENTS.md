@@ -29,3 +29,7 @@ Agency-facing Telegram adapter only.
 - No chat allowlist
 - Must depend on `passport-platform` only for business logic
 - Must not import `passport-core`
+- Telegram upload handling must remain bounded:
+  - batch chunk size is controlled by `PASSPORT_TELEGRAM_MAX_IMAGES_PER_BATCH` and plan quota
+  - in-flight limits are controlled by `PASSPORT_TELEGRAM_MAX_INFLIGHT_UPLOAD_BATCHES`
+  - overload wait timeout is controlled by `PASSPORT_TELEGRAM_INFLIGHT_ACQUIRE_TIMEOUT_SECONDS`

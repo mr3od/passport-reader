@@ -1,4 +1,5 @@
 """Fetch the packaged Chrome extension ZIP from GitHub Releases."""
+
 from __future__ import annotations
 
 import asyncio
@@ -62,9 +63,7 @@ async def fetch_extension_zip(*, token: str, repo: str) -> bytes:
         try:
             async with httpx.AsyncClient(headers=headers, timeout=httpx.Timeout(10.0)) as client:
                 # Step 1: resolve asset download URL from release metadata
-                release_url = (
-                    f"https://api.github.com/repos/{repo}/releases/tags/extension-latest"
-                )
+                release_url = f"https://api.github.com/repos/{repo}/releases/tags/extension-latest"
                 resp = await client.get(release_url)
                 if resp.status_code != 200:
                     raise ExtensionFetchError(
@@ -73,9 +72,7 @@ async def fetch_extension_zip(*, token: str, repo: str) -> bytes:
                 assets = resp.json().get("assets", [])
                 zip_asset = next((a for a in assets if a["name"] == "extension.zip"), None)
                 if zip_asset is None:
-                    raise ExtensionFetchError(
-                        "extension.zip not found in extension-latest release"
-                    )
+                    raise ExtensionFetchError("extension.zip not found in extension-latest release")
 
                 # Step 2: download the asset bytes
                 download_url = zip_asset["url"]

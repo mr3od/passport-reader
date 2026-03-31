@@ -135,6 +135,13 @@ Agent-maintained log of significant changes. Each entry records what was done an
 - Clarified the Telegram extension install steps to tell users to unzip the downloaded file before choosing `Load unpacked`
 - Loaded the extension API config into the popup so the new token exchange flow can resolve the production API base URL
 
+## 2026-03-31 — telegram global inflight limiter and batch hardening [codex]
+
+- Changed Telegram upload throttling to global-only inflight control; removed per-user inflight limiter state and settings.
+- Kept chunked batch processing and overload handling with Arabic busy messaging for safer MVP behavior under load.
+- Added regression coverage for limiter cancellation safety and global-cap behavior.
+- Updated Telegram env templates, package README, and package AGENTS guidance to reflect current runtime knobs and removed stale Telegram per-user limiter env docs.
+
 ## 2026-03-29 — manual extension workflow triggers [codex]
 
 - Added `workflow_dispatch` to the extension CI and extension release workflows so they can be run manually from GitHub Actions

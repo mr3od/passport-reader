@@ -43,7 +43,9 @@ Production uses the root `Dockerfile`, deployment-provided env/secrets outside v
 
 - `PASSPORT_TELEGRAM_BOT_TOKEN`: Telegram bot token
 - `PASSPORT_TELEGRAM_ALBUM_COLLECTION_WINDOW_SECONDS`: media-group wait window
-- `PASSPORT_TELEGRAM_MAX_IMAGES_PER_BATCH`: safety limit
+- `PASSPORT_TELEGRAM_MAX_IMAGES_PER_BATCH`: max images processed per chunk
+- `PASSPORT_TELEGRAM_MAX_INFLIGHT_UPLOAD_BATCHES`: global concurrent batch cap
+- `PASSPORT_TELEGRAM_INFLIGHT_ACQUIRE_TIMEOUT_SECONDS`: wait timeout before returning a busy message
 - `PASSPORT_TELEGRAM_LOG_LEVEL`: default `INFO`
 
 ## Development

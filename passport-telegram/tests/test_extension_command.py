@@ -70,9 +70,7 @@ def _blocked_user():
 
 
 def _make_services(user):
-    return SimpleNamespace(
-        users=SimpleNamespace(get_or_create_user=lambda command: user)
-    )
+    return SimpleNamespace(users=SimpleNamespace(get_or_create_user=lambda command: user))
 
 
 def _make_settings(*, has_token: bool = True, has_repo: bool = True):
@@ -166,6 +164,8 @@ def test_extension_command_success_sends_steps_and_zip():
 def test_extension_command_is_registered():
     settings_mock = MagicMock()
     settings_mock.bot_token.get_secret_value.return_value = "fake-token"
+    settings_mock.max_inflight_upload_batches = 20
+    settings_mock.inflight_acquire_timeout_seconds = 3.0
 
     with patch("passport_telegram.bot._build_bot_services", return_value=MagicMock()):
         app = build_application(settings_mock)

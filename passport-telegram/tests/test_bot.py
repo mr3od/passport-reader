@@ -4,11 +4,14 @@ import asyncio
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import cast
+from unittest.mock import patch
 
+import pytest
 from passport_platform import IssuedTempToken, PlanName, QuotaDecision
 from passport_platform.enums import UserStatus
 from passport_platform.models.auth import TempToken
 from passport_telegram.bot import (
+    InflightLimiter,
     TelegramImageUpload,
     account_command,
     plan_command,
@@ -23,9 +26,20 @@ from telegram.ext import ContextTypes
 class FakeBot:
     def __init__(self) -> None:
         self.messages: list[tuple[int, str]] = []
+        self.photos: list[tuple[int, bytes, str, str | None]] = []
 
     async def send_message(self, *, chat_id: int, text: str) -> None:
         self.messages.append((chat_id, text))
+
+    async def send_photo(
+        self,
+        *,
+        chat_id: int,
+        photo: bytes,
+        caption: str,
+        parse_mode: str | None = None,
+    ) -> None:
+        self.photos.append((chat_id, photo, caption, parse_mode))
 
 
 class FakeReplyMessage:
@@ -62,10 +76,17 @@ def _agency_update(reply: FakeReplyMessage) -> Update:
 class FakeProcessingService:
     def __init__(self) -> None:
         self.calls = 0
+        self.source_refs: list[str] = []
 
-    def process_bytes(self, *args, **kwargs):
+    def process_bytes(self, command):
         self.calls += 1
-        raise AssertionError("process_bytes should not be called when batch exceeds the limit")
+        self.source_refs.append(command.source_ref)
+        return SimpleNamespace(is_complete=True, extracted_data=None)
+
+
+class DenyInflightLimiter:
+    async def try_acquire(self, external_user_id: str):
+        return None
 
 
 def test_token_command_issues_single_use_token_text():
@@ -218,7 +239,7 @@ def test_plan_command_returns_short_user_plan_summary():
     assert "active" in reply.replies[0]
 
 
-def test_process_upload_batch_rejects_batches_above_plan_limit():
+def test_process_upload_batch_splits_batches_above_plan_limit():
     bot = FakeBot()
     processing = FakeProcessingService()
     services = SimpleNamespace(
@@ -261,6 +282,68 @@ def test_process_upload_batch_rejects_batches_above_plan_limit():
         for index in range(3)
     ]
 
+    with patch("passport_telegram.bot._download_upload", return_value=b"image-bytes"):
+        asyncio.run(
+            process_upload_batch(
+                context=context,
+                chat_id=1,
+                external_user_id="12345",
+                display_name="Agency A",
+                uploads=uploads,
+            )
+        )
+
+    assert processing.calls == 3
+    assert processing.source_refs == [upload.source_ref for upload in uploads]
+    assert len(bot.photos) == 3
+    assert all(photo[3] == "Markdown" for photo in bot.photos)
+    assert len(bot.messages) == 1
+    assert "2" in bot.messages[0][1]
+
+
+def test_process_upload_batch_returns_busy_when_limiter_is_exhausted():
+    bot = FakeBot()
+    processing = FakeProcessingService()
+    services = SimpleNamespace(
+        users=SimpleNamespace(
+            get_or_create_user=lambda command: SimpleNamespace(id=1, status=UserStatus.ACTIVE)
+        ),
+        quotas=SimpleNamespace(
+            evaluate_user_quota=lambda user: QuotaDecision(
+                allowed=True,
+                plan=PlanName.FREE,
+                monthly_upload_limit=20,
+                monthly_uploads_used=0,
+                monthly_success_limit=20,
+                monthly_successes_used=0,
+                remaining_uploads=20,
+                remaining_successes=20,
+                max_batch_size=2,
+            )
+        ),
+        processing=processing,
+    )
+    context = SimpleNamespace(
+        bot=bot,
+        application=SimpleNamespace(
+            bot_data={
+                "settings": SimpleNamespace(max_images_per_batch=10),
+                "services": services,
+                "inflight_limiter": DenyInflightLimiter(),
+            }
+        ),
+    )
+    uploads = [
+        TelegramImageUpload(
+            file_id="file-1",
+            filename="passport-1.jpg",
+            mime_type="image/jpeg",
+            source_ref="telegram://chat/1/message/2/file/1",
+            external_message_id="1",
+            external_file_id="file-1",
+        )
+    ]
+
     asyncio.run(
         process_upload_batch(
             context=context,
@@ -273,5 +356,45 @@ def test_process_upload_batch_rejects_batches_above_plan_limit():
 
     assert processing.calls == 0
     assert len(bot.messages) == 1
-    assert "3" in bot.messages[0][1]
-    assert "2" in bot.messages[0][1]
+    assert "ضغط" in bot.messages[0][1]
+
+
+def test_inflight_limiter_cancellation_does_not_leak_global_slot():
+    async def run() -> None:
+        limiter = InflightLimiter(
+            max_inflight_upload_batches=1,
+            acquire_timeout_seconds=0.1,
+        )
+        first = await limiter.try_acquire("user-1")
+        assert first is not None
+
+        task = asyncio.create_task(limiter.try_acquire("user-2"))
+        await asyncio.sleep(0)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+        first.release()
+        permit = await limiter.try_acquire("user-2")
+        assert permit is not None
+        permit.release()
+
+    asyncio.run(run())
+
+
+def test_inflight_limiter_allows_same_user_up_to_global_limit():
+    async def run() -> None:
+        limiter = InflightLimiter(
+            max_inflight_upload_batches=2,
+            acquire_timeout_seconds=0.1,
+        )
+        first = await limiter.try_acquire("user-1")
+        second = await limiter.try_acquire("user-1")
+
+        assert first is not None
+        assert second is not None
+
+        first.release()
+        second.release()
+
+    asyncio.run(run())

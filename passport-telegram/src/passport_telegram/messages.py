@@ -140,6 +140,10 @@ def processing_error_text() -> str:
     return f"حدث خطأ أثناء المعالجة. حاول مرة أخرى بصورة أوضح. {SUPPORT_CONTACT_TEXT}"
 
 
+def processing_busy_text() -> str:
+    return "الخدمة تحت ضغط مرتفع الآن. حاول رفع الجوازات بعد قليل."
+
+
 def quota_exceeded_text(decision: QuotaDecision) -> str:
     return (
         "تم استهلاك الحد المسموح لخطة الاستخدام الحالية.\n"
