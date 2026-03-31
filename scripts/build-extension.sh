@@ -22,8 +22,12 @@ trap cleanup EXIT
 
 echo "Building extension from $EXTENSION_DIR"
 
-# Minify and obfuscate JS files
-JS_FILES=("auth.js" "background.js" "popup.js" "strings.js" "content-main.js" "content-relay.js" "config.js")
+# Minify and obfuscate all root-level JS modules in the extension package.
+# This avoids stale hardcoded lists when new worker/popup helper modules are added.
+JS_FILES=()
+while IFS= read -r js; do
+    JS_FILES+=("$js")
+done < <(cd "$EXTENSION_DIR" && find . -maxdepth 1 -type f -name "*.js" -print | sed 's|^\./||' | sort)
 for js in "${JS_FILES[@]}"; do
     echo "  Minifying $js"
     npx --yes terser@5 "$EXTENSION_DIR/$js" \
