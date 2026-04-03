@@ -55,6 +55,14 @@ body {
   padding: 0;
 }
 
+#popup-shell {
+  --workspace-bg: #efe4d0;
+  --workspace-panel: rgba(255, 251, 243, 0.9);
+  --workspace-ink: #233127;
+  --workspace-accent: #667b51;
+  --workspace-danger: #9f4a34;
+}
+
 body::before {
   content: none;
 }
@@ -82,6 +90,29 @@ a {
   overflow: hidden;
   box-shadow: none;
   position: relative;
+}
+
+.app-toast {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  right: 14px;
+  z-index: 5;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(50, 40, 29, 0.94);
+  color: #fffdf8;
+  box-shadow: 0 16px 36px rgba(50, 40, 29, 0.22);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.app-toast[data-tone="error"] {
+  background: rgba(127, 57, 36, 0.96);
+}
+
+.app-toast[data-tone="success"] {
+  background: rgba(49, 73, 41, 0.96);
 }
 
 .popup-shell::before {
@@ -302,6 +333,55 @@ a {
   background: var(--neutral-soft);
   border-color: rgba(74, 55, 29, 0.08);
   color: var(--text-soft);
+}
+
+.submission-banner {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px;
+  border-radius: var(--radius-md);
+  background:
+    linear-gradient(145deg, rgba(102, 123, 81, 0.18), rgba(35, 49, 39, 0.08)),
+    var(--workspace-panel);
+  border: 1px solid rgba(102, 123, 81, 0.22);
+  box-shadow: var(--shadow-soft);
+}
+
+.submission-banner[data-blocked="true"] {
+  background:
+    linear-gradient(145deg, rgba(159, 74, 52, 0.18), rgba(35, 49, 39, 0.06)),
+    var(--workspace-panel);
+  border-color: rgba(159, 74, 52, 0.22);
+}
+
+.submission-banner-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.submission-banner-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--workspace-ink);
+}
+
+.submission-banner-summary {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.submission-banner-detail {
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--text-soft);
+}
+
+.submission-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .banner-actions,
@@ -599,10 +679,11 @@ button:disabled {
 }
 
 .record {
-  padding: 12px;
+  padding: 14px;
   display: grid;
-  gap: 10px;
+  gap: 8px;
   position: relative;
+  background: var(--workspace-panel);
 }
 
 .record::before {
@@ -617,8 +698,8 @@ button:disabled {
 }
 
 .record.rich {
-  grid-template-columns: 52px 1fr;
-  gap: 10px 12px;
+  grid-template-columns: 40px 1fr;
+  gap: 8px 12px;
 }
 
 .record.rich .record-actions {
@@ -651,9 +732,9 @@ button:disabled {
 }
 
 .passport-thumb {
-  width: 52px;
-  height: 64px;
-  border-radius: 12px;
+  width: 40px;
+  height: 52px;
+  border-radius: 10px;
   background:
     linear-gradient(145deg, rgba(92, 122, 76, 0.16), rgba(74, 55, 29, 0.06)),
     repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.36), rgba(255, 255, 255, 0.36) 6px, transparent 6px, transparent 12px);
@@ -661,7 +742,7 @@ button:disabled {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
   display: grid;
   place-items: center;
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-soft);
 }
 
@@ -680,9 +761,9 @@ button:disabled {
 }
 
 .record-name {
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1.5;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.45;
 }
 
 .status-chip,

@@ -263,6 +263,9 @@
     setText("submitted-title", Strings.SECTION_SUBMITTED);
     setText("failed-title", Strings.SECTION_FAILED);
     setText("submit-all-btn", Strings.ACTION_SUBMIT_ALL);
+    setText("submission-progress-title", Strings.PROGRESS_BANNER_TITLE);
+    setText("submission-refresh-btn", Strings.ACTION_REFRESH);
+    setText("submission-resume-btn", Strings.ACTION_RESUME);
     setText("ctx-change-confirm", Strings.CTX_CHANGE_YES);
     setText("ctx-change-defer", Strings.CTX_CHANGE_LATER);
     setText("workspace-empty-note", Strings.SECTION_EMPTY_PENDING);
@@ -845,6 +848,48 @@
     };
   }
 
+  function buildBatchBannerState(sessionData) {
+    const normalized = QueueFilter.normalizeBatchState(
+      sessionData?.submission_batch || [],
+      sessionData?.active_submit_id || null,
+    );
+    const batch = sessionData?.submission_batch;
+    const submittedCount = Array.isArray(batch?.submitted_ids) ? batch.submitted_ids.length : 0;
+    const activeCount = normalized.activeId ? 1 : 0;
+    const queuedCount = Math.max(normalized.inProgressIds.size - activeCount, 0);
+    const total = typeof batch?.source_total === "number"
+      ? batch.source_total
+      : submittedCount + normalized.inProgressIds.size;
+    const blockedReason = batch && typeof batch === "object" && !Array.isArray(batch)
+      ? batch.blocked_reason || null
+      : null;
+    return {
+      visible: normalized.inProgressIds.size > 0 || Boolean(blockedReason),
+      title: Strings.PROGRESS_BANNER_TITLE,
+      summary: Strings.PROGRESS_BANNER_SUMMARY(submittedCount, total || submittedCount),
+      detail: Strings.PROGRESS_BANNER_DETAIL(activeCount, queuedCount),
+      blockedReason,
+    };
+  }
+
+  function renderSubmissionBanner(sessionData, doc = document) {
+    const banner = $("submission-progress-banner", doc);
+    if (!banner) {
+      return;
+    }
+    const stateForBanner = buildBatchBannerState(sessionData);
+    if (!stateForBanner.visible) {
+      banner.classList.add("hidden");
+      return;
+    }
+    $("submission-progress-title", doc).textContent = stateForBanner.title;
+    $("submission-progress-summary", doc).textContent = stateForBanner.summary;
+    $("submission-progress-detail", doc).textContent = stateForBanner.detail;
+    $("submission-resume-btn", doc).classList.toggle("hidden", !stateForBanner.blockedReason);
+    banner.dataset.blocked = stateForBanner.blockedReason ? "true" : "false";
+    banner.classList.remove("hidden");
+  }
+
   function mapTabToSection(tabName) {
     return tabName === "inProgress" ? "pending" : tabName;
   }
@@ -931,6 +976,7 @@
 
     state.sectionData = sections;
     applySummaryContext(localData);
+    renderSubmissionBanner(sessionData);
     renderHomeSummary(document, {
       pendingCount: counts.pending,
       failedCount: counts.failed,
@@ -1400,6 +1446,13 @@
       await sendMsg({ type: "SYNC_SESSION" });
       await init();
     });
+    $("submission-refresh-btn")?.addEventListener("click", async () => {
+      await loadMainWorkspace({ showLoading: false, fetchRecords: true });
+    });
+    $("submission-resume-btn")?.addEventListener("click", async () => {
+      await sendMsg({ type: "SUBMIT_BATCH", uploadIds: [] }, { timeoutMs: 30000 });
+      await loadMainWorkspace({ showLoading: false, fetchRecords: false });
+    });
     $("ctx-change-confirm").addEventListener("click", async () => {
       state.hiddenContextBanner = false;
       await sendMsg({ type: "SYNC_SESSION" });
@@ -1448,6 +1501,7 @@
   return {
     bootstrap,
     buildDisplayName,
+    buildBatchBannerState,
     buildOptimisticCounts,
     ensureActionContextState,
     getRecordNote,

@@ -21,6 +21,8 @@
     ERR_GENERIC: (message) => (message ? `تعذر إكمال العملية: ${message}` : "تعذر إكمال العملية"),
     ERR_SCAN_PASSPORT: (status) => `فشل قراءة الجواز (${status})`,
     ERR_SCAN_NO_DATA: "لم يتم العثور على بيانات الجواز",
+    ERR_SCAN_IMAGE_UNCLEAR: "صورة الجواز غير واضحة",
+    ERR_CONTRACT_NOT_ACTIVE: "لا يوجد عقد نشط",
     ERR_SUBMIT_PASSPORT: (status) => `فشل حفظ بيانات الجواز (${status})`,
     ERR_FETCH_CONTACT: (status) => `تعذر جلب بيانات التواصل (${status})`,
     ERR_UPLOAD_ATTACH: (status) => `فشل رفع الصورة (${status})`,
@@ -87,6 +89,7 @@
     STATUS_QUEUED_IN_BATCH: "في الانتظار",
     STATUS_SUBMITTED: "تم الرفع",
     STATUS_SUBMITTED_NEEDS_REVIEW: "تم الرفع - يحتاج مراجعة",
+    STATUS_MISSING: "غير موجود",
     STATUS_FAILED: "فشل",
 
     ACTION_SUBMIT: "رفع",
@@ -96,6 +99,7 @@
     ACTION_BACK: "رجوع",
     ACTION_SETTINGS: "الإعدادات",
     ACTION_REFRESH: "تحديث",
+    ACTION_RESUME: "استئناف",
 
     MAIN_KICKER: "جاهز للعمل",
     MAIN_TITLE: "لوحة الجوازات",
@@ -112,29 +116,58 @@
 
     SUBMIT_ALL_CONFIRM: (count) => `هل تريد رفع ${count} جواز؟`,
     SUBMIT_SUCCESS: "تم الرفع بنجاح",
+    LIST_REFRESH_FAILED: "تعذر تحديث القائمة",
+    PROGRESS_BANNER_TITLE: "جارٍ رفع الجوازات",
+    PROGRESS_BANNER_SUMMARY: (done, total) => `تم رفع ${done} من ${total}`,
+    PROGRESS_BANNER_DETAIL: (activeCount, queuedCount) => {
+      if (activeCount > 0 && queuedCount > 0) {
+        return `جواز واحد جارٍ رفعه و${queuedCount} في الانتظار`;
+      }
+      if (activeCount > 0) {
+        return "جواز واحد جارٍ رفعه";
+      }
+      if (queuedCount > 0) {
+        return `${queuedCount} في الانتظار`;
+      }
+      return "";
+    },
     DETAILS_UNAVAILABLE: "تفاصيل غير متوفرة",
+    DETAILS_RECORD_MISSING: "هذا الجواز غير موجود",
+    DETAILS_OPENING: "جارٍ فتح التفاصيل...",
+    DETAILS_OPEN_FAILED: "تعذر فتح التفاصيل",
+    DETAILS_OTHER_ENTITY: "يتبع حسابًا آخر",
+    DETAILS_OTHER_CONTRACT: "يتبع عقدًا آخر",
+    DETAILS_INACCESSIBLE: "التفاصيل غير متاحة في الحساب الحالي",
+    DETAILS_OPEN_FROM_OTHER_ENTITY: "افتح الحساب الذي تم الرفع منه",
+    DETAILS_OPEN_FROM_OTHER_CONTRACT: "افتح العقد الذي تم الرفع منه",
     VIEW_DETAILS: "عرض التفاصيل",
     HELP_LINK_LABEL: "مساعدة",
 
-    CTX_CHANGE_ENTITY: "تم تغيير الحساب. حدّث السياق للمتابعة",
-    CTX_CHANGE_CONTRACT: "تم تغيير العقد. حدّث السياق للمتابعة",
+    CTX_CHANGE_ENTITY: "تم تغيير الحساب. اختر العقد عند المتابعة",
     CTX_CHANGE_YES: "تحديث الآن",
     CTX_CHANGE_LATER: "لاحقًا",
     CTX_CHANGED_ENTITY: "تم تغيير الحساب",
-    CTX_CHANGED_CONTRACT: "تم تغيير العقد",
 
     NOTIF_BATCH_COMPLETE: "اكتمل رفع الدفعة",
     NOTIF_SESSION_EXPIRED: "انتهت الجلسة",
     NOTIF_CONTEXT_CHANGE: "تم رصد تغيير جديد في الحساب أو العقد",
+    NOTIF_DETAILS_MISSING: "تعذر العثور على الجواز",
 
     CONTRACT_ACTIVE: "العقد نشط",
     CONTRACT_EXPIRED: "انتهى العقد",
+    CONTRACT_INACTIVE: "العقد غير نشط",
     CONTRACT_SELECT_LABEL: "العقد",
     CONTRACT_SELECT_PLACEHOLDER: "اختر العقد",
     CONTRACT_NONE_AVAILABLE: "لا يوجد عقد نشط",
+    CONTRACT_ACTION_REQUIRED: "اختر العقد أولًا",
+    CONTRACT_INACTIVE_ACTION_REQUIRED: "اختر عقدًا نشطًا أولًا",
+    GROUP_ACTION_REQUIRED: "اختر المجموعة أولًا",
 
     RECORD_FALLBACK: (id) => `جواز ${id}`,
     REVIEW_SUMMARY: "يحتاج مراجعة",
+    FAILURE_REASON_SCAN_IMAGE_UNCLEAR: "صورة الجواز غير واضحة",
+    FAILURE_REASON_CONTRACT_MISSING: "اختر العقد أولًا",
+    FAILURE_REASON_CONTRACT_INACTIVE: "اختر عقدًا نشطًا أولًا",
     THUMBNAIL_LABEL: "جواز",
   });
 });

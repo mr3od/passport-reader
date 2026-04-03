@@ -8,6 +8,7 @@
 </head>
 <body>
   <div id="popup-shell" class="popup-shell">
+    <div id="app-toast" class="app-toast hidden" role="status" aria-live="polite"></div>
     <header id="topbar" class="topbar">
       <div class="topbar-copy">
         <span id="topbar-kicker" class="topbar-kicker"></span>
@@ -100,22 +101,6 @@
         </div>
       </section>
 
-      <section id="screen-group-select" class="screen hidden">
-        <div class="state-header amber">
-          <div id="group-kicker" class="header-kicker"></div>
-          <h2 id="group-title" class="header-title"></h2>
-          <p id="group-subtitle" class="header-subtitle"></p>
-        </div>
-        <div class="screen-body">
-          <div id="group-select-hint" class="banner soft hidden"></div>
-          <label class="field" for="group-select">
-            <span id="group-select-label"></span>
-            <select id="group-select" class="select"></select>
-          </label>
-          <button id="btn-confirm-group" class="button primary" type="button"></button>
-        </div>
-      </section>
-
       <section id="screen-main" class="screen hidden">
         <div class="state-header olive">
           <div id="main-kicker" class="header-kicker"></div>
@@ -128,6 +113,18 @@
             <div class="banner-actions">
               <button id="ctx-change-confirm" class="mini-btn primary" type="button"></button>
               <button id="ctx-change-defer" class="mini-btn ghost" type="button"></button>
+            </div>
+          </div>
+
+          <div id="submission-progress-banner" class="submission-banner hidden">
+            <div class="submission-banner-copy">
+              <div id="submission-progress-title" class="submission-banner-title"></div>
+              <div id="submission-progress-summary" class="submission-banner-summary"></div>
+              <div id="submission-progress-detail" class="submission-banner-detail"></div>
+            </div>
+            <div class="submission-banner-actions">
+              <button id="submission-resume-btn" class="mini-btn primary hidden" type="button"></button>
+              <button id="submission-refresh-btn" class="mini-btn ghost" type="button"></button>
             </div>
           </div>
 
@@ -148,7 +145,7 @@
                 <div id="home-contract-label" class="key"></div>
                 <div id="ctx-contract" class="value"></div>
               </div>
-              <div class="summary-cell">
+              <div class="summary-cell hidden">
                 <div id="home-group-label" class="key"></div>
                 <div id="ctx-group" class="value"></div>
               </div>
@@ -175,7 +172,6 @@
           </div>
 
           <div class="toolbar button-row">
-            <button id="btn-change-group" class="button secondary" type="button"></button>
             <button id="btn-refresh-context" class="button secondary" type="button"></button>
           </div>
 

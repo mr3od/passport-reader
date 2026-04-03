@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
+  buildBatchBannerState,
   buildDisplayName,
   buildOptimisticCounts,
   ensureActionContextState,
@@ -18,6 +19,28 @@ const {
   shouldRefreshContractsForStorageChange,
   shouldRefreshWorkspaceForStorageChange,
 } = require("../popup.js");
+
+test("buildBatchBannerState summarizes the richer batch object", () => {
+  assert.deepEqual(
+    buildBatchBannerState({
+      submission_batch: {
+        source_total: 23,
+        queued_ids: [11, 12, 13],
+        active_id: 10,
+        submitted_ids: [1, 2, 3, 4, 5, 6, 7, 8],
+        blocked_reason: null,
+      },
+      active_submit_id: 10,
+    }),
+    {
+      visible: true,
+      title: "جارٍ رفع الجوازات",
+      summary: "تم رفع 8 من 23",
+      detail: "جواز واحد جارٍ رفعه و3 في الانتظار",
+      blockedReason: null,
+    },
+  );
+});
 
 test("buildDisplayName prefers slim Arabic list names before OCR payloads", () => {
   assert.equal(
