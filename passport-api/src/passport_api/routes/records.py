@@ -15,7 +15,16 @@ from passport_platform.strings import (
 )
 
 from passport_api.deps import get_api_services, get_authenticated_session
-from passport_api.schemas import MasarStatusUpdate, RecordResponse, ReviewStatusUpdate
+from passport_api.schemas import (
+    MasarStatusUpdate,
+    RecordCountsResponse,
+    RecordIdListItemResponse,
+    RecordIdListResponse,
+    RecordListItemResponse,
+    RecordListResponse,
+    RecordResponse,
+    ReviewStatusUpdate,
+)
 from passport_api.services import ApiServices
 
 router = APIRouter(tags=["records"])
@@ -56,14 +65,62 @@ def upload_record(
     return _record_to_response(record)
 
 
-@router.get("/records", response_model=list[RecordResponse])
+@router.get("/records", response_model=RecordListResponse)
 def list_records(
     authenticated: Annotated[AuthenticatedSession, Depends(get_authenticated_session)],
     services: Annotated[ApiServices, Depends(get_api_services)],
-    limit: int = Query(default=50, ge=1, le=200),
-) -> list[RecordResponse]:
-    records = services.records.list_user_records(authenticated.user.id, limit=limit)
-    return [_record_to_response(record) for record in records]
+    section: str = Query(default="pending", pattern="^(pending|submitted|failed|all)$"),
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+) -> RecordListResponse:
+    result = services.records.list_user_record_items(
+        authenticated.user.id,
+        limit=limit,
+        offset=offset,
+        section=section,
+    )
+    return RecordListResponse(
+        items=[_list_item_to_response(item) for item in result.items],
+        limit=limit,
+        offset=offset,
+        total=result.total,
+        has_more=result.has_more,
+    )
+
+
+@router.get("/records/counts", response_model=RecordCountsResponse)
+def get_record_counts(
+    authenticated: Annotated[AuthenticatedSession, Depends(get_authenticated_session)],
+    services: Annotated[ApiServices, Depends(get_api_services)],
+) -> RecordCountsResponse:
+    counts = services.records.count_user_record_sections(authenticated.user.id)
+    return RecordCountsResponse(
+        pending=counts.pending,
+        submitted=counts.submitted,
+        failed=counts.failed,
+    )
+
+
+@router.get("/records/ids", response_model=RecordIdListResponse)
+def list_record_ids(
+    authenticated: Annotated[AuthenticatedSession, Depends(get_authenticated_session)],
+    services: Annotated[ApiServices, Depends(get_api_services)],
+    section: str = Query(default="pending", pattern="^pending$"),
+    limit: int = Query(default=100, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+) -> RecordIdListResponse:
+    result = services.records.list_submit_eligible_record_ids(
+        authenticated.user.id,
+        limit=limit,
+        offset=offset,
+    )
+    return RecordIdListResponse(
+        items=[_id_item_to_response(item) for item in result.items],
+        limit=limit,
+        offset=offset,
+        total=result.total,
+        has_more=result.has_more,
+    )
 
 
 @router.get("/records/masar/pending", response_model=list[RecordResponse])
@@ -112,10 +169,10 @@ def update_masar_status(
     authenticated: Annotated[AuthenticatedSession, Depends(get_authenticated_session)],
     services: Annotated[ApiServices, Depends(get_api_services)],
 ) -> RecordResponse:
-    if body.status not in ("submitted", "failed"):
+    if body.status not in ("submitted", "failed", "missing"):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="status must be 'submitted' or 'failed'",
+            detail="status must be 'submitted', 'failed', or 'missing'",
         )
     if body.status == "submitted":
         try:
@@ -132,6 +189,21 @@ def update_masar_status(
         masar_mutamer_id=body.masar_mutamer_id,
         masar_scan_result=body.masar_scan_result,
         masar_detail_id=body.masar_detail_id,
+        submission_entity_id=body.submission_entity_id,
+        submission_entity_type_id=body.submission_entity_type_id,
+        submission_entity_name=body.submission_entity_name,
+        submission_contract_id=body.submission_contract_id,
+        submission_contract_name=body.submission_contract_name,
+        submission_contract_name_ar=body.submission_contract_name_ar,
+        submission_contract_name_en=body.submission_contract_name_en,
+        submission_contract_number=body.submission_contract_number,
+        submission_contract_status=body.submission_contract_status,
+        submission_uo_subscription_status_id=body.submission_uo_subscription_status_id,
+        submission_group_id=body.submission_group_id,
+        submission_group_name=body.submission_group_name,
+        submission_group_number=body.submission_group_number,
+        failure_reason_code=body.failure_reason_code,
+        failure_reason_text=body.failure_reason_text,
     )
     if not updated:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=RECORD_NOT_FOUND)
@@ -189,6 +261,21 @@ def _record_to_response(record) -> RecordResponse:
         error_code=record.error_code,
         masar_status=record.masar_status,
         masar_detail_id=record.masar_detail_id,
+        submission_entity_id=record.submission_entity_id,
+        submission_entity_type_id=record.submission_entity_type_id,
+        submission_entity_name=record.submission_entity_name,
+        submission_contract_id=record.submission_contract_id,
+        submission_contract_name=record.submission_contract_name,
+        submission_contract_name_ar=record.submission_contract_name_ar,
+        submission_contract_name_en=record.submission_contract_name_en,
+        submission_contract_number=record.submission_contract_number,
+        submission_contract_status=record.submission_contract_status,
+        submission_uo_subscription_status_id=record.submission_uo_subscription_status_id,
+        submission_group_id=record.submission_group_id,
+        submission_group_name=record.submission_group_name,
+        submission_group_number=record.submission_group_number,
+        failure_reason_code=record.failure_reason_code,
+        failure_reason_text=record.failure_reason_text,
     )
 
 
@@ -196,3 +283,30 @@ def _review_summary(record) -> str | None:
     if record.review_status != "needs_review":
         return None
     return RECORD_REVIEW_REQUIRED
+
+
+def _list_item_to_response(record) -> RecordListItemResponse:
+    return RecordListItemResponse(
+        upload_id=record.upload_id,
+        filename=record.filename,
+        upload_status=record.upload_status.value,
+        review_status=record.review_status,
+        masar_status=record.masar_status,
+        masar_detail_id=record.masar_detail_id,
+        passport_number=record.passport_number,
+        full_name_ar=record.full_name_ar,
+        full_name_en=record.full_name_en,
+        created_at=record.created_at,
+        completed_at=record.completed_at,
+        failure_reason_code=record.failure_reason_code,
+        failure_reason_text=record.failure_reason_text,
+    )
+
+
+def _id_item_to_response(record) -> RecordIdListItemResponse:
+    return RecordIdListItemResponse(
+        upload_id=record.upload_id,
+        upload_status=record.upload_status.value,
+        review_status=record.review_status,
+        masar_status=record.masar_status,
+    )

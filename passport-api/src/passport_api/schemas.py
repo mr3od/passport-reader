@@ -43,6 +43,66 @@ class RecordResponse(BaseModel):
     error_code: str | None
     masar_status: str | None
     masar_detail_id: str | None
+    submission_entity_id: str | None
+    submission_entity_type_id: str | None
+    submission_entity_name: str | None
+    submission_contract_id: str | None
+    submission_contract_name: str | None
+    submission_contract_name_ar: str | None
+    submission_contract_name_en: str | None
+    submission_contract_number: str | None
+    submission_contract_status: bool | None
+    submission_uo_subscription_status_id: int | None
+    submission_group_id: str | None
+    submission_group_name: str | None
+    submission_group_number: str | None
+    failure_reason_code: str | None
+    failure_reason_text: str | None
+
+
+class RecordListItemResponse(BaseModel):
+    upload_id: int
+    filename: str
+    upload_status: str
+    review_status: str | None
+    masar_status: str | None
+    masar_detail_id: str | None
+    passport_number: str | None
+    full_name_ar: str | None
+    full_name_en: str | None
+    created_at: datetime
+    completed_at: datetime | None
+    failure_reason_code: str | None
+    failure_reason_text: str | None
+
+
+class RecordListResponse(BaseModel):
+    items: list[RecordListItemResponse]
+    limit: int
+    offset: int
+    total: int
+    has_more: bool
+
+
+class RecordCountsResponse(BaseModel):
+    pending: int
+    submitted: int
+    failed: int
+
+
+class RecordIdListItemResponse(BaseModel):
+    upload_id: int
+    upload_status: str
+    review_status: str | None
+    masar_status: str | None
+
+
+class RecordIdListResponse(BaseModel):
+    items: list[RecordIdListItemResponse]
+    limit: int
+    offset: int
+    total: int
+    has_more: bool
 
 
 class MasarStatusUpdate(BaseModel):
@@ -50,6 +110,21 @@ class MasarStatusUpdate(BaseModel):
     masar_mutamer_id: str | None = None
     masar_scan_result: dict[str, Any] | None = None
     masar_detail_id: str | None = None
+    submission_entity_id: str | None = None
+    submission_entity_type_id: str | None = None
+    submission_entity_name: str | None = None
+    submission_contract_id: str | None = None
+    submission_contract_name: str | None = None
+    submission_contract_name_ar: str | None = None
+    submission_contract_name_en: str | None = None
+    submission_contract_number: str | None = None
+    submission_contract_status: bool | None = None
+    submission_uo_subscription_status_id: int | None = None
+    submission_group_id: str | None = None
+    submission_group_name: str | None = None
+    submission_group_number: str | None = None
+    failure_reason_code: str | None = None
+    failure_reason_text: str | None = None
 
 
 class ReviewStatusUpdate(BaseModel):

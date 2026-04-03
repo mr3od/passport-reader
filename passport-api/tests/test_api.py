@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 from typing import cast
 
 from fastapi.testclient import TestClient
@@ -64,49 +65,80 @@ class FakeAuthService:
 class FakeRecordsService:
     @staticmethod
     def _record():
-        return type(
-            "Record",
-            (),
-            {
-                "upload_id": 10,
-                "user_id": 1,
-                "filename": "passport.jpg",
-                "mime_type": "image/jpeg",
-                "source_ref": "telegram://1",
-                "upload_status": type("Status", (), {"value": "processed"})(),
-                "created_at": datetime(2026, 3, 13, 10, 0, tzinfo=UTC),
-                "completed_at": datetime(2026, 3, 13, 10, 1, tzinfo=UTC),
-                "is_passport": True,
-                "is_complete": True,
-                "review_status": "auto",
-                "passport_number": "12345678",
-                "passport_image_uri": "/tmp/original.jpg",
-                "confidence_overall": 0.91,
-                "extraction_result": {"data": {"PassportNumber": "12345678"}},
-                "error_code": None,
-                "masar_status": None,
-                "masar_detail_id": None,
-                "submission_entity_id": None,
-                "submission_entity_type_id": None,
-                "submission_entity_name": None,
-                "submission_contract_id": None,
-                "submission_contract_name": None,
-                "submission_contract_name_ar": None,
-                "submission_contract_name_en": None,
-                "submission_contract_number": None,
-                "submission_contract_status": None,
-                "submission_uo_subscription_status_id": None,
-                "submission_group_id": None,
-                "submission_group_name": None,
-                "submission_group_number": None,
-                "failure_reason_code": None,
-                "failure_reason_text": None,
-            },
-        )()
+        return SimpleNamespace(
+            upload_id=10,
+            user_id=1,
+            filename="passport.jpg",
+            mime_type="image/jpeg",
+            source_ref="telegram://1",
+            upload_status=SimpleNamespace(value="processed"),
+            created_at=datetime(2026, 3, 13, 10, 0, tzinfo=UTC),
+            completed_at=datetime(2026, 3, 13, 10, 1, tzinfo=UTC),
+            is_passport=True,
+            is_complete=True,
+            review_status="auto",
+            passport_number="12345678",
+            passport_image_uri="/tmp/original.jpg",
+            confidence_overall=0.91,
+            extraction_result={"data": {"PassportNumber": "12345678"}},
+            error_code=None,
+            masar_status=None,
+            masar_detail_id=None,
+            submission_entity_id=None,
+            submission_entity_type_id=None,
+            submission_entity_name=None,
+            submission_contract_id=None,
+            submission_contract_name=None,
+            submission_contract_name_ar=None,
+            submission_contract_name_en=None,
+            submission_contract_number=None,
+            submission_contract_status=None,
+            submission_uo_subscription_status_id=None,
+            submission_group_id=None,
+            submission_group_name=None,
+            submission_group_number=None,
+            failure_reason_code=None,
+            failure_reason_text=None,
+        )
 
     def list_user_records(self, user_id: int, *, limit: int = 50):
         assert user_id == 1
         return [self._record()]
+
+    def list_user_record_items(self, user_id: int, *, limit: int, offset: int, section: str):
+        assert user_id == 1
+        assert section in {"pending", "submitted", "failed", "all"}
+        record = self._record()
+        item = SimpleNamespace(
+            upload_id=record.upload_id,
+            filename=record.filename,
+            upload_status=record.upload_status,
+            review_status=record.review_status,
+            masar_status=record.masar_status,
+            masar_detail_id=record.masar_detail_id,
+            passport_number=record.passport_number,
+            full_name_ar="عبد الله العمري",
+            full_name_en="ABDULLAH ALOMARI",
+            created_at=record.created_at,
+            completed_at=record.completed_at,
+            failure_reason_code=record.failure_reason_code,
+            failure_reason_text=record.failure_reason_text,
+        )
+        return SimpleNamespace(items=[item], total=1, has_more=False)
+
+    def count_user_record_sections(self, user_id: int):
+        assert user_id == 1
+        return SimpleNamespace(pending=1, submitted=0, failed=0)
+
+    def list_submit_eligible_record_ids(self, user_id: int, *, limit: int, offset: int):
+        assert user_id == 1
+        item = SimpleNamespace(
+            upload_id=10,
+            upload_status=SimpleNamespace(value="processed"),
+            review_status="auto",
+            masar_status=None,
+        )
+        return SimpleNamespace(items=[item], total=1, has_more=False)
 
     def get_user_record(self, user_id: int, upload_id: int):
         assert user_id == 1
@@ -150,7 +182,7 @@ def test_exchange_me_and_records_endpoints():
     assert me.status_code == 200
     assert me.json()["external_user_id"] == "12345"
     assert records.status_code == 200
-    assert records.json()[0]["passport_number"] == "12345678"
+    assert records.json()["items"][0]["passport_number"] == "12345678"
     assert record.status_code == 200
     assert record.json()["upload_id"] == 10
 
@@ -341,8 +373,9 @@ def test_end_to_end_exchange_me_and_records(tmp_path: Path, monkeypatch):
     assert me.status_code == 200
     assert me.json()["external_user_id"] == "12345"
     assert records.status_code == 200
-    assert len(records.json()) == 1
-    assert records.json()[0]["passport_number"] == "12345678"
+    assert records.json()["total"] == 1
+    assert len(records.json()["items"]) == 1
+    assert records.json()["items"][0]["passport_number"] == "12345678"
     assert record.status_code == 200
     assert record.json()["upload_id"] == upload.id
 
