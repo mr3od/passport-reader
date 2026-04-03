@@ -45,6 +45,9 @@ def test_initialize_creates_v2_processing_results_and_masar_tables(tmp_path) -> 
     assert "extraction_result_json" in columns
     assert masar_table is not None
     assert "masar_detail_id" in masar_columns
+    assert "submission_entity_id" in masar_columns
+    assert "submission_contract_id" in masar_columns
+    assert "submission_group_id" in masar_columns
 
 
 def test_register_upload_creates_upload_and_usage_entry(tmp_path) -> None:

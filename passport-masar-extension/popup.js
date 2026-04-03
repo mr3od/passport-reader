@@ -28,39 +28,45 @@
   Strings,
   apiBaseUrl,
 }) {
+  function createTabCacheState(loaded = false) {
+    return {
+      items: [],
+      total: 0,
+      offset: 0,
+      hasMore: false,
+      loaded,
+      loading: false,
+      error: null,
+      lastLoadedAt: 0,
+    };
+  }
+
   const state = {
     activeTab: "pending",
     hiddenContextBanner: false,
     pendingRecords: [],
     skippedIds: new Set(),
     sectionData: null,
-    lastFetchedRecords: [],
+    tabCache: {
+      pending: createTabCacheState(),
+      inProgress: createTabCacheState(true),
+      submitted: createTabCacheState(),
+      failed: createTabCacheState(),
+    },
+    countsState: {
+      server: null,
+      stale: false,
+      loading: false,
+    },
+    lastLocalData: null,
+    lastSessionData: null,
     isWorkspaceLoading: false,
     hasQueuedWorkspaceReload: false,
-    pendingReloadTimer: null,
-    pendingReloadFetchRecords: false,
-    pendingReloadRefreshContracts: false,
     contractsCache: null,
     contractsCacheAt: 0,
+    toastTimer: null,
   };
   const CONTRACT_CACHE_TTL_MS = 30000;
-  const WORKSPACE_LOCAL_REFRESH_KEYS = new Set([
-    "masar_entity_id",
-    "masar_user_name",
-    "masar_contract_id",
-    "session_expired",
-    "submit_auth_required",
-    "masar_contract_name_ar",
-    "masar_contract_name_en",
-    "masar_contract_state",
-    "masar_group_id",
-    "masar_group_name",
-  ]);
-  const WORKSPACE_SESSION_REFRESH_KEYS = new Set([
-    "submission_batch",
-    "active_submit_id",
-    "last_submit_result",
-  ]);
 
   function $(id, doc = document) {
     return doc.getElementById(id);
@@ -69,7 +75,6 @@
   function getScreenTheme(name) {
     switch (name) {
       case "setup":
-      case "group-select":
       case "settings":
         return { tone: "amber", surface: "editorial" };
       case "activate":
@@ -105,26 +110,6 @@
     applyScreenTheme(name, doc);
   }
 
-  function shouldRefreshWorkspaceForStorageChange({
-    areaName,
-    changes,
-    isMainScreenVisible,
-  }) {
-    if (!isMainScreenVisible || !changes || typeof changes !== "object") {
-      return false;
-    }
-    const refreshKeys =
-      areaName === "local"
-        ? WORKSPACE_LOCAL_REFRESH_KEYS
-        : areaName === "session"
-          ? WORKSPACE_SESSION_REFRESH_KEYS
-          : null;
-    if (!refreshKeys) {
-      return false;
-    }
-    return Object.keys(changes).some((key) => refreshKeys.has(key));
-  }
-
   function localGet(keys) {
     return new Promise((resolve) => chrome.storage.local.get(keys, resolve));
   }
@@ -156,94 +141,121 @@
   }
 
   function setStaticCopy(doc = document) {
+    const setText = (id, value) => {
+      const element = $(id, doc);
+      if (element) {
+        element.textContent = value;
+      }
+    };
+    const setPlaceholder = (id, value) => {
+      const element = $(id, doc);
+      if (element) {
+        element.placeholder = value;
+      }
+    };
     doc.title = Strings.TOPBAR_TITLE;
-    $("topbar-title", doc).textContent = Strings.TOPBAR_TITLE;
-    $("topbar-kicker", doc).textContent = Strings.TOPBAR_KICKER;
-    $("help-support-link", doc).textContent = "؟";
-    $("help-support-link", doc).title = Strings.HELP_LINK_LABEL;
-    $("help-support-link", doc).ariaLabel = Strings.HELP_LINK_LABEL;
-    $("help-support-link", doc).href = apiBaseUrl || "#";
-    $("btn-settings", doc).textContent = "⚙";
-    $("btn-settings", doc).title = Strings.ACTION_SETTINGS;
-    $("btn-settings", doc).ariaLabel = Strings.ACTION_SETTINGS;
-    $("loading-kicker", doc).textContent = Strings.LOADING_KICKER;
-    $("loading-title", doc).textContent = Strings.LOADING;
-    $("loading-subtitle", doc).textContent = Strings.LOADING_SUBTITLE;
-    $("loading-text", doc).textContent = Strings.LOADING_HINT;
-    $("error-kicker", doc).textContent = Strings.ERROR_KICKER;
-    $("error-title", doc).textContent = Strings.ERROR_TITLE;
-    $("error-subtitle", doc).textContent = Strings.ERROR_SUBTITLE;
-    $("setup-kicker", doc).textContent = Strings.SETUP_KICKER;
-    $("setup-title", doc).textContent = Strings.SETUP_TITLE;
-    $("setup-subtitle", doc).textContent = Strings.SETUP_SUBTITLE;
-    $("setup-token-label", doc).textContent = Strings.SETUP_TOKEN_LABEL;
-    $("api-token-input", doc).placeholder = Strings.SETUP_TOKEN_PLACEHOLDER;
-    $("btn-save-token", doc).textContent = Strings.SETUP_SAVE;
-    $("setup-helper", doc).textContent = Strings.SETUP_HELP;
-    $("activate-kicker", doc).textContent = Strings.ACTIVATE_KICKER;
-    $("activate-title", doc).textContent = Strings.ACTIVATE_TITLE;
-    $("activate-subtitle", doc).textContent = Strings.ACTIVATE_SUBTITLE;
-    $("activate-message", doc).textContent = Strings.ACTIVATE_MESSAGE;
-    $("btn-open-masar-activate", doc).textContent = Strings.OPEN_LOGIN;
-    $("session-kicker", doc).textContent = Strings.SESSION_KICKER;
-    $("session-title", doc).textContent = Strings.SESSION_EXPIRED;
-    $("session-subtitle", doc).textContent = Strings.SESSION_SUBTITLE;
-    $("btn-open-masar-expired", doc).textContent = Strings.OPEN_LOGIN;
-    $("group-kicker", doc).textContent = Strings.GROUP_KICKER;
-    $("group-title", doc).textContent = Strings.GROUP_TITLE;
-    $("group-subtitle", doc).textContent = Strings.GROUP_SUBTITLE;
-    $("group-select-label", doc).textContent = Strings.GROUP_SELECT_LABEL;
-    $("group-select-hint", doc).textContent = Strings.GROUP_HINT;
-    $("btn-confirm-group", doc).textContent = Strings.GROUP_CONFIRM;
-    $("main-kicker", doc).textContent = Strings.MAIN_KICKER;
-    $("main-title", doc).textContent = Strings.MAIN_TITLE;
-    $("main-subtitle", doc).textContent = Strings.MAIN_SUBTITLE;
-    $("workspace-summary-title", doc).textContent = Strings.MAIN_SUMMARY_TITLE;
-    $("workspace-summary-subtitle", doc).textContent = Strings.MAIN_SUMMARY_SUBTITLE;
-    $("home-office-label", doc).textContent = Strings.HOME_OFFICE_LABEL;
-    $("home-contract-label", doc).textContent = Strings.HOME_CONTRACT_LABEL;
-    $("home-group-label", doc).textContent = Strings.HOME_GROUP_LABEL;
-    $("home-pending-label", doc).textContent = Strings.HOME_PENDING_LABEL;
-    $("home-failed-label", doc).textContent = Strings.HOME_FAILED_LABEL;
-    $("contract-select-label", doc).textContent = Strings.CONTRACT_SELECT_LABEL;
-    $("btn-change-group", doc).textContent = Strings.GROUP_CHANGE;
-    $("btn-refresh-context", doc).textContent = Strings.ACTION_REFRESH;
-    $("tab-label-pending", doc).textContent = Strings.SECTION_PENDING;
-    $("tab-label-in-progress", doc).textContent = Strings.SECTION_IN_PROGRESS;
-    $("tab-label-submitted", doc).textContent = Strings.SECTION_SUBMITTED;
-    $("tab-label-failed", doc).textContent = Strings.SECTION_FAILED;
-    $("pending-title", doc).textContent = Strings.SECTION_PENDING;
-    $("in-progress-title", doc).textContent = Strings.SECTION_IN_PROGRESS;
-    $("submitted-title", doc).textContent = Strings.SECTION_SUBMITTED;
-    $("failed-title", doc).textContent = Strings.SECTION_FAILED;
-    $("submit-all-btn", doc).textContent = Strings.ACTION_SUBMIT_ALL;
-    $("ctx-change-confirm", doc).textContent = Strings.CTX_CHANGE_YES;
-    $("ctx-change-defer", doc).textContent = Strings.CTX_CHANGE_LATER;
-    $("workspace-empty-note", doc).textContent = Strings.SECTION_EMPTY_PENDING;
-    $("settings-kicker", doc).textContent = Strings.SETTINGS_KICKER;
-    $("settings-title", doc).textContent = Strings.SETTINGS_TITLE;
-    $("settings-subtitle", doc).textContent = Strings.SETTINGS_SUBTITLE;
-    $("btn-back", doc).textContent = Strings.ACTION_BACK;
-    $("settings-email-label", doc).textContent = Strings.SETTINGS_EMAIL_LABEL;
-    $("settings-email", doc).placeholder = Strings.SETTINGS_EMAIL_PLACEHOLDER;
-    $("settings-phone-cc-label", doc).textContent = Strings.SETTINGS_PHONE_CC_LABEL;
-    $("settings-phone-cc", doc).placeholder = Strings.SETTINGS_PHONE_CC_PLACEHOLDER;
-    $("settings-phone-label", doc).textContent = Strings.SETTINGS_PHONE_LABEL;
-    $("settings-phone", doc).placeholder = Strings.SETTINGS_PHONE_PLACEHOLDER;
-    $("btn-save-settings", doc).textContent = Strings.SETTINGS_SAVE;
-    $("btn-reset-token", doc).textContent = Strings.SETTINGS_RESET;
+    setText("topbar-title", Strings.TOPBAR_TITLE);
+    setText("topbar-kicker", Strings.TOPBAR_KICKER);
+    if ($("help-support-link", doc)) {
+      $("help-support-link", doc).textContent = "؟";
+      $("help-support-link", doc).title = Strings.HELP_LINK_LABEL;
+      $("help-support-link", doc).ariaLabel = Strings.HELP_LINK_LABEL;
+      $("help-support-link", doc).href = apiBaseUrl || "#";
+    }
+    if ($("btn-settings", doc)) {
+      $("btn-settings", doc).textContent = "⚙";
+      $("btn-settings", doc).title = Strings.ACTION_SETTINGS;
+      $("btn-settings", doc).ariaLabel = Strings.ACTION_SETTINGS;
+    }
+    setText("loading-kicker", Strings.LOADING_KICKER);
+    setText("loading-title", Strings.LOADING);
+    setText("loading-subtitle", Strings.LOADING_SUBTITLE);
+    setText("loading-text", Strings.LOADING_HINT);
+    setText("error-kicker", Strings.ERROR_KICKER);
+    setText("error-title", Strings.ERROR_TITLE);
+    setText("error-subtitle", Strings.ERROR_SUBTITLE);
+    setText("setup-kicker", Strings.SETUP_KICKER);
+    setText("setup-title", Strings.SETUP_TITLE);
+    setText("setup-subtitle", Strings.SETUP_SUBTITLE);
+    setText("setup-token-label", Strings.SETUP_TOKEN_LABEL);
+    setPlaceholder("api-token-input", Strings.SETUP_TOKEN_PLACEHOLDER);
+    setText("btn-save-token", Strings.SETUP_SAVE);
+    setText("setup-helper", Strings.SETUP_HELP);
+    setText("activate-kicker", Strings.ACTIVATE_KICKER);
+    setText("activate-title", Strings.ACTIVATE_TITLE);
+    setText("activate-subtitle", Strings.ACTIVATE_SUBTITLE);
+    setText("activate-message", Strings.ACTIVATE_MESSAGE);
+    setText("btn-open-masar-activate", Strings.OPEN_LOGIN);
+    setText("session-kicker", Strings.SESSION_KICKER);
+    setText("session-title", Strings.SESSION_EXPIRED);
+    setText("session-subtitle", Strings.SESSION_SUBTITLE);
+    setText("btn-open-masar-expired", Strings.OPEN_LOGIN);
+    setText("main-kicker", Strings.MAIN_KICKER);
+    setText("main-title", Strings.MAIN_TITLE);
+    setText("main-subtitle", Strings.MAIN_SUBTITLE);
+    setText("workspace-summary-title", Strings.MAIN_SUMMARY_TITLE);
+    setText("workspace-summary-subtitle", Strings.MAIN_SUMMARY_SUBTITLE);
+    setText("home-office-label", Strings.HOME_OFFICE_LABEL);
+    setText("home-contract-label", Strings.HOME_CONTRACT_LABEL);
+    setText("home-group-label", Strings.HOME_GROUP_LABEL);
+    setText("home-pending-label", Strings.HOME_PENDING_LABEL);
+    setText("home-failed-label", Strings.HOME_FAILED_LABEL);
+    setText("contract-select-label", Strings.CONTRACT_SELECT_LABEL);
+    setText("btn-refresh-context", Strings.ACTION_REFRESH);
+    setText("tab-label-pending", Strings.SECTION_PENDING);
+    setText("tab-label-in-progress", Strings.SECTION_IN_PROGRESS);
+    setText("tab-label-submitted", Strings.SECTION_SUBMITTED);
+    setText("tab-label-failed", Strings.SECTION_FAILED);
+    setText("pending-title", Strings.SECTION_PENDING);
+    setText("in-progress-title", Strings.SECTION_IN_PROGRESS);
+    setText("submitted-title", Strings.SECTION_SUBMITTED);
+    setText("failed-title", Strings.SECTION_FAILED);
+    setText("submit-all-btn", Strings.ACTION_SUBMIT_ALL);
+    setText("submission-progress-title", Strings.PROGRESS_BANNER_TITLE);
+    setText("submission-refresh-btn", Strings.ACTION_REFRESH);
+    setText("submission-resume-btn", Strings.ACTION_RESUME);
+    setText("pending-load-more", Strings.ACTION_LOAD_MORE);
+    setText("submitted-load-more", Strings.ACTION_LOAD_MORE);
+    setText("failed-load-more", Strings.ACTION_LOAD_MORE);
+    setText("ctx-change-confirm", Strings.CTX_CHANGE_YES);
+    setText("ctx-change-defer", Strings.CTX_CHANGE_LATER);
+    setText("workspace-empty-note", Strings.SECTION_EMPTY_PENDING);
+    setText("settings-kicker", Strings.SETTINGS_KICKER);
+    setText("settings-title", Strings.SETTINGS_TITLE);
+    setText("settings-subtitle", Strings.SETTINGS_SUBTITLE);
+    setText("btn-back", Strings.ACTION_BACK);
+    setText("settings-email-label", Strings.SETTINGS_EMAIL_LABEL);
+    setPlaceholder("settings-email", Strings.SETTINGS_EMAIL_PLACEHOLDER);
+    setText("settings-phone-cc-label", Strings.SETTINGS_PHONE_CC_LABEL);
+    setPlaceholder("settings-phone-cc", Strings.SETTINGS_PHONE_CC_PLACEHOLDER);
+    setText("settings-phone-label", Strings.SETTINGS_PHONE_LABEL);
+    setPlaceholder("settings-phone", Strings.SETTINGS_PHONE_PLACEHOLDER);
+    setText("btn-save-settings", Strings.SETTINGS_SAVE);
+    setText("btn-reset-token", Strings.SETTINGS_RESET);
   }
 
   function buildDisplayName(record) {
+    if (typeof record.full_name_ar === "string" && record.full_name_ar.trim()) {
+      return record.full_name_ar.trim();
+    }
+    if (typeof record.full_name_en === "string" && record.full_name_en.trim()) {
+      return record.full_name_en.trim();
+    }
     const data = record.extraction_result?.data;
     if (data) {
       const nameParts = [];
-      if (typeof data.GivenNamesEn === "string" && data.GivenNamesEn.trim()) {
+      if (typeof data.GivenNamesAr === "string" && data.GivenNamesAr.trim()) {
+        nameParts.push(data.GivenNamesAr.trim());
+      } else if (Array.isArray(data.GivenNameTokensAr)) {
+        nameParts.push(data.GivenNameTokensAr.filter(Boolean).join(" ").trim());
+      } else if (typeof data.GivenNamesEn === "string" && data.GivenNamesEn.trim()) {
         nameParts.push(data.GivenNamesEn.trim());
       } else if (Array.isArray(data.GivenNameTokensEn)) {
         nameParts.push(data.GivenNameTokensEn.filter(Boolean).join(" ").trim());
       }
-      if (typeof data.SurnameEn === "string" && data.SurnameEn.trim()) {
+      if (typeof data.SurnameAr === "string" && data.SurnameAr.trim()) {
+        nameParts.push(data.SurnameAr.trim());
+      } else if (typeof data.SurnameEn === "string" && data.SurnameEn.trim()) {
         nameParts.push(data.SurnameEn.trim());
       }
       const name = nameParts.filter(Boolean).join(" ");
@@ -256,7 +268,7 @@
 
   function buildMeta(record) {
     const parts = [];
-    const countryCode = record.extraction_result?.data?.CountryCode;
+    const countryCode = record.country_code || record.extraction_result?.data?.CountryCode;
     if (countryCode) {
       parts.push(countryCode);
     }
@@ -273,9 +285,52 @@
     return `https://masar.nusuk.sa/umrah/mutamer/mutamer-details/${encodeURIComponent(record.masar_detail_id)}`;
   }
 
-  function getStatusTone({ upload_status, masar_status, review_status, inProgress }) {
+  function getSubmissionContextMismatch(record, localData = {}) {
+    if (!record || record.masar_status !== "submitted") {
+      return null;
+    }
+    const currentEntityId = localData.masar_entity_id || null;
+    const currentContractId = localData.masar_contract_id || null;
+    if (record.submission_entity_id && currentEntityId && record.submission_entity_id !== currentEntityId) {
+      return "entity";
+    }
+    if (record.submission_contract_id && currentContractId && record.submission_contract_id !== currentContractId) {
+      return "contract";
+    }
+    return null;
+  }
+
+  function getSubmissionContextMismatchToast(mismatch) {
+    if (mismatch === "entity") {
+      return Strings.DETAILS_OPEN_FROM_OTHER_ENTITY;
+    }
+    if (mismatch === "contract") {
+      return Strings.DETAILS_OPEN_FROM_OTHER_CONTRACT;
+    }
+    return Strings.DETAILS_INACCESSIBLE;
+  }
+
+  function ensureActionContextState({
+    activeUiContext,
+    selectedContractId,
+  }) {
+    const context = ContextChange.normalizeActiveUiContext(activeUiContext);
+    const contractId = selectedContractId || context.contract_id || null;
+    if (context.requires_contract_confirmation || !contractId) {
+      return { ok: false, reason: "contract" };
+    }
+    if (context.contract_state === "expired" || context.contract_state === "inactive") {
+      return { ok: false, reason: "contract-inactive" };
+    }
+    return { ok: true, reason: null };
+  }
+
+  function getStatusTone({ upload_status, masar_status, review_status, inProgress, contextMismatch }) {
     if (upload_status === "failed" || masar_status === "failed") {
       return "red";
+    }
+    if (contextMismatch) {
+      return "amber";
     }
     if (masar_status === "submitted" && review_status === "needs_review") {
       return "amber";
@@ -296,6 +351,9 @@
     if (record.upload_status === "failed" || record.masar_status === "failed") {
       return "failed";
     }
+    if (record.masar_status === "missing") {
+      return "failed";
+    }
     if (record._inProgressState) {
       return "processing";
     }
@@ -311,6 +369,36 @@
   function getRecordNote(record) {
     if (record.review_status === "needs_review") {
       return Strings.REVIEW_SUMMARY;
+    }
+    if (record.failure_reason_code === "scan-image-unclear") {
+      return Strings.FAILURE_REASON_SCAN_IMAGE_UNCLEAR;
+    }
+    if (record.failure_reason_code === "contract-missing") {
+      return Strings.FAILURE_REASON_CONTRACT_MISSING;
+    }
+    if (record.failure_reason_code === "contract-inactive") {
+      return Strings.FAILURE_REASON_CONTRACT_INACTIVE;
+    }
+    if (typeof record.failure_reason_text === "string" && record.failure_reason_text.trim()) {
+      const normalized = record.failure_reason_text.trim().toLowerCase();
+      if (normalized.includes("passport image is not clear")) {
+        return Strings.FAILURE_REASON_SCAN_IMAGE_UNCLEAR;
+      }
+      if (normalized.includes("no active contract")) {
+        return Strings.FAILURE_REASON_CONTRACT_INACTIVE;
+      }
+      if (normalized.includes("no contract sent in request")) {
+        return Strings.FAILURE_REASON_CONTRACT_MISSING;
+      }
+    }
+    if (record.masar_status === "missing") {
+      return Strings.DETAILS_RECORD_MISSING;
+    }
+    if (record._contextMismatch === "entity") {
+      return Strings.DETAILS_OTHER_ENTITY;
+    }
+    if (record._contextMismatch === "contract") {
+      return Strings.DETAILS_OTHER_CONTRACT;
     }
     if (record._section === "submitted") {
       return Strings.STATUS_SUBMITTED;
@@ -336,6 +424,7 @@
       masar_status: record.masar_status,
       review_status: record.review_status,
       inProgress: inProgressState,
+      contextMismatch: record._contextMismatch,
     })}`;
     pill.textContent = Status.getStatusLabel({
       upload_status: record.upload_status,
@@ -365,12 +454,84 @@
     failed.dataset.tone = failedCount > 0 ? "danger" : "normal";
   }
 
-  async function handleCardClick({ clickUrl }) {
-    if (!clickUrl || typeof chrome === "undefined" || !chrome.tabs) {
+  function showToast(message, { tone = "neutral", durationMs = 2200 } = {}) {
+    if (typeof document === "undefined") {
+      return;
+    }
+    const toast = $("app-toast");
+    if (!toast) {
+      return;
+    }
+    if (state.toastTimer) {
+      clearTimeout(state.toastTimer);
+      state.toastTimer = null;
+    }
+    toast.textContent = message || "";
+    toast.dataset.tone = tone;
+    toast.classList.toggle("hidden", !message);
+    if (!message || durationMs <= 0) {
+      return;
+    }
+    state.toastTimer = setTimeout(() => {
+      toast.classList.add("hidden");
+      toast.textContent = "";
+      toast.dataset.tone = "";
+      state.toastTimer = null;
+    }, durationMs);
+  }
+
+  async function handleCardClick({
+    clickUrl,
+    uploadId = null,
+    detailsContext = null,
+    onMissingRecord = null,
+    onInaccessible = null,
+    onOpenStart = null,
+    onOpenFailed = null,
+  }) {
+    if (!clickUrl || typeof chrome === "undefined" || !chrome.runtime?.sendMessage) {
       return false;
     }
-    await chrome.tabs.create({ url: clickUrl });
-    return true;
+    if (typeof onOpenStart === "function") {
+      onOpenStart(Strings.DETAILS_OPENING);
+    }
+    const response = await sendMsg(
+      { type: "OPEN_MUTAMER_DETAILS_EXPERIMENT", clickUrl, uploadId, detailsContext },
+      { timeoutMs: 60000 },
+    );
+    if (response?.errorCode === "mutamer-missing" && typeof onMissingRecord === "function") {
+      await onMissingRecord(Strings.DETAILS_RECORD_MISSING);
+      return false;
+    }
+    if (response?.errorCode === "mutamer-inaccessible" && typeof onInaccessible === "function") {
+      await onInaccessible(Strings.DETAILS_INACCESSIBLE);
+      return false;
+    }
+    if (!response?.ok && typeof onOpenFailed === "function") {
+      await onOpenFailed(Strings.DETAILS_OPEN_FAILED);
+    }
+    return Boolean(response?.ok);
+  }
+
+  function setDetailLinkLoadingState(link, isLoading, originalLabel) {
+    if (!link) {
+      return;
+    }
+    if (isLoading) {
+      if (!link.dataset.originalLabel) {
+        link.dataset.originalLabel = originalLabel || link.textContent || "";
+      }
+      link.textContent = Strings.DETAILS_OPENING;
+      link.classList.add("muted");
+      link.setAttribute("aria-disabled", "true");
+      link.dataset.loading = "true";
+      return;
+    }
+    const restoredLabel = link.dataset.originalLabel || originalLabel || link.textContent || "";
+    link.textContent = restoredLabel;
+    link.classList.remove("muted");
+    link.setAttribute("aria-disabled", "false");
+    delete link.dataset.loading;
   }
 
   function createActionButton(doc, label, handler, options = {}) {
@@ -442,11 +603,52 @@
     } else if (record._section === "submitted") {
       const link = doc.createElement("a");
       link.className = `detail-link${record._clickUrl ? "" : " muted"}`;
-      link.href = record._clickUrl || "#";
-      link.textContent = record._clickUrl ? Strings.VIEW_DETAILS : Strings.DETAILS_UNAVAILABLE;
-      link.addEventListener("click", (event) => {
+      link.href = record._clickUrl ? record._clickUrl : "#";
+      link.ariaDisabled = String(record.masar_status === "missing" || !record._clickUrl);
+      const linkLabel = record.masar_status === "missing"
+        ? Strings.STATUS_MISSING
+        : (record._clickUrl ? Strings.VIEW_DETAILS : Strings.DETAILS_UNAVAILABLE);
+      link.textContent = linkLabel;
+      link.addEventListener("click", async (event) => {
         event.preventDefault();
-        void handleCardClick({ clickUrl: record._clickUrl });
+        if (link.dataset.loading === "true") {
+          return;
+        }
+        if (record.masar_status === "missing" || !record._clickUrl) {
+          showToast(
+            record.masar_status === "missing" ? Strings.DETAILS_RECORD_MISSING : Strings.DETAILS_UNAVAILABLE,
+            { tone: "error" },
+          );
+          return;
+        }
+        setDetailLinkLoadingState(link, true, linkLabel);
+        try {
+          await handleCardClick({
+            clickUrl: record._clickUrl,
+            uploadId: record.upload_id,
+            detailsContext: {
+              submission_entity_id: record.submission_entity_id || null,
+              submission_entity_type_id: record.submission_entity_type_id || null,
+              submission_contract_id: record.submission_contract_id || null,
+              submission_contract_name: record.submission_contract_name || null,
+              submission_contract_name_ar: record.submission_contract_name_ar || null,
+              submission_contract_name_en: record.submission_contract_name_en || null,
+              submission_contract_number: record.submission_contract_number || null,
+              submission_contract_status: record.submission_contract_status ?? null,
+              submission_uo_subscription_status_id: record.submission_uo_subscription_status_id ?? null,
+            },
+          onOpenStart: (message) => showToast(message, { durationMs: 15000 }),
+          onMissingRecord: async (message) => {
+              state.activeTab = "failed";
+              await loadMainWorkspace({ showLoading: false, fetchRecords: true });
+              showToast(message, { tone: "error", durationMs: 5000 });
+          },
+          onInaccessible: (message) => showToast(message, { tone: "error" }),
+          onOpenFailed: (message) => showToast(message, { tone: "error" }),
+        });
+        } finally {
+          setDetailLinkLoadingState(link, false, linkLabel);
+        }
       });
       actions.append(link);
     }
@@ -459,15 +661,13 @@
 
   async function initContextChangeBanner(doc = document) {
     const banner = $("context-change-banner", doc);
-    const reason = await ContextChange.getContextChangeReason();
     const pending = await ContextChange.hasContextChangePending();
     const text = $("context-change-text", doc);
     if (!pending || state.hiddenContextBanner) {
       banner.classList.add("hidden");
       return;
     }
-    text.textContent =
-      reason === "entity_changed" ? Strings.CTX_CHANGE_ENTITY : Strings.CTX_CHANGE_CONTRACT;
+    text.textContent = Strings.CTX_CHANGE_ENTITY;
     banner.classList.remove("hidden");
   }
 
@@ -529,6 +729,22 @@
       $(id, doc).classList.toggle("hidden", name !== tabName);
     });
     setSectionVisibility(tabName, doc);
+    const cache = state.tabCache[tabName];
+    if (tabName !== "inProgress" && cache && !cache.loaded) {
+      void loadTabPage(tabName, { silent: true }).then(() => {
+        if (state.lastLocalData && state.lastSessionData) {
+          renderWorkspaceFromCache(state.lastLocalData, state.lastSessionData);
+        }
+      });
+      return;
+    }
+    if (tabName !== "inProgress" && cache && cache.loaded && (Date.now() - cache.lastLoadedAt) > 15000) {
+      void loadTabPage(tabName, { silent: true }).then(() => {
+        if (state.lastLocalData && state.lastSessionData) {
+          renderWorkspaceFromCache(state.lastLocalData, state.lastSessionData);
+        }
+      });
+    }
   }
 
   function applySummaryContext(localData, doc = document) {
@@ -539,7 +755,10 @@
       localData.masar_contract_name_en ||
       localData.masar_contract_id ||
       "—";
-    $("ctx-group", doc).textContent = localData.masar_group_name || localData.masar_group_id || "—";
+    const groupValue = $("ctx-group", doc);
+    if (groupValue) {
+      groupValue.textContent = localData.masar_group_name || localData.masar_group_id || "—";
+    }
     const pill = $("contract-state-pill", doc);
     if (!localData.masar_contract_id && !localData.masar_contract_name_ar && !localData.masar_contract_name_en) {
       pill.classList.add("hidden");
@@ -551,6 +770,14 @@
       pill.textContent = Strings.CONTRACT_EXPIRED;
       pill.dataset.tone = "amber";
       pill.classList.remove("hidden");
+    } else if (localData.masar_contract_state === "inactive") {
+      pill.textContent = Strings.CONTRACT_INACTIVE;
+      pill.dataset.tone = "red";
+      pill.classList.remove("hidden");
+    } else if (localData.masar_contract_state === "unknown") {
+      pill.classList.add("hidden");
+      pill.textContent = "";
+      pill.dataset.tone = "";
     } else {
       pill.textContent = Strings.CONTRACT_ACTIVE;
       pill.dataset.tone = "green";
@@ -565,31 +792,365 @@
     $("tab-count-failed", doc).textContent = String(sections.failed.length);
   }
 
+  function buildOptimisticCounts(serverCounts, batchState, activeSubmitId = null) {
+    const normalized = QueueFilter.normalizeBatchState(batchState, activeSubmitId);
+    const inProgressCount = normalized.inProgressIds.size;
+    const submittedCount = normalized.submittedIds.size;
+    const failedCount = normalized.failedIds.size;
+    return {
+      pending: Math.max((serverCounts?.pending || 0) - inProgressCount - submittedCount - failedCount, 0),
+      inProgress: inProgressCount,
+      submitted: (serverCounts?.submitted || 0) + submittedCount,
+      failed: (serverCounts?.failed || 0) + failedCount,
+    };
+  }
+
+  function mergeTabPageState(cache, responseData, { append = false, loadedAt = Date.now() } = {}) {
+    const incomingItems = Array.isArray(responseData?.items) ? responseData.items : [];
+    const mergedItems = append ? [...(cache.items || []), ...incomingItems] : incomingItems;
+    return {
+      ...cache,
+      items: mergedItems,
+      total: responseData?.total || 0,
+      offset: (responseData?.offset || 0) + incomingItems.length,
+      hasMore: Boolean(responseData?.has_more),
+      loaded: true,
+      loading: false,
+      error: null,
+      lastLoadedAt: loadedAt,
+    };
+  }
+
+  function buildRenderableServerSections(caches, lastSubmitResult = null) {
+    const sections = QueueFilter.filterServerSections(caches);
+    if (!lastSubmitResult?.upload_id) {
+      return sections;
+    }
+    const uploadId = lastSubmitResult.upload_id;
+    let sourceRecord = null;
+    for (const key of ["pending", "submitted", "failed"]) {
+      const records = Array.isArray(sections[key]) ? sections[key] : [];
+      const match = records.find((record) => record.upload_id === uploadId) || null;
+      if (match && !sourceRecord) {
+        sourceRecord = match;
+      }
+      sections[key] = records.filter((record) => record.upload_id !== uploadId);
+    }
+    if (!sourceRecord) {
+      return sections;
+    }
+    const updatedRecord = applyLastSubmitResult([sourceRecord], lastSubmitResult)[0] || sourceRecord;
+    if (lastSubmitResult.status === "submitted") {
+      sections.submitted.push(updatedRecord);
+    } else if (lastSubmitResult.status === "failed" || lastSubmitResult.status === "missing") {
+      sections.failed.push(updatedRecord);
+    } else {
+      sections.pending.push(updatedRecord);
+    }
+    return sections;
+  }
+
+  function buildBatchBannerState(sessionData) {
+    const normalized = QueueFilter.normalizeBatchState(
+      sessionData?.submission_batch || [],
+      sessionData?.active_submit_id || null,
+    );
+    const batch = sessionData?.submission_batch;
+    const submittedCount = Array.isArray(batch?.submitted_ids) ? batch.submitted_ids.length : 0;
+    const activeCount = normalized.activeId ? 1 : 0;
+    const queuedCount = Math.max(normalized.inProgressIds.size - activeCount, 0);
+    const total = typeof batch?.source_total === "number"
+      ? batch.source_total
+      : submittedCount + normalized.inProgressIds.size;
+    const blockedReason = batch && typeof batch === "object" && !Array.isArray(batch)
+      ? batch.blocked_reason || null
+      : null;
+    return {
+      visible: normalized.inProgressIds.size > 0 || Boolean(blockedReason),
+      title: Strings.PROGRESS_BANNER_TITLE,
+      summary: Strings.PROGRESS_BANNER_SUMMARY(submittedCount, total || submittedCount),
+      detail: Strings.PROGRESS_BANNER_DETAIL(activeCount, queuedCount),
+      blockedReason,
+    };
+  }
+
+  function renderSubmissionBanner(sessionData, doc = document) {
+    const banner = $("submission-progress-banner", doc);
+    if (!banner) {
+      return;
+    }
+    const stateForBanner = buildBatchBannerState(sessionData);
+    if (!stateForBanner.visible) {
+      banner.classList.add("hidden");
+      return;
+    }
+    $("submission-progress-title", doc).textContent = stateForBanner.title;
+    $("submission-progress-summary", doc).textContent = stateForBanner.summary;
+    $("submission-progress-detail", doc).textContent = stateForBanner.detail;
+    $("submission-resume-btn", doc).classList.toggle("hidden", !stateForBanner.blockedReason);
+    banner.dataset.blocked = stateForBanner.blockedReason ? "true" : "false";
+    banner.classList.remove("hidden");
+  }
+
+  function mapTabToSection(tabName) {
+    return tabName === "inProgress" ? "pending" : tabName;
+  }
+
+  async function loadCounts({ silent = false } = {}) {
+    state.countsState.loading = true;
+    const response = await sendMsg({ type: "FETCH_RECORD_COUNTS" }, { timeoutMs: 10000 });
+    state.countsState.loading = false;
+    if (!response?.ok) {
+      state.countsState.stale = true;
+      if (!silent && state.countsState.server) {
+        showToast(Strings.ERR_UNEXPECTED, { tone: "error" });
+      }
+      return response;
+    }
+    state.countsState.server = response.data;
+    state.countsState.stale = false;
+    return response;
+  }
+
+  async function loadTabPage(tabName, { append = false, silent = false } = {}) {
+    if (tabName === "inProgress") {
+      return { ok: true, data: state.tabCache.inProgress };
+    }
+    const cache = state.tabCache[tabName];
+    if (!cache) {
+      return { ok: false, error: Strings.ERR_UNEXPECTED };
+    }
+    cache.loading = true;
+    cache.error = null;
+    const response = await sendMsg(
+      {
+        type: "FETCH_RECORD_PAGE",
+        section: mapTabToSection(tabName),
+        limit: 50,
+        offset: append ? cache.offset : 0,
+      },
+      { timeoutMs: 10000 },
+    );
+    cache.loading = false;
+    if (!response?.ok) {
+      cache.error = response?.error || Strings.ERR_UNEXPECTED;
+      if (!silent) {
+        showToast(Strings.LIST_REFRESH_FAILED || Strings.ERR_UNEXPECTED, { tone: "error" });
+      }
+      return response;
+    }
+    state.tabCache[tabName] = mergeTabPageState(cache, response.data, {
+      append,
+      loadedAt: Date.now(),
+    });
+    return response;
+  }
+
+  function renderWorkspaceFromCache(localData, sessionData) {
+    state.lastLocalData = localData;
+    state.lastSessionData = sessionData;
+    const activeSubmitId = sessionData.active_submit_id || null;
+    const serverSections = buildRenderableServerSections({
+      pending: state.tabCache.pending.items,
+      submitted: state.tabCache.submitted.items,
+      failed: state.tabCache.failed.items,
+    }, sessionData.last_submit_result || null);
+    const sections = QueueFilter.mergeOptimisticSections({
+      serverSections,
+      batchState: sessionData.submission_batch || [],
+      activeSubmitId,
+    });
+    const pendingVisible = sections.pending.filter((record) => !state.skippedIds.has(record.upload_id));
+    const canSubmit =
+      Boolean(localData.masar_entity_id)
+      && localData.masar_contract_state !== "expired"
+      && localData.masar_contract_state !== "inactive";
+    const counts = state.countsState.server
+      ? buildOptimisticCounts(state.countsState.server, sessionData.submission_batch || [], activeSubmitId)
+      : {
+          pending: pendingVisible.length,
+          inProgress: sections.inProgress.length,
+          submitted: sections.submitted.length,
+          failed: sections.failed.length,
+        };
+
+    state.sectionData = sections;
+    applySummaryContext(localData);
+    renderSubmissionBanner(sessionData);
+    renderHomeSummary(document, {
+      pendingCount: counts.pending,
+      failedCount: counts.failed,
+    });
+    $("tab-count-pending").textContent = String(counts.pending);
+    $("tab-count-in-progress").textContent = String(counts.inProgress);
+    $("tab-count-submitted").textContent = String(counts.submitted);
+    $("tab-count-failed").textContent = String(counts.failed);
+
+    const pendingRecords = pendingVisible.map((record) => ({
+      ...record,
+      _submitDisabled: !canSubmit,
+      _onSubmit: () => submitSingle(record),
+      _onSkip: () => {
+        state.skippedIds.add(record.upload_id);
+        renderWorkspaceFromCache(localData, sessionData);
+      },
+    }));
+    const inProgressRecords = sections.inProgress.map((record) => ({
+      ...record,
+      _inProgressState: record.upload_id === activeSubmitId ? "active" : "queued",
+    }));
+    const submittedRecords = sections.submitted.map((record) => ({
+      ...record,
+      _clickUrl: record.masar_status === "missing" ? null : getClickUrl(record),
+    }));
+    const failedRecords = sections.failed.map((record) => ({
+      ...record,
+      _submitDisabled: !canSubmit,
+      _onRetry: () => submitSingle(record),
+    }));
+
+    renderSection("pending-list", pendingRecords, "pending", Strings.SECTION_EMPTY_PENDING);
+    renderSection(
+      "in-progress-list",
+      inProgressRecords,
+      "inProgress",
+      Strings.SECTION_EMPTY_IN_PROGRESS,
+    );
+    renderSection(
+      "submitted-list",
+      submittedRecords,
+      "submitted",
+      Strings.SECTION_EMPTY_SUBMITTED,
+    );
+    renderSection("failed-list", failedRecords, "failed", Strings.SECTION_EMPTY_FAILED);
+    renderLoadMoreControls();
+    $("submit-all-btn").disabled = !canSubmit || pendingRecords.length === 0;
+    $("submit-all-btn").onclick = () => void submitBatch(pendingRecords.map((record) => record.upload_id));
+  }
+
+  function renderLoadMoreControls(doc = document) {
+    const mappings = [
+      ["pending", "pending-load-more"],
+      ["submitted", "submitted-load-more"],
+      ["failed", "failed-load-more"],
+    ];
+    for (const [tabName, buttonId] of mappings) {
+      const button = $(buttonId, doc);
+      const cache = state.tabCache[tabName];
+      if (!button || !cache) {
+        continue;
+      }
+      button.classList.toggle("hidden", !cache.hasMore);
+      button.disabled = cache.loading;
+      button.onclick = cache.hasMore
+        ? () => void loadTabPage(tabName, { append: true }).then(() => {
+          if (state.lastLocalData && state.lastSessionData) {
+            renderWorkspaceFromCache(state.lastLocalData, state.lastSessionData);
+          }
+        })
+        : null;
+    }
+  }
+
+  async function getContractsForUi({ forceRefresh = false } = {}) {
+    const now = Date.now();
+    const shouldUseCache =
+      !forceRefresh
+      && Array.isArray(state.contractsCache)
+      && (now - state.contractsCacheAt) < CONTRACT_CACHE_TTL_MS;
+    const contracts = shouldUseCache ? state.contractsCache : await ContractSelect.fetchContracts();
+    if (!shouldUseCache) {
+      state.contractsCache = contracts;
+      state.contractsCacheAt = now;
+    }
+    return contracts;
+  }
+
+  async function resolveContextAfterContracts(localData, contracts) {
+    const activeUiContext = ContextChange.normalizeActiveUiContext(
+      localData.active_ui_context || (await ContextChange.getActiveUiContext()),
+    );
+    const preferredContractId = localData.masar_contract_id || activeUiContext.contract_id || null;
+    const resolution = ContextChange.resolveContractContext(activeUiContext, contracts, preferredContractId);
+
+    let nextContext = resolution.nextContext;
+    if (resolution.mode === "selected" && resolution.selectedContract) {
+      const selectedContractId = String(resolution.selectedContract.contractId);
+      const groupResponse = await sendMsg({ type: "FETCH_GROUPS", contractId: selectedContractId });
+      const validGroups = ContextChange.filterSelectableGroups(groupResponse?.data?.response?.data?.content || []);
+      nextContext = ContextChange.buildExplicitContractSelectionContext(
+        {
+          ...nextContext,
+          available_contracts: resolution.selectableContracts,
+        },
+        resolution.selectedContract,
+        validGroups,
+      );
+      nextContext = {
+        ...nextContext,
+        available_contracts: resolution.selectableContracts,
+      };
+    }
+
+    await ContextChange.setActiveUiContext(nextContext);
+
+    return {
+      ...localData,
+      masar_contract_id: nextContext.contract_id,
+      masar_contract_name_ar: nextContext.contract_name_ar,
+      masar_contract_name_en: nextContext.contract_name_en,
+      masar_contract_state: nextContext.contract_state,
+      masar_group_id: nextContext.group_id,
+      masar_group_name: nextContext.group_name,
+      masar_group_number: nextContext.group_number,
+      active_ui_context: nextContext,
+    };
+  }
+
+  function buildContractPickerState(contracts, currentContractId) {
+    const resolution = ContextChange.resolveContractContext(
+      ContextChange.getDefaultActiveUiContext(),
+      contracts,
+      currentContractId,
+    );
+    const selectableContracts = resolution.selectableContracts;
+    if (selectableContracts.length === 0) {
+      return {
+        resolution,
+        selectableContracts,
+        showDropdown: false,
+        emptyMessage: Strings.CONTRACT_NONE_AVAILABLE_CURRENT_ACCOUNT,
+      };
+    }
+    return {
+      resolution,
+      selectableContracts,
+      showDropdown: selectableContracts.length > 1,
+      emptyMessage: "",
+    };
+  }
+
   async function populateContractDropdown(currentContractId, doc = document, { forceRefresh = false } = {}) {
     const container = $("contract-dropdown-container", doc);
     const select = $("contract-select", doc);
+    const emptyState = $("contract-empty-state", doc);
     select.innerHTML = "";
     select.append(new Option(Strings.CONTRACT_SELECT_PLACEHOLDER, ""));
+    emptyState.textContent = "";
+    emptyState.classList.add("hidden");
+    select.classList.remove("hidden");
     try {
-      const now = Date.now();
-      const shouldUseCache =
-        !forceRefresh
-        && Array.isArray(state.contractsCache)
-        && (now - state.contractsCacheAt) < CONTRACT_CACHE_TTL_MS;
-      const contracts = shouldUseCache ? state.contractsCache : await ContractSelect.fetchContracts();
-      if (!shouldUseCache) {
-        state.contractsCache = contracts;
-        state.contractsCacheAt = now;
-      }
-      const resolution = ContractSelect.resolveContractSelection(contracts, currentContractId);
-      const activeContracts = contracts.filter((contract) => contract?.contractStatus?.id === 0);
-      if (activeContracts.length === 0) {
+      const contracts = await getContractsForUi({ forceRefresh });
+      const pickerState = buildContractPickerState(contracts, currentContractId);
+      if (pickerState.selectableContracts.length === 0) {
         container.classList.remove("hidden");
-        select.append(new Option(Strings.CONTRACT_NONE_AVAILABLE, ""));
         select.disabled = true;
+        select.classList.add("hidden");
+        emptyState.textContent = pickerState.emptyMessage;
+        emptyState.classList.remove("hidden");
         return;
       }
-      activeContracts.forEach((contract) => {
+      pickerState.selectableContracts.forEach((contract) => {
         const option = new Option(
           contract.companyNameAr || contract.companyNameEn || String(contract.contractId),
           String(contract.contractId),
@@ -597,9 +1158,9 @@
         select.append(option);
       });
       select.disabled = false;
-      container.classList.toggle("hidden", !resolution.showDropdown);
-      if (resolution.selectedContract) {
-        select.value = String(resolution.selectedContract.contractId);
+      container.classList.toggle("hidden", !pickerState.showDropdown);
+      if (pickerState.resolution.selectedContract) {
+        select.value = String(pickerState.resolution.selectedContract.contractId);
       } else if (currentContractId) {
         select.value = String(currentContractId);
       }
@@ -634,12 +1195,42 @@
           ...record,
           masar_status: "submitted",
           masar_detail_id: result.masar_detail_id || record.masar_detail_id || null,
+          submission_entity_id: result.submission_entity_id || record.submission_entity_id || null,
+          submission_entity_type_id: result.submission_entity_type_id || record.submission_entity_type_id || null,
+          submission_entity_name: result.submission_entity_name || record.submission_entity_name || null,
+          submission_contract_id: result.submission_contract_id || record.submission_contract_id || null,
+          submission_contract_name: result.submission_contract_name || record.submission_contract_name || null,
+          submission_contract_name_ar:
+            result.submission_contract_name_ar || record.submission_contract_name_ar || null,
+          submission_contract_name_en:
+            result.submission_contract_name_en || record.submission_contract_name_en || null,
+          submission_contract_number:
+            result.submission_contract_number || record.submission_contract_number || null,
+          submission_contract_status:
+            typeof result.submission_contract_status === "boolean"
+              ? result.submission_contract_status
+              : record.submission_contract_status ?? null,
+          submission_uo_subscription_status_id:
+            typeof result.submission_uo_subscription_status_id === "number"
+              ? result.submission_uo_subscription_status_id
+              : record.submission_uo_subscription_status_id ?? null,
+          submission_group_id: result.submission_group_id || record.submission_group_id || null,
+          submission_group_name: result.submission_group_name || record.submission_group_name || null,
+          submission_group_number: result.submission_group_number || record.submission_group_number || null,
+        };
+      }
+      if (result.status === "missing") {
+        return {
+          ...record,
+          masar_status: "missing",
         };
       }
       if (result.status === "failed") {
         return {
           ...record,
           masar_status: "failed",
+          failure_reason_code: result.failure_reason_code || record.failure_reason_code || null,
+          failure_reason_text: result.failure_reason_text || record.failure_reason_text || null,
         };
       }
       return record;
@@ -647,6 +1238,9 @@
   }
 
   async function submitSingle(record) {
+    if (!(await ensureActionContext("submit"))) {
+      return;
+    }
     const response = await sendMsg({ type: "SUBMIT_RECORD", record }, { timeoutMs: 60000 });
     await handleSubmitResponse({
       response,
@@ -664,14 +1258,34 @@
   }
 
   async function submitBatch(uploadIds) {
-    if (!uploadIds.length) {
+    if (!(await ensureActionContext("batch"))) {
       return;
     }
-    const confirmed = window.confirm(Strings.SUBMIT_ALL_CONFIRM(uploadIds.length));
+    const discovery = await sendMsg(
+      { type: "FETCH_SUBMIT_ELIGIBLE_IDS", section: "pending", limit: 100, offset: 0 },
+      { timeoutMs: 10000 },
+    );
+    if (!discovery?.ok) {
+      showToast(Strings.ERR_UNEXPECTED, { tone: "error" });
+      return;
+    }
+    const discoveredIds = Array.isArray(discovery.data?.items)
+      ? discovery.data.items.map((item) => item.upload_id).filter(Boolean)
+      : [];
+    const sourceTotal = discovery.data?.total || discoveredIds.length;
+    if (!discoveredIds.length) {
+      return;
+    }
+    const confirmed = window.confirm(Strings.SUBMIT_ALL_CONFIRM(sourceTotal));
     if (!confirmed) {
       return;
     }
-    const response = await sendMsg({ type: "SUBMIT_BATCH", uploadIds }, { timeoutMs: 30000 });
+    const response = await sendMsg({
+      type: "SUBMIT_BATCH",
+      uploadIds: discoveredIds,
+      sourceTotal,
+      nextOffset: discoveredIds.length,
+    }, { timeoutMs: 30000 });
     await handleSubmitResponse({
       response,
       classifyFailure: Failure.classifyFailure,
@@ -697,7 +1311,7 @@
       showScreen("loading");
     }
     try {
-      const [localData, sessionData, recordsResponse] = await Promise.all([
+      let [localData, sessionData, countsResponse, pageResponse] = await Promise.all([
         localGet([
           "masar_entity_id",
           "masar_user_name",
@@ -708,20 +1322,22 @@
           "masar_contract_state",
           "masar_group_id",
           "masar_group_name",
+          "active_ui_context",
         ]),
         sessionGet(["submission_batch", "active_submit_id", "last_submit_result"]),
-        fetchRecords
-          ? sendMsg({ type: "FETCH_ALL_RECORDS" }, { timeoutMs: 30000 })
-          : Promise.resolve({ ok: true, data: state.lastFetchedRecords }),
+        fetchRecords ? loadCounts({ silent: true }) : Promise.resolve({ ok: true, data: state.countsState.server }),
+        fetchRecords ? loadTabPage(state.activeTab, { silent: true }) : Promise.resolve({ ok: true }),
       ]);
+      const contracts = await getContractsForUi({ forceRefresh: refreshContracts });
+      localData = await resolveContextAfterContracts(localData, contracts);
 
-      if (!recordsResponse?.ok) {
-        const failure = Failure.classifyFailure(recordsResponse);
+      if (!pageResponse?.ok && !state.tabCache[state.activeTab]?.loaded) {
+        const failure = Failure.classifyFailure(pageResponse);
         if (failure.type === "relink") {
           await showRelinkRequired();
           return;
         }
-        showError(recordsResponse?.error || Strings.ERR_UNEXPECTED);
+        showError(pageResponse?.error || Strings.ERR_UNEXPECTED);
         return;
       }
 
@@ -734,69 +1350,10 @@
         return;
       }
 
-      const recordsData = Array.isArray(recordsResponse.data) ? recordsResponse.data : [];
-      state.lastFetchedRecords = fetchRecords
-        ? recordsData
-        : applyLastSubmitResult(recordsData, sessionData.last_submit_result);
-      const inProgressIds = new Set(sessionData.submission_batch || []);
-      const activeSubmitId = sessionData.active_submit_id || null;
-      const sections = QueueFilter.filterQueueSections(state.lastFetchedRecords, inProgressIds);
-      const pendingVisible = sections.pending.filter((record) => !state.skippedIds.has(record.upload_id));
-      const contractExpired = localData.masar_contract_state === "expired";
-      const canSubmit = Boolean(localData.masar_contract_id) && !contractExpired;
-
-      state.sectionData = sections;
-      applySummaryContext(localData);
-      renderHomeSummary(document, {
-        pendingCount: pendingVisible.length,
-        failedCount: sections.failed.length,
-      });
-      populateTabCounts({
-        pending: pendingVisible,
-        inProgress: sections.inProgress,
-        submitted: sections.submitted,
-        failed: sections.failed,
-      });
-
-      const pendingRecords = pendingVisible.map((record) => ({
-        ...record,
-        _submitDisabled: !canSubmit,
-        _onSubmit: () => submitSingle(record),
-        _onSkip: () => {
-          state.skippedIds.add(record.upload_id);
-          return loadMainWorkspace({ showLoading: false, fetchRecords: false });
-        },
-      }));
-      const inProgressRecords = sections.inProgress.map((record) => ({
-        ...record,
-        _inProgressState: record.upload_id === activeSubmitId ? "active" : "queued",
-      }));
-      const submittedRecords = sections.submitted.map((record) => ({
-        ...record,
-        _clickUrl: getClickUrl(record),
-      }));
-      const failedRecords = sections.failed.map((record) => ({
-        ...record,
-        _submitDisabled: !canSubmit,
-        _onRetry: () => submitSingle(record),
-      }));
-
-      renderSection("pending-list", pendingRecords, "pending", Strings.SECTION_EMPTY_PENDING);
-      renderSection(
-        "in-progress-list",
-        inProgressRecords,
-        "inProgress",
-        Strings.SECTION_EMPTY_IN_PROGRESS,
-      );
-      renderSection(
-        "submitted-list",
-        submittedRecords,
-        "submitted",
-        Strings.SECTION_EMPTY_SUBMITTED,
-      );
-      renderSection("failed-list", failedRecords, "failed", Strings.SECTION_EMPTY_FAILED);
-      $("submit-all-btn").disabled = !canSubmit || pendingRecords.length === 0;
-      $("submit-all-btn").onclick = () => void submitBatch(pendingRecords.map((record) => record.upload_id));
+      if (!countsResponse?.ok) {
+        state.countsState.stale = true;
+      }
+      renderWorkspaceFromCache(localData, sessionData);
       await populateContractDropdown(localData.masar_contract_id, document, { forceRefresh: refreshContracts });
       await initContextChangeBanner();
       showScreen("main");
@@ -807,31 +1364,6 @@
         state.hasQueuedWorkspaceReload = false;
         void loadMainWorkspace({ showLoading: false, fetchRecords: true, refreshContracts: false });
       }
-    }
-  }
-
-  async function loadGroupPicker() {
-    showScreen("group-select");
-    const response = await sendMsg({ type: "FETCH_GROUPS" });
-    const select = $("group-select");
-    select.innerHTML = "";
-    if (!response?.ok) {
-      $("group-select-hint").classList.remove("hidden");
-      select.append(new Option(Strings.GROUP_LOAD_FAILED, ""));
-      return;
-    }
-    $("group-select-hint").classList.add("hidden");
-    const groups = response.data?.response?.data?.content || [];
-    if (!groups.length) {
-      $("group-select-hint").classList.remove("hidden");
-      select.append(new Option(Strings.GROUP_NONE_FOUND, ""));
-      return;
-    }
-    for (const group of groups) {
-      const option = new Option(group.groupName || group.groupNumber || String(group.id), String(group.id));
-      option.dataset.groupName = group.groupName || "";
-      option.dataset.groupNumber = group.groupNumber || "";
-      select.append(option);
     }
   }
 
@@ -863,30 +1395,35 @@
     showScreen("setup");
   }
 
+  function decideBootstrapAction({ hasApiToken, hasEntityAfterSync }) {
+    if (!hasApiToken) {
+      return "setup";
+    }
+    if (!hasEntityAfterSync) {
+      return "activate";
+    }
+    return "main";
+  }
+
   async function init() {
     showScreen("loading");
     const stored = await localGet([
       "api_token",
       "masar_entity_id",
-      "masar_group_id",
       "agency_email",
       "agency_phone",
       "agency_phone_country_code",
     ]);
-    if (!stored.api_token) {
+    if (decideBootstrapAction({ hasApiToken: Boolean(stored.api_token), hasEntityAfterSync: false }) === "setup") {
       showSetupError("");
       showScreen("setup");
       return;
     }
-    if (!stored.masar_entity_id) {
-      showScreen("activate");
-      return;
-    }
 
     await sendMsg({ type: "SYNC_SESSION" });
-    const refreshed = await localGet(["masar_group_id"]);
-    if (!refreshed.masar_group_id) {
-      await loadGroupPicker();
+    const synced = await localGet(["masar_entity_id"]);
+    if (decideBootstrapAction({ hasApiToken: true, hasEntityAfterSync: Boolean(synced.masar_entity_id) }) === "activate") {
+      showScreen("activate");
       return;
     }
     await loadMainWorkspace({ showLoading: true, fetchRecords: true });
@@ -918,33 +1455,47 @@
     return onReload();
   }
 
+  async function handleResumeBatchResponse({ response, onReload, onUnavailable }) {
+    if (response?.ok) {
+      await onReload();
+      return true;
+    }
+    if (response?.errorCode === "submission-batch-missing") {
+      await onUnavailable();
+      return false;
+    }
+    await onReload();
+    return false;
+  }
+
   async function handleContractSelectionChange({ value, writeSelection, reloadWorkspace }) {
-    await writeSelection({
-      masar_contract_id: value,
-      masar_contract_manual_override: true,
-    });
+    await writeSelection({ masar_contract_id: value });
     await reloadWorkspace();
   }
 
-  function scheduleWorkspaceReload({ fetchRecords = true, refreshContracts = false } = {}) {
-    state.pendingReloadFetchRecords = state.pendingReloadFetchRecords || fetchRecords;
-    state.pendingReloadRefreshContracts =
-      state.pendingReloadRefreshContracts || refreshContracts;
-    if (state.pendingReloadTimer) {
-      clearTimeout(state.pendingReloadTimer);
+  async function ensureActionContext(actionType) {
+    const localData = await localGet(["active_ui_context", "masar_contract_id", "masar_group_id"]);
+    const requirement = ensureActionContextState({
+      activeUiContext: localData.active_ui_context,
+      selectedContractId: localData.masar_contract_id || null,
+    });
+    if (requirement.ok) {
+      return true;
     }
-    state.pendingReloadTimer = setTimeout(() => {
-      const shouldFetchRecords = state.pendingReloadFetchRecords;
-      const shouldRefreshContracts = state.pendingReloadRefreshContracts;
-      state.pendingReloadFetchRecords = false;
-      state.pendingReloadRefreshContracts = false;
-      state.pendingReloadTimer = null;
-      void loadMainWorkspace({
-        showLoading: false,
-        fetchRecords: shouldFetchRecords,
-        refreshContracts: shouldRefreshContracts,
-      });
-    }, 200);
+    if (requirement.reason === "contract" || requirement.reason === "contract-inactive") {
+      await populateContractDropdown(localData.masar_contract_id || null, document, { forceRefresh: true });
+      showScreen("main");
+      activateTab(state.activeTab);
+      showToast(
+        requirement.reason === "contract-inactive"
+          ? Strings.CONTRACT_INACTIVE_ACTION_REQUIRED
+          : Strings.CONTRACT_ACTION_REQUIRED,
+        { tone: "error" },
+      );
+      $("contract-select")?.focus?.();
+      return false;
+    }
+    return true;
   }
 
   function bindEvents() {
@@ -974,25 +1525,6 @@
     $("btn-open-masar-expired").addEventListener("click", () => {
       void sendMsg({ type: "OPEN_MASAR" });
     });
-    $("btn-confirm-group").addEventListener("click", async () => {
-      const select = $("group-select");
-      if (!select.value) {
-        return;
-      }
-      const button = $("btn-confirm-group");
-      button.disabled = true;
-      const option = select.options[select.selectedIndex];
-      try {
-        await localSet({
-          masar_group_id: select.value,
-          masar_group_name: option?.dataset.groupName || "",
-          masar_group_number: option?.dataset.groupNumber || "",
-        });
-        await loadMainWorkspace({ showLoading: true, fetchRecords: true });
-      } finally {
-        button.disabled = false;
-      }
-    });
     $("btn-settings").addEventListener("click", async () => {
       populateSettings(
         await localGet(["agency_email", "agency_phone", "agency_phone_country_code"]),
@@ -1014,18 +1546,28 @@
       await localRemove(["api_token", "masar_group_id"]);
       showScreen("setup");
     });
-    $("btn-change-group").addEventListener("click", async () => {
-      await localRemove(["masar_group_id", "masar_group_name", "masar_group_number"]);
-      await loadGroupPicker();
-    });
     $("btn-refresh-context").addEventListener("click", async () => {
       await sendMsg({ type: "SYNC_SESSION" });
       await init();
     });
+    $("submission-refresh-btn")?.addEventListener("click", async () => {
+      await loadMainWorkspace({ showLoading: false, fetchRecords: true });
+    });
+    $("submission-resume-btn")?.addEventListener("click", async () => {
+      const response = await sendMsg({ type: "SUBMIT_BATCH", uploadIds: [] }, { timeoutMs: 30000 });
+      await handleResumeBatchResponse({
+        response,
+        onReload: () => loadMainWorkspace({ showLoading: false, fetchRecords: false }),
+        onUnavailable: async () => {
+          showToast(Strings.SUBMIT_RESUME_UNAVAILABLE, { tone: "error" });
+          await loadMainWorkspace({ showLoading: false, fetchRecords: false });
+        },
+      });
+    });
     $("ctx-change-confirm").addEventListener("click", async () => {
       state.hiddenContextBanner = false;
-      await sendMsg({ type: "APPLY_CONTEXT_CHANGE" });
-      await init();
+      await sendMsg({ type: "SYNC_SESSION" });
+      await loadMainWorkspace({ showLoading: false, fetchRecords: true, refreshContracts: true });
     });
     $("ctx-change-defer").addEventListener("click", async () => {
       state.hiddenContextBanner = true;
@@ -1035,6 +1577,17 @@
       if (!event.target.value) {
         return;
       }
+      const contracts = Array.isArray(state.contractsCache) ? state.contractsCache : await ContractSelect.fetchContracts();
+      const selectedContract = contracts.find(
+        (contract) => String(contract.contractId) === String(event.target.value),
+      );
+      await localSet({ masar_contract_id: event.target.value });
+      const groupResponse = await sendMsg({ type: "FETCH_GROUPS", contractId: event.target.value });
+      const validGroups = ContextChange.filterSelectableGroups(groupResponse?.data?.response?.data?.content || []);
+      const activeUiContext = await ContextChange.getActiveUiContext();
+      await ContextChange.setActiveUiContext(
+        ContextChange.buildExplicitContractSelectionContext(activeUiContext, selectedContract, validGroups),
+      );
       await handleContractSelectionChange({
         value: event.target.value,
         writeSelection: localSet,
@@ -1042,32 +1595,34 @@
       });
     });
     document.querySelectorAll(".tab").forEach((tab) => {
-      tab.addEventListener("click", () => activateTab(tab.dataset.tab));
-    });
-    chrome.storage.onChanged.addListener((changes, areaName) => {
-      const isMainScreenVisible = !$("screen-main").classList.contains("hidden");
-      if (shouldRefreshWorkspaceForStorageChange({ areaName, changes, isMainScreenVisible })) {
-        const fetchRecords = false;
-        const refreshContracts =
-          areaName === "local"
-          && (
-            Object.prototype.hasOwnProperty.call(changes, "masar_contract_id")
-            || Object.prototype.hasOwnProperty.call(changes, "masar_contract_state")
-          );
-        scheduleWorkspaceReload({ fetchRecords, refreshContracts });
-      }
+      tab.addEventListener("click", () => {
+        activateTab(tab.dataset.tab);
+      });
     });
   }
 
   return {
     bootstrap,
+    buildDisplayName,
+    buildBatchBannerState,
+    buildOptimisticCounts,
+    buildRenderableServerSections,
+    ensureActionContextState,
+    getRecordNote,
     getScreenTheme,
     handleCardClick,
     handleContractSelectionChange,
+    decideBootstrapAction,
+    getSubmissionContextMismatchToast,
+    handleResumeBatchResponse,
     handleSubmitResponse,
     initContextChangeBanner,
+    mergeTabPageState,
     renderHomeSummary,
     renderPendingCard,
-    shouldRefreshWorkspaceForStorageChange,
+    buildContractPickerState,
+    setDetailLinkLoadingState,
+    getSubmissionContextMismatch,
+    showToast,
   };
 });

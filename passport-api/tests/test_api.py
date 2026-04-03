@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 from typing import cast
 
 from fastapi.testclient import TestClient
@@ -64,41 +65,90 @@ class FakeAuthService:
 class FakeRecordsService:
     @staticmethod
     def _record():
-        return type(
-            "Record",
-            (),
-            {
-                "upload_id": 10,
-                "user_id": 1,
-                "filename": "passport.jpg",
-                "mime_type": "image/jpeg",
-                "source_ref": "telegram://1",
-                "upload_status": type("Status", (), {"value": "processed"})(),
-                "created_at": datetime(2026, 3, 13, 10, 0, tzinfo=UTC),
-                "completed_at": datetime(2026, 3, 13, 10, 1, tzinfo=UTC),
-                "is_passport": True,
-                "is_complete": True,
-                "review_status": "auto",
-                "passport_number": "12345678",
-                "passport_image_uri": "/tmp/original.jpg",
-                "confidence_overall": 0.91,
-                "extraction_result": {"data": {"PassportNumber": "12345678"}},
-                "error_code": None,
-                "masar_status": None,
-                "masar_detail_id": None,
-            },
-        )()
+        return SimpleNamespace(
+            upload_id=10,
+            user_id=1,
+            filename="passport.jpg",
+            mime_type="image/jpeg",
+            source_ref="telegram://1",
+            upload_status=SimpleNamespace(value="processed"),
+            created_at=datetime(2026, 3, 13, 10, 0, tzinfo=UTC),
+            completed_at=datetime(2026, 3, 13, 10, 1, tzinfo=UTC),
+            is_passport=True,
+            is_complete=True,
+            review_status="auto",
+            passport_number="12345678",
+            passport_image_uri="/tmp/original.jpg",
+            confidence_overall=0.91,
+            extraction_result={"data": {"PassportNumber": "12345678"}},
+            error_code=None,
+            masar_status=None,
+            masar_detail_id=None,
+            submission_entity_id=None,
+            submission_entity_type_id=None,
+            submission_entity_name=None,
+            submission_contract_id=None,
+            submission_contract_name=None,
+            submission_contract_name_ar=None,
+            submission_contract_name_en=None,
+            submission_contract_number=None,
+            submission_contract_status=None,
+            submission_uo_subscription_status_id=None,
+            submission_group_id=None,
+            submission_group_name=None,
+            submission_group_number=None,
+            failure_reason_code=None,
+            failure_reason_text=None,
+        )
 
     def list_user_records(self, user_id: int, *, limit: int = 50):
         assert user_id == 1
-        assert limit == 50
         return [self._record()]
+
+    def list_user_record_items(self, user_id: int, *, limit: int, offset: int, section: str):
+        assert user_id == 1
+        assert section in {"pending", "submitted", "failed", "all"}
+        record = self._record()
+        item = SimpleNamespace(
+            upload_id=record.upload_id,
+            filename=record.filename,
+            upload_status=record.upload_status,
+            review_status=record.review_status,
+            masar_status=record.masar_status,
+            masar_detail_id=record.masar_detail_id,
+            passport_number=record.passport_number,
+            full_name_ar="عبد الله العمري",
+            full_name_en="ABDULLAH ALOMARI",
+            created_at=record.created_at,
+            completed_at=record.completed_at,
+            failure_reason_code=record.failure_reason_code,
+            failure_reason_text=record.failure_reason_text,
+        )
+        return SimpleNamespace(items=[item], total=1, has_more=False)
+
+    def count_user_record_sections(self, user_id: int):
+        assert user_id == 1
+        return SimpleNamespace(pending=1, submitted=0, failed=0)
+
+    def list_submit_eligible_record_ids(self, user_id: int, *, limit: int, offset: int):
+        assert user_id == 1
+        item = SimpleNamespace(
+            upload_id=10,
+            upload_status=SimpleNamespace(value="processed"),
+            review_status="auto",
+            masar_status=None,
+        )
+        return SimpleNamespace(items=[item], total=1, has_more=False)
 
     def get_user_record(self, user_id: int, upload_id: int):
         assert user_id == 1
         if upload_id != 10:
             return None
         return self._record()
+
+
+def _auth_headers(token: str = "session-token") -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
 
 
 def make_fake_user() -> User:
@@ -132,9 +182,116 @@ def test_exchange_me_and_records_endpoints():
     assert me.status_code == 200
     assert me.json()["external_user_id"] == "12345"
     assert records.status_code == 200
-    assert records.json()[0]["passport_number"] == "12345678"
+    assert records.json()["items"][0]["passport_number"] == "12345678"
     assert record.status_code == 200
     assert record.json()["upload_id"] == 10
+
+
+def test_records_list_returns_paginated_slim_payload():
+    app = create_app()
+    app.dependency_overrides[get_api_services] = lambda: ApiServices(
+        auth=cast(AuthService, FakeAuthService()),
+        records=cast(RecordsService, FakeRecordsService()),
+        users=cast(UserService, object()),
+    )
+    client = TestClient(app)
+
+    response = client.get(
+        "/records?section=pending&limit=50&offset=0",
+        headers=_auth_headers(),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert set(payload.keys()) == {"items", "limit", "offset", "total", "has_more"}
+    assert payload["limit"] == 50
+    assert payload["offset"] == 0
+    assert payload["total"] == 1
+    assert payload["has_more"] is False
+    assert payload["items"][0]["passport_number"] == "12345678"
+    assert "extraction_result" not in payload["items"][0]
+    assert "passport_image_uri" not in payload["items"][0]
+
+
+def test_records_counts_returns_server_truth():
+    app = create_app()
+    app.dependency_overrides[get_api_services] = lambda: ApiServices(
+        auth=cast(AuthService, FakeAuthService()),
+        records=cast(RecordsService, FakeRecordsService()),
+        users=cast(UserService, object()),
+    )
+    client = TestClient(app)
+
+    response = client.get("/records/counts", headers=_auth_headers())
+
+    assert response.status_code == 200
+    assert response.json() == {"pending": 1, "submitted": 0, "failed": 0}
+
+
+def test_records_ids_returns_submit_eligible_rows_only():
+    app = create_app()
+    app.dependency_overrides[get_api_services] = lambda: ApiServices(
+        auth=cast(AuthService, FakeAuthService()),
+        records=cast(RecordsService, FakeRecordsService()),
+        users=cast(UserService, object()),
+    )
+    client = TestClient(app)
+
+    response = client.get(
+        "/records/ids?section=pending&limit=100&offset=0",
+        headers=_auth_headers(),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert set(payload.keys()) == {"items", "limit", "offset", "total", "has_more"}
+    assert payload["limit"] == 100
+    assert payload["offset"] == 0
+    assert payload["total"] == 1
+    assert payload["has_more"] is False
+    assert payload["items"] == [
+        {
+            "upload_id": 10,
+            "upload_status": "processed",
+            "review_status": "auto",
+            "masar_status": None,
+        }
+    ]
+
+
+def test_records_list_rejects_oversize_limit():
+    app = create_app()
+    app.dependency_overrides[get_api_services] = lambda: ApiServices(
+        auth=cast(AuthService, FakeAuthService()),
+        records=cast(RecordsService, FakeRecordsService()),
+        users=cast(UserService, object()),
+    )
+    client = TestClient(app)
+
+    response = client.get(
+        "/records?section=all&limit=101&offset=0",
+        headers=_auth_headers(),
+    )
+
+    assert response.status_code == 422
+
+
+def test_record_detail_still_returns_heavy_fields():
+    app = create_app()
+    app.dependency_overrides[get_api_services] = lambda: ApiServices(
+        auth=cast(AuthService, FakeAuthService()),
+        records=cast(RecordsService, FakeRecordsService()),
+        users=cast(UserService, object()),
+    )
+    client = TestClient(app)
+
+    response = client.get("/records/10", headers=_auth_headers())
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["upload_id"] == 10
+    assert "extraction_result" in payload
+    assert "passport_image_uri" in payload
 
 
 def test_health_endpoint_and_debug_mode():
@@ -208,13 +365,17 @@ def test_end_to_end_exchange_me_and_records(tmp_path: Path, monkeypatch):
 
     me = client.get("/me", headers={"Authorization": f"Bearer {session_token}"})
     records = client.get("/records", headers={"Authorization": f"Bearer {session_token}"})
-    record = client.get(f"/records/{upload.id}", headers={"Authorization": f"Bearer {session_token}"})
+    record = client.get(
+        f"/records/{upload.id}",
+        headers={"Authorization": f"Bearer {session_token}"},
+    )
 
     assert me.status_code == 200
     assert me.json()["external_user_id"] == "12345"
     assert records.status_code == 200
-    assert len(records.json()) == 1
-    assert records.json()[0]["passport_number"] == "12345678"
+    assert records.json()["total"] == 1
+    assert len(records.json()["items"]) == 1
+    assert records.json()["items"][0]["passport_number"] == "12345678"
     assert record.status_code == 200
     assert record.json()["upload_id"] == upload.id
 
@@ -315,8 +476,94 @@ def test_review_gate_before_masar_submit(tmp_path: Path, monkeypatch):
             "masar_mutamer_id": "M-1",
             "masar_scan_result": {"ok": True},
             "masar_detail_id": "detail-123",
+            "submission_entity_id": "819868",
+            "submission_entity_type_id": "58",
+            "submission_entity_name": "Agency Entity",
+            "submission_contract_id": "222452",
+            "submission_contract_name": "Contract A",
+            "submission_group_id": "group-22",
+            "submission_group_name": "Group 22",
+            "submission_group_number": "901675540",
         },
     )
     assert submit.status_code == 200
     assert submit.json()["masar_status"] == "submitted"
     assert submit.json()["masar_detail_id"] == "detail-123"
+    assert submit.json()["submission_entity_id"] == "819868"
+    assert submit.json()["submission_contract_id"] == "222452"
+    assert submit.json()["submission_group_id"] == "group-22"
+
+
+def test_patch_masar_status_accepts_missing_status(tmp_path: Path, monkeypatch):
+    db_path = tmp_path / "platform.sqlite3"
+    monkeypatch.setenv("PASSPORT_PLATFORM_DB_PATH", str(db_path))
+    monkeypatch.setenv("PASSPORT_PLATFORM_ARTIFACTS_DIR", str(tmp_path / "artifacts"))
+
+    services = build_services()
+    db = Database(db_path)
+    users = UserService(UsersRepository(db))
+    uploads = UploadService(UploadsRepository(db), UsageRepository(db))
+    user = users.get_or_create_user(
+        EnsureUserCommand(
+            external_provider=ExternalProvider.TELEGRAM,
+            external_user_id="12345",
+            display_name="Agency A",
+        )
+    )
+    upload = uploads.register_upload(
+        RegisterUploadCommand(
+            user_id=user.id,
+            channel=ChannelName.TELEGRAM,
+            filename="passport.jpg",
+            mime_type="image/jpeg",
+            source_ref="telegram://chat/1/message/2/file/abc",
+        )
+    )
+    uploads.record_processing_result(
+        user.id,
+        RecordProcessingResultCommand(
+            upload_id=upload.id,
+            is_passport=True,
+            is_complete=True,
+            review_status="auto",
+            passport_number="12345678",
+            passport_image_uri="/tmp/original.jpg",
+            confidence_overall=0.71,
+            extraction_result_json='{"data":{"PassportNumber":"12345678"}}',
+            completed_at=datetime(2026, 3, 13, 10, 1, tzinfo=UTC),
+        ),
+    )
+    temp = services.auth.issue_temp_token(user.id)
+
+    app = create_app()
+    app.dependency_overrides[get_api_services] = lambda: services
+    client = TestClient(app)
+
+    exchange = client.post("/auth/exchange", json={"token": temp.token})
+    assert exchange.status_code == 200
+    session_token = exchange.json()["session_token"]
+    headers = {"Authorization": f"Bearer {session_token}"}
+
+    submit = client.patch(
+        f"/records/{upload.id}/masar-status",
+        headers=headers,
+        json={
+            "status": "missing",
+            "submission_entity_id": "819868",
+            "submission_entity_type_id": "58",
+            "submission_entity_name": "Agency Entity",
+            "submission_contract_id": "222452",
+            "submission_contract_name": "Contract A",
+            "submission_group_id": "group-22",
+            "submission_group_name": "Group 22",
+            "submission_group_number": "901675540",
+            "failure_reason_code": "scan-image-unclear",
+            "failure_reason_text": "Passport image is not clear",
+        },
+    )
+    assert submit.status_code == 200
+    assert submit.json()["masar_status"] == "missing"
+    assert submit.json()["submission_contract_id"] == "222452"
+    assert submit.json()["submission_group_id"] == "group-22"
+    assert submit.json()["failure_reason_code"] == "scan-image-unclear"
+    assert submit.json()["failure_reason_text"] == "Passport image is not clear"

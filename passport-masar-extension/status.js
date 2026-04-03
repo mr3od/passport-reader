@@ -9,6 +9,9 @@
     if (upload_status === "failed" || masar_status === "failed") {
       return strings.STATUS_FAILED;
     }
+    if (masar_status === "missing") {
+      return strings.STATUS_MISSING;
+    }
     if (masar_status === "submitted" && review_status === "needs_review") {
       return strings.STATUS_SUBMITTED_NEEDS_REVIEW;
     }
@@ -30,6 +33,9 @@
   function getStatusColor({ upload_status, masar_status, review_status, inProgress }) {
     if (upload_status === "failed" || masar_status === "failed") {
       return "#C53B22";
+    }
+    if (masar_status === "missing") {
+      return "#B87912";
     }
     if (masar_status === "submitted" && review_status === "needs_review") {
       return "#B87912";

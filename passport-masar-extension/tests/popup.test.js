@@ -2,13 +2,96 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
+  buildBatchBannerState,
+  buildDisplayName,
+  buildOptimisticCounts,
+  buildRenderableServerSections,
+  ensureActionContextState,
+  getRecordNote,
   getScreenTheme,
+  mergeTabPageState,
   renderHomeSummary,
   handleCardClick,
   handleSubmitResponse,
   handleContractSelectionChange,
-  shouldRefreshWorkspaceForStorageChange,
+  buildContractPickerState,
+  decideBootstrapAction,
+  getSubmissionContextMismatch,
+  getSubmissionContextMismatchToast,
+  handleResumeBatchResponse,
+  setDetailLinkLoadingState,
+  showToast,
 } = require("../popup.js");
+
+test("buildBatchBannerState summarizes the richer batch object", () => {
+  assert.deepEqual(
+    buildBatchBannerState({
+      submission_batch: {
+        source_total: 23,
+        queued_ids: [11, 12, 13],
+        active_id: 10,
+        submitted_ids: [1, 2, 3, 4, 5, 6, 7, 8],
+        blocked_reason: null,
+      },
+      active_submit_id: 10,
+    }),
+    {
+      visible: true,
+      title: "جارٍ رفع الجوازات",
+      summary: "تم رفع 8 من 23",
+      detail: "جواز واحد جارٍ رفعه و3 في الانتظار",
+      blockedReason: null,
+    },
+  );
+});
+
+test("buildDisplayName prefers slim Arabic list names before OCR payloads", () => {
+  assert.equal(
+    buildDisplayName({
+      upload_id: 16,
+      full_name_ar: "سارة محمد العتيبي",
+      extraction_result: {
+        data: {
+          GivenNameTokensEn: ["Sarah", "Mohammad"],
+          SurnameEn: "Alotaibi",
+        },
+      },
+    }),
+    "سارة محمد العتيبي",
+  );
+});
+
+test("buildDisplayName prefers Arabic passport names when present", () => {
+  assert.equal(
+    buildDisplayName({
+      upload_id: 17,
+      extraction_result: {
+        data: {
+          GivenNameTokensAr: ["سارة", "محمد"],
+          SurnameAr: "العتيبي",
+          GivenNameTokensEn: ["Sarah", "Mohammad"],
+          SurnameEn: "Alotaibi",
+        },
+      },
+    }),
+    "سارة محمد العتيبي",
+  );
+});
+
+test("buildDisplayName falls back to English when Arabic names are missing", () => {
+  assert.equal(
+    buildDisplayName({
+      upload_id: 18,
+      extraction_result: {
+        data: {
+          GivenNameTokensEn: ["Sarah", "Mohammad"],
+          SurnameEn: "Alotaibi",
+        },
+      },
+    }),
+    "Sarah Mohammad Alotaibi",
+  );
+});
 
 test("getScreenTheme maps popup screens to proposal-aligned visual tones", () => {
   assert.deepEqual(getScreenTheme("setup"), {
@@ -29,6 +112,82 @@ test("getScreenTheme maps popup screens to proposal-aligned visual tones", () =>
   });
 });
 
+test("decideBootstrapAction retries session sync before showing the activate screen", () => {
+  assert.equal(
+    decideBootstrapAction({
+      hasApiToken: true,
+      hasEntityAfterSync: true,
+    }),
+    "main",
+  );
+  assert.equal(
+    decideBootstrapAction({
+      hasApiToken: true,
+      hasEntityAfterSync: false,
+    }),
+    "activate",
+  );
+  assert.equal(
+    decideBootstrapAction({
+      hasApiToken: false,
+      hasEntityAfterSync: false,
+    }),
+    "setup",
+  );
+});
+
+test("buildContractPickerState hides the dropdown and shows a plain message when no contracts are selectable", () => {
+  const state = buildContractPickerState([
+    {
+      contractId: 7,
+      contractStatus: { id: 0 },
+      contractEndDate: "2020-01-01T00:00:00",
+    },
+  ], "7");
+
+  assert.equal(state.showDropdown, false);
+  assert.equal(state.selectableContracts.length, 0);
+  assert.equal(state.emptyMessage, "لا يوجد عقد نشط في الحساب الحالي");
+});
+
+test("buildContractPickerState keeps the dropdown when there is a real contract choice", () => {
+  const state = buildContractPickerState([
+    {
+      contractId: 7,
+      companyNameAr: "العقد الأول",
+      contractStatus: { id: 0 },
+      contractEndDate: "2099-01-01T00:00:00",
+    },
+    {
+      contractId: 8,
+      companyNameAr: "العقد الثاني",
+      contractStatus: { id: 0 },
+      contractEndDate: "2099-01-01T00:00:00",
+    },
+  ], "7");
+
+  assert.equal(state.showDropdown, true);
+  assert.equal(state.selectableContracts.length, 2);
+  assert.equal(state.emptyMessage, "");
+});
+
+test("handleResumeBatchResponse surfaces a missing batch instead of silently pretending to resume", async () => {
+  const calls = [];
+
+  const result = await handleResumeBatchResponse({
+    response: { ok: false, errorCode: "submission-batch-missing" },
+    onReload: async () => {
+      calls.push("reload");
+    },
+    onUnavailable: async () => {
+      calls.push("unavailable");
+    },
+  });
+
+  assert.equal(result, false);
+  assert.deepEqual(calls, ["unavailable"]);
+});
+
 test("renderHomeSummary updates pending and failed counters", () => {
   const pending = { textContent: "" };
   const failed = { textContent: "", dataset: {} };
@@ -47,20 +206,329 @@ test("renderHomeSummary updates pending and failed counters", () => {
   assert.equal(failed.dataset.tone, "danger");
 });
 
-test("handleCardClick opens a details tab when a click URL is available", async () => {
-  let openedUrl = null;
+test("buildOptimisticCounts moves queued records from pending into in-progress", () => {
+  assert.deepEqual(
+    buildOptimisticCounts(
+      { pending: 5, submitted: 2, failed: 1 },
+      [10, 11],
+      12,
+    ),
+    { pending: 2, inProgress: 3, submitted: 2, failed: 1 },
+  );
+});
+
+test("buildOptimisticCounts supports the richer batch object shape", () => {
+  assert.deepEqual(
+    buildOptimisticCounts(
+      { pending: 4, submitted: 2, failed: 1 },
+      { queued_ids: [10, 11], active_id: 12 },
+      null,
+    ),
+    { pending: 1, inProgress: 3, submitted: 2, failed: 1 },
+  );
+});
+
+test("buildOptimisticCounts applies local submitted and failed transitions", () => {
+  assert.deepEqual(
+    buildOptimisticCounts(
+      { pending: 6, submitted: 2, failed: 1 },
+      {
+        queued_ids: [10],
+        active_id: 11,
+        submitted_ids: [12, 13],
+        failed_ids: [14],
+      },
+      null,
+    ),
+    { pending: 1, inProgress: 2, submitted: 4, failed: 2 },
+  );
+});
+
+test("buildRenderableServerSections replays the last submit result into cached sections", () => {
+  const sections = buildRenderableServerSections(
+    {
+      pending: [{ upload_id: 21, masar_status: null }],
+      submitted: [],
+      failed: [],
+    },
+    {
+      upload_id: 21,
+      status: "submitted",
+      masar_detail_id: "detail-21",
+      submission_contract_id: "c-1",
+    },
+  );
+
+  assert.deepEqual(sections.pending, []);
+  assert.equal(sections.submitted.length, 1);
+  assert.equal(sections.submitted[0].upload_id, 21);
+  assert.equal(sections.submitted[0].masar_status, "submitted");
+  assert.equal(sections.submitted[0].masar_detail_id, "detail-21");
+});
+
+test("mergeTabPageState appends later pages without losing earlier rows", () => {
+  const merged = mergeTabPageState(
+    {
+      items: [{ upload_id: 1 }, { upload_id: 2 }],
+      total: 240,
+      offset: 0,
+      hasMore: true,
+      loaded: true,
+      loading: false,
+      error: null,
+      lastLoadedAt: 1,
+    },
+    {
+      items: [{ upload_id: 3 }, { upload_id: 4 }],
+      total: 240,
+      offset: 2,
+      has_more: true,
+    },
+    { append: true, loadedAt: 2 },
+  );
+
+  assert.deepEqual(merged.items.map((record) => record.upload_id), [1, 2, 3, 4]);
+  assert.equal(merged.offset, 4);
+  assert.equal(merged.hasMore, true);
+  assert.equal(merged.lastLoadedAt, 2);
+});
+
+test("handleCardClick delegates mutamer details opening to the background worker", async () => {
+  const messages = [];
   global.chrome = {
-    tabs: {
-      create: async ({ url }) => {
-        openedUrl = url;
+    runtime: {
+      sendMessage: (message, callback) => {
+        messages.push(message);
+        callback({ ok: true });
       },
     },
   };
 
-  await handleCardClick({ clickUrl: "https://example.com/details/7" });
+  const result = await handleCardClick({ clickUrl: "https://example.com/details/7" });
 
-  assert.equal(openedUrl, "https://example.com/details/7");
+  assert.equal(result, true);
+  assert.deepEqual(messages, [{
+    type: "OPEN_MUTAMER_DETAILS_EXPERIMENT",
+    clickUrl: "https://example.com/details/7",
+    uploadId: null,
+    detailsContext: null,
+  }]);
   delete global.chrome;
+});
+
+test("handleCardClick returns false when the background worker rejects the request", async () => {
+  global.chrome = {
+    runtime: {
+      sendMessage: (_message, callback) => {
+        callback({ ok: false });
+      },
+    },
+  };
+
+  const result = await handleCardClick({ clickUrl: "https://example.com/details/7" });
+
+  assert.equal(result, false);
+  delete global.chrome;
+});
+
+test("handleCardClick shows an Arabic error when the mutamer is missing", async () => {
+  let shownError = null;
+  global.chrome = {
+    runtime: {
+      sendMessage: (_message, callback) => {
+        callback({ ok: false, errorCode: "mutamer-missing" });
+      },
+    },
+  };
+
+  const result = await handleCardClick({
+    clickUrl: "https://example.com/details/7",
+    onMissingRecord: (message) => {
+      shownError = message;
+    },
+  });
+
+  assert.equal(result, false);
+  assert.equal(shownError, "هذا الجواز غير موجود");
+  delete global.chrome;
+});
+
+test("handleCardClick shows an Arabic error when the mutamer is inaccessible in the current context", async () => {
+  let shownError = null;
+  global.chrome = {
+    runtime: {
+      sendMessage: (_message, callback) => {
+        callback({ ok: false, errorCode: "mutamer-inaccessible" });
+      },
+    },
+  };
+
+  const result = await handleCardClick({
+    clickUrl: "https://example.com/details/7",
+    onInaccessible: (message) => {
+      shownError = message;
+    },
+  });
+
+  assert.equal(result, false);
+  assert.equal(shownError, "التفاصيل غير متاحة في الحساب الحالي");
+  delete global.chrome;
+});
+
+test("showToast writes a transient popup message without changing screens", () => {
+  const toast = {
+    textContent: "",
+    dataset: {},
+    classList: {
+      hidden: true,
+      toggle(_name, hidden) {
+        this.hidden = hidden;
+      },
+      add() {
+        this.hidden = true;
+      },
+    },
+  };
+  global.document = {
+    getElementById(id) {
+      return id === "app-toast" ? toast : null;
+    },
+  };
+
+  showToast("جارٍ فتح التفاصيل...", { durationMs: 0 });
+
+  assert.equal(toast.textContent, "جارٍ فتح التفاصيل...");
+  assert.equal(toast.dataset.tone, "neutral");
+  assert.equal(toast.classList.hidden, false);
+  delete global.document;
+});
+
+test("setDetailLinkLoadingState toggles submitted card loading label and disabled state", () => {
+  const link = {
+    textContent: "عرض التفاصيل",
+    dataset: {},
+    attributes: {},
+    classList: {
+      values: new Set(),
+      add(value) {
+        this.values.add(value);
+      },
+      remove(value) {
+        this.values.delete(value);
+      },
+      contains(value) {
+        return this.values.has(value);
+      },
+    },
+    setAttribute(name, value) {
+      this.attributes[name] = value;
+    },
+  };
+
+  setDetailLinkLoadingState(link, true, "عرض التفاصيل");
+  assert.equal(link.textContent, "جارٍ فتح التفاصيل...");
+  assert.equal(link.dataset.loading, "true");
+  assert.equal(link.dataset.originalLabel, "عرض التفاصيل");
+  assert.equal(link.attributes["aria-disabled"], "true");
+  assert.equal(link.classList.contains("muted"), true);
+
+  setDetailLinkLoadingState(link, false, "عرض التفاصيل");
+  assert.equal(link.textContent, "عرض التفاصيل");
+  assert.equal(link.dataset.loading, undefined);
+  assert.equal(link.attributes["aria-disabled"], "false");
+  assert.equal(link.classList.contains("muted"), false);
+});
+
+test("getSubmissionContextMismatch flags a different entity before contract", () => {
+  const mismatch = getSubmissionContextMismatch(
+    {
+      masar_status: "submitted",
+      submission_entity_id: "819868",
+      submission_contract_id: "222452",
+    },
+    {
+      masar_entity_id: "819455",
+      masar_contract_id: "999999",
+    },
+  );
+
+  assert.equal(mismatch, "entity");
+});
+
+test("getSubmissionContextMismatch flags a different contract for submitted mutamers", () => {
+  const mismatch = getSubmissionContextMismatch(
+    {
+      masar_status: "submitted",
+      submission_entity_id: "819868",
+      submission_contract_id: "222452",
+    },
+    {
+      masar_entity_id: "819868",
+      masar_contract_id: "111111",
+    },
+  );
+
+  assert.equal(mismatch, "contract");
+});
+
+test("getSubmissionContextMismatchToast maps entity and contract mismatches to precise Arabic guidance", () => {
+  assert.equal(getSubmissionContextMismatchToast("entity"), "افتح الحساب الذي تم الرفع منه");
+  assert.equal(getSubmissionContextMismatchToast("contract"), "افتح العقد الذي تم الرفع منه");
+});
+
+test("ensureActionContextState requires contract confirmation before gated actions", () => {
+  const requirement = ensureActionContextState({
+    activeUiContext: {
+      requires_contract_confirmation: true,
+      requires_group_confirmation: false,
+      contract_id: null,
+      group_id: null,
+      available_groups: [],
+    },
+    selectedContractId: null,
+  });
+
+  assert.deepEqual(requirement, {
+    ok: false,
+    reason: "contract",
+  });
+});
+
+test("ensureActionContextState blocks actions when the selected contract is inactive", () => {
+  const requirement = ensureActionContextState({
+    activeUiContext: {
+      requires_contract_confirmation: false,
+      requires_group_confirmation: false,
+      contract_id: "223664",
+      contract_state: "inactive",
+      group_id: null,
+      available_groups: [],
+    },
+    selectedContractId: "223664",
+  });
+
+  assert.deepEqual(requirement, {
+    ok: false,
+    reason: "contract-inactive",
+  });
+});
+
+test("ensureActionContextState ignores group readiness for the current workflow", () => {
+  const requirement = ensureActionContextState({
+    activeUiContext: {
+      requires_contract_confirmation: false,
+      requires_group_confirmation: true,
+      contract_id: "223664",
+      group_id: null,
+      available_groups: [{ id: "group-1" }],
+    },
+    selectedContractId: "223664",
+  });
+
+  assert.deepEqual(requirement, {
+    ok: true,
+    reason: null,
+  });
 });
 
 test("handleSubmitResponse returns relink for backend auth failures", async () => {
@@ -87,7 +555,7 @@ test("handleSubmitResponse keeps batch errors from being swallowed", async () =>
   assert.equal(action, "reload");
 });
 
-test("handleContractSelectionChange writes a manual override without forcing sync", async () => {
+test("handleContractSelectionChange writes the selected contract without forcing sync", async () => {
   let stored = null;
   let reloaded = false;
 
@@ -101,39 +569,34 @@ test("handleContractSelectionChange writes a manual override without forcing syn
     },
   });
 
-  assert.deepEqual(stored, {
-    masar_contract_id: "42",
-    masar_contract_manual_override: true,
-  });
+  assert.deepEqual(stored, { masar_contract_id: "42" });
   assert.equal(reloaded, true);
 });
 
-test("shouldRefreshWorkspaceForStorageChange ignores unrelated local cache updates", () => {
-  const shouldRefresh = shouldRefreshWorkspaceForStorageChange({
-    areaName: "local",
-    changes: {
-      masar_groups_cache: {
-        oldValue: null,
-        newValue: { response: { data: { content: [] } } },
-      },
-    },
-    isMainScreenVisible: true,
-  });
-
-  assert.equal(shouldRefresh, false);
+test("getRecordNote maps stored failure reason text to Arabic when no code is present", () => {
+  assert.equal(
+    getRecordNote({
+      upload_status: "processed",
+      masar_status: "failed",
+      review_status: "auto",
+      failure_reason_code: null,
+      failure_reason_text: "Passport image is not clear",
+      _section: "failed",
+    }),
+    "صورة الجواز غير واضحة",
+  );
 });
 
-test("shouldRefreshWorkspaceForStorageChange refreshes for visible workspace state updates", () => {
-  const shouldRefresh = shouldRefreshWorkspaceForStorageChange({
-    areaName: "session",
-    changes: {
-      submission_batch: {
-        oldValue: [],
-        newValue: ["u1"],
-      },
-    },
-    isMainScreenVisible: true,
-  });
-
-  assert.equal(shouldRefresh, true);
+test("getRecordNote hides unknown raw failure text behind the generic failed label", () => {
+  assert.equal(
+    getRecordNote({
+      upload_status: "processed",
+      masar_status: "failed",
+      review_status: "auto",
+      failure_reason_code: null,
+      failure_reason_text: "Unexpected remote failure",
+      _section: "failed",
+    }),
+    "فشل",
+  );
 });

@@ -35,3 +35,15 @@ test("getStatusLabel distinguishes active and queued in-progress records", () =>
     "في الانتظار",
   );
 });
+
+test("getStatusLabel returns missing label for records removed remotely", () => {
+  assert.equal(
+    getStatusLabel({
+      upload_status: "processed",
+      masar_status: "missing",
+      review_status: "auto",
+      inProgress: false,
+    }),
+    "غير موجود",
+  );
+});

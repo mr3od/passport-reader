@@ -202,3 +202,10 @@ Agent-maintained log of significant changes. Each entry records what was done an
 - Added the canonical final popup mock in `docs/final-design-proposal.html`
 - Archived exploratory and duplicate popup proposal artifacts under `docs/archive/design-exploration/`
 - Updated the final written proposal and final HTML mock to state which design artifacts are canonical versus archived
+
+## 2026-04-03 — Masar session workflow hardening [codex]
+
+- Removed the dead passive content-script capture path from `passport-masar-extension` and consolidated runtime policy around explicit session sync and resolver-driven context transitions
+- Hardened Masar token selection, contract resolution, details reopening, banner/dropdown behavior, and resume-batch error handling in the extension popup/background flow
+- Added extension architecture and package guidance updates in `docs/EXTENSION.md` and `passport-masar-extension/AGENTS.md`
+- Fixed `passport-platform` failed-section scoping so failed/missing records remain user-scoped and aligned the API docs/tests with the current record section semantics

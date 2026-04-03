@@ -9,6 +9,7 @@
     CONTEXT_CHANGE: "context-change",
     SESSION_EXPIRED: "session-expired",
     BATCH_COMPLETE: "batch-complete",
+    DETAILS_MISSING: "details-missing",
   });
 
   const dedup = new Map();
@@ -19,6 +20,9 @@
     }
     if (type === NOTIFICATION_TYPES.SESSION_EXPIRED) {
       return strings.NOTIF_SESSION_EXPIRED;
+    }
+    if (type === NOTIFICATION_TYPES.DETAILS_MISSING) {
+      return strings.NOTIF_DETAILS_MISSING;
     }
     return strings.NOTIF_BATCH_COMPLETE;
   }

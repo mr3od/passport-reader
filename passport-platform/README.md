@@ -9,6 +9,7 @@ It owns:
 - upload tracking
 - processing audit records
 - usage ledger accounting
+- Masar submission persistence and submission-context history
 
 It does not own:
 
@@ -22,6 +23,37 @@ It does not own:
 - `passport-platform`: shared app services
 - `passport-telegram`: Telegram transport adapter
 - `passport-api`: HTTP transport adapter
+
+## Current Masar-related responsibility
+
+`passport-platform` owns the persisted Masar submission state for records, including:
+
+- current Masar status
+- Masar detail ID
+- submission entity context
+- submission contract context
+- submission group context
+
+These fields are returned through the platform record schemas and can be preserved when a submitted mutamer is later patched to `missing`.
+
+## Slim Records Queries
+
+`passport-platform` now exposes separate lightweight record projections for extension workspace rendering:
+
+- slim list items with:
+  - record identity
+  - passport number
+  - `full_name_ar`
+  - `full_name_en`
+  - lightweight status fields
+  - lightweight failure note fields
+- count aggregation for:
+  - `pending`
+  - `submitted`
+  - `failed`
+- submit-eligible ID discovery for optimistic bulk submit
+
+These lightweight queries are intentionally separate from the heavy `UserRecord` detail projection. They may read extraction JSON internally to derive flattened names, but they do not expose OCR blobs through the lightweight DTOs.
 
 ## Setup
 

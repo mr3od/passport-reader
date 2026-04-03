@@ -9,3 +9,10 @@ test("getNotificationTitle uses a generic context-change title by default", () =
     "تم رصد تغيير جديد في الحساب أو العقد",
   );
 });
+
+test("getNotificationTitle maps missing-details notifications to an Arabic title", () => {
+  assert.equal(
+    getNotificationTitle(NOTIFICATION_TYPES.DETAILS_MISSING),
+    "تعذر العثور على الجواز",
+  );
+});
