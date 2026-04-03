@@ -338,7 +338,9 @@ class RecordsRepository:
                     (
                         1
                         if submission_contract_status is True
-                        else 0 if submission_contract_status is False else None
+                        else 0
+                        if submission_contract_status is False
+                        else None
                     ),
                     submission_uo_subscription_status_id,
                     submission_group_id,
@@ -497,9 +499,10 @@ def _submit_eligible_where_clause() -> str:
 
 def _list_item_names(extraction_result_json: str | None) -> tuple[str | None, str | None]:
     extraction = _parse_json(extraction_result_json)
-    data = extraction.get("data") if isinstance(extraction, dict) else None
-    if not isinstance(data, dict):
+    raw_data = extraction.get("data") if isinstance(extraction, dict) else None
+    if not isinstance(raw_data, dict):
         return None, None
+    data = {key: value for key, value in raw_data.items() if isinstance(key, str)}
     full_name_ar = _join_values(
         _join_tokens(_string_list_value(data, "GivenNameTokensAr")),
         _string_value(data, "SurnameAr"),
