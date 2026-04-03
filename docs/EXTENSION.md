@@ -21,9 +21,8 @@ Current note about groups:
 
 Current note about context drift:
 
-- observed Nusuk page context is used for readiness detection, not for automatic selection
+- explicit session sync from a live Masar tab is used for readiness detection
 - entity drift clears stale contract and group selection and refreshes available contracts
-- passive contract drift is ignored
 - explicit extension selections remain authoritative
 - gated actions enforce context readiness:
   - new batch start
@@ -33,7 +32,7 @@ Current note about context drift:
 
 ## 1. System Overview
 
-The extension has four main runtime pieces:
+The extension has two runtime entry points plus helper modules:
 
 1. `background.js`
    - MV3 service worker
@@ -41,12 +40,8 @@ The extension has four main runtime pieces:
 2. `popup.js`
    - Popup controller and UI state manager
    - Owns screen routing, setup flow, workspace rendering, and user-triggered actions
-3. `content-main.js`
-   - Injected into the Masar page in `MAIN` world
-   - Hooks page `XMLHttpRequest` and `fetch` calls to capture contract and group responses
-4. `content-relay.js`
-   - Injected into the Masar page in isolated world
-   - Forwards captured page messages back to the background worker through `chrome.runtime.sendMessage`
+3. helper modules such as `context-change.js`, `contract-select.js`, `queue-filter.js`, `status.js`, `badge.js`, and `notifications.js`
+   - Own contract resolution, queue shaping, badge behavior, notifications, and popup/background policy helpers
 
 The manifest is defined in [`/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/manifest.json`](/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/manifest.json).
 
@@ -55,9 +50,7 @@ The manifest is defined in [`/Users/nexumind/Desktop/Github/passport-reader/pass
 ```mermaid
 flowchart LR
     P["Popup UI\npopup.js"] -->|sendMessage| B["Background Service Worker\nbackground.js"]
-    M["Masar Page\nMAIN world"] -->|window.postMessage| R["Relay Content Script\ncontent-relay.js"]
-    C["Capture Script\ncontent-main.js"] --> M
-    R -->|sendMessage| B
+    B -->|executeScript into live tab| M["Open Masar Tab"]
     B -->|fetch + cookies + entity headers| N["Masar / Nusuk APIs"]
     B -->|Bearer API token| A["passport-api.mr3od.dev"]
     B -->|chrome.storage.local/session| P
@@ -71,7 +64,6 @@ The production extension requests:
 - `storage`
 - `scripting`
 - `activeTab`
-- `webRequest`
 - `notifications`
 
 Host permissions:
@@ -82,7 +74,6 @@ Host permissions:
 
 These are used for:
 
-- passively observing outgoing Masar request headers
 - reading storage from open Masar tabs through injected scripts
 - performing backend API requests
 - performing direct Masar API requests from the background worker
@@ -105,8 +96,7 @@ Instead, the extension relies on:
 
 - `chrome.storage.local` for durable state
 - `chrome.storage.session` for transient submission state
-- `chrome.runtime.sendMessage` for popup/background/content communication
-- `chrome.storage.onChanged` for reactive popup refreshes
+- `chrome.runtime.sendMessage` for popup/background communication
 - service-worker-owned fetch logic for both backend and Masar integrations
 
 ## 3. Entry Points And Responsibilities
@@ -117,7 +107,6 @@ Instead, the extension relies on:
 
 Responsibilities:
 
-- capture Masar entity headers from outgoing page requests
 - synchronize session context from open Masar tabs
 - build entity-aware Masar request headers
 - fetch contracts and groups
@@ -126,7 +115,7 @@ Responsibilities:
 - patch backend record status
 - serialize submissions to avoid parallel upload conflicts
 - track session-expired and context-change states
-- expose message API for popup and content scripts
+- expose message API for the popup
 
 The background worker also clears transient submission session state on install and startup.
 
@@ -143,25 +132,6 @@ Responsibilities:
 - allow contract switching, single submit, batch submit, retry, and refresh actions
 - show relink and Masar-login-required states
 - react to storage changes while popup is open
-
-### Content scripts
-
-[`/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/content-main.js`](/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/content-main.js)
-
-Responsibilities:
-
-- monkey-patch page `XMLHttpRequest` and `window.fetch`
-- detect Masar responses for:
-  - `GetGroupList`
-  - `GetContractList`
-- post captured JSON to `window`
-
-[`/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/content-relay.js`](/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/content-relay.js)
-
-Responsibilities:
-
-- listen for `window.postMessage`
-- forward supported payloads to the background worker
 
 ## 4. User Journey
 
@@ -274,6 +244,7 @@ It stores:
 - pagination state for continued `/records/ids` discovery
 
 The popup merges this session state into tab counts and in-progress rendering so `رفع الكل` moves records into `قيد الرفع` immediately after the first discovery page returns.
+- local `submitted_ids` and `failed_ids` also override cached tab sections and counts until the next server refresh
 - refresh-context action
 - submit single record
 - submit all visible pending records
@@ -282,7 +253,6 @@ The popup merges this session state into tab counts and in-progress rendering so
 Contract and group selection rules:
 
 - contract selection is explicit in the extension UI
-- observed contract changes from Nusuk are ignored as passive drift
 - group selection is currently hidden from the popup UI
 - these groups are blocked for new workflow selection:
   - deleted groups
@@ -356,12 +326,6 @@ Purpose:
 - tell the user Masar login is no longer valid
 - prompt them to reopen login and continue from the same browser
 
-### Group select
-
-Purpose:
-
-- force one explicit group choice before entering the workspace
-
 ### Main
 
 Purpose:
@@ -380,31 +344,7 @@ Purpose:
 
 ## 6. Masar Context Capture
 
-The extension uses two different mechanisms to understand the active Masar context.
-
-### A. Header capture
-
-The primary passive observer is `chrome.webRequest.onSendHeaders`.
-
-Observed request headers:
-
-- `activeentityid`
-- `activeentitytypeid`
-- `contractid`
-- `authorization`
-
-Implementation:
-
-- listener: [`/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/background.js:23`](/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/background.js:23)
-
-What happens after capture:
-
-- entity id is stored as `masar_entity_id`
-- entity type id is stored as `masar_entity_type_id`
-- auth header is stored as `masar_auth_token`
-- JWT payload is decoded, and `name` becomes `masar_user_name` when present
-
-### B. Session sync from open Masar tab
+The extension now uses explicit session sync from an open Masar tab.
 
 The background worker also inspects the browser storage of open Masar tabs using `chrome.scripting.executeScript`.
 
@@ -413,13 +353,12 @@ Read sources:
 - `sessionStorage.pms-ac_En_Id`
 - `sessionStorage.pms-ac_En_Type_Id`
 - `sessionStorage.pms-tk_session`
+- `sessionStorage.pms-ref_tk_session`
+- `sessionStorage.pms-tk_perm_session`
+- `sessionStorage.pms-usr_tk_session`
 - `localStorage.currentContract`
 
-Implementation:
-
-- sync function: [`/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/background.js:197`](/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/background.js:197)
-
-Session sync deliberately does not auto-switch the selected contract. It updates observed context and contract metadata but keeps contract selection under explicit extension control.
+Session sync deliberately does not auto-switch the selected contract. It updates normalized runtime context and keeps contract selection under explicit extension control unless the contract resolver can safely auto-select a single valid contract.
 
 ### Why Masar authentication behaves like tab session context
 
@@ -589,7 +528,6 @@ Groups are fetched from:
 Implementation:
 
 - direct fetch: [`/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/background.js:341`](/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/background.js:341)
-- page-response capture: [`/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/content-main.js`](/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/content-main.js)
 
 The selected group is local extension state. It is not inferred from the page automatically.
 
@@ -1025,18 +963,15 @@ Mapping:
 The background worker handles these message types:
 
 - `SYNC_SESSION`
-- `GROUP_LIST_CAPTURED`
-- `CONTRACT_LIST_CAPTURED`
 - `FETCH_GROUPS`
 - `FETCH_CONTRACTS`
 - `FETCH_ALL_RECORDS`
 - `SUBMIT_BATCH`
 - `SUBMIT_RECORD`
-- `APPLY_CONTEXT_CHANGE`
 - `MARK_REVIEWED`
 - `OPEN_MASAR`
 
-This is the main internal integration boundary for popup and content scripts.
+This is the main internal integration boundary for the popup and background worker.
 
 ## 18. Current Production Design Decisions
 
@@ -1131,9 +1066,6 @@ Core files for this production extension:
 - [`/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/status.js`](/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/status.js)
 - [`/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/badge.js`](/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/badge.js)
 - [`/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/notifications.js`](/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/notifications.js)
-- [`/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/content-main.js`](/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/content-main.js)
-- [`/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/content-relay.js`](/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/content-relay.js)
-
 ## 22. Final Note
 
 This document reflects the production extension as analyzed from source code in `passport-masar-extension` at the repository root. It should be used as the reference architecture for the extension currently used by agencies unless and until production is moved to a different codepath.

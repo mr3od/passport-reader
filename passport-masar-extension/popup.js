@@ -62,32 +62,11 @@
     lastSessionData: null,
     isWorkspaceLoading: false,
     hasQueuedWorkspaceReload: false,
-    pendingReloadTimer: null,
-    pendingReloadFetchRecords: false,
-    pendingReloadRefreshContracts: false,
     contractsCache: null,
     contractsCacheAt: 0,
     toastTimer: null,
   };
   const CONTRACT_CACHE_TTL_MS = 30000;
-  const WORKSPACE_LOCAL_REFRESH_KEYS = new Set([
-    "active_ui_context",
-    "masar_entity_id",
-    "masar_user_name",
-    "masar_contract_id",
-    "session_expired",
-    "submit_auth_required",
-    "masar_contract_name_ar",
-    "masar_contract_name_en",
-    "masar_contract_state",
-    "masar_group_id",
-    "masar_group_name",
-  ]);
-  const WORKSPACE_SESSION_REFRESH_KEYS = new Set([
-    "submission_batch",
-    "active_submit_id",
-    "last_submit_result",
-  ]);
 
   function $(id, doc = document) {
     return doc.getElementById(id);
@@ -129,37 +108,6 @@
       screen.classList.remove("hidden");
     }
     applyScreenTheme(name, doc);
-  }
-
-  function shouldRefreshWorkspaceForStorageChange({
-    areaName,
-    changes,
-    isMainScreenVisible,
-  }) {
-    if (!isMainScreenVisible || !changes || typeof changes !== "object") {
-      return false;
-    }
-    const refreshKeys =
-      areaName === "local"
-        ? WORKSPACE_LOCAL_REFRESH_KEYS
-        : areaName === "session"
-          ? WORKSPACE_SESSION_REFRESH_KEYS
-          : null;
-    if (!refreshKeys) {
-      return false;
-    }
-    return Object.keys(changes).some((key) => refreshKeys.has(key));
-  }
-
-  function shouldRefreshContractsForStorageChange(areaName, changes) {
-    if (areaName !== "local" || !changes || typeof changes !== "object") {
-      return false;
-    }
-    return (
-      Object.prototype.hasOwnProperty.call(changes, "masar_entity_id")
-      || Object.prototype.hasOwnProperty.call(changes, "submit_auth_required")
-      || Object.prototype.hasOwnProperty.call(changes, "session_expired")
-    );
   }
 
   function localGet(keys) {
@@ -266,6 +214,9 @@
     setText("submission-progress-title", Strings.PROGRESS_BANNER_TITLE);
     setText("submission-refresh-btn", Strings.ACTION_REFRESH);
     setText("submission-resume-btn", Strings.ACTION_RESUME);
+    setText("pending-load-more", Strings.ACTION_LOAD_MORE);
+    setText("submitted-load-more", Strings.ACTION_LOAD_MORE);
+    setText("failed-load-more", Strings.ACTION_LOAD_MORE);
     setText("ctx-change-confirm", Strings.CTX_CHANGE_YES);
     setText("ctx-change-defer", Strings.CTX_CHANGE_LATER);
     setText("workspace-empty-note", Strings.SECTION_EMPTY_PENDING);
@@ -823,6 +774,10 @@
       pill.textContent = Strings.CONTRACT_INACTIVE;
       pill.dataset.tone = "red";
       pill.classList.remove("hidden");
+    } else if (localData.masar_contract_state === "unknown") {
+      pill.classList.add("hidden");
+      pill.textContent = "";
+      pill.dataset.tone = "";
     } else {
       pill.textContent = Strings.CONTRACT_ACTIVE;
       pill.dataset.tone = "green";
@@ -840,12 +795,59 @@
   function buildOptimisticCounts(serverCounts, batchState, activeSubmitId = null) {
     const normalized = QueueFilter.normalizeBatchState(batchState, activeSubmitId);
     const inProgressCount = normalized.inProgressIds.size;
+    const submittedCount = normalized.submittedIds.size;
+    const failedCount = normalized.failedIds.size;
     return {
-      pending: Math.max((serverCounts?.pending || 0) - inProgressCount, 0),
+      pending: Math.max((serverCounts?.pending || 0) - inProgressCount - submittedCount - failedCount, 0),
       inProgress: inProgressCount,
-      submitted: serverCounts?.submitted || 0,
-      failed: serverCounts?.failed || 0,
+      submitted: (serverCounts?.submitted || 0) + submittedCount,
+      failed: (serverCounts?.failed || 0) + failedCount,
     };
+  }
+
+  function mergeTabPageState(cache, responseData, { append = false, loadedAt = Date.now() } = {}) {
+    const incomingItems = Array.isArray(responseData?.items) ? responseData.items : [];
+    const mergedItems = append ? [...(cache.items || []), ...incomingItems] : incomingItems;
+    return {
+      ...cache,
+      items: mergedItems,
+      total: responseData?.total || 0,
+      offset: (responseData?.offset || 0) + incomingItems.length,
+      hasMore: Boolean(responseData?.has_more),
+      loaded: true,
+      loading: false,
+      error: null,
+      lastLoadedAt: loadedAt,
+    };
+  }
+
+  function buildRenderableServerSections(caches, lastSubmitResult = null) {
+    const sections = QueueFilter.filterServerSections(caches);
+    if (!lastSubmitResult?.upload_id) {
+      return sections;
+    }
+    const uploadId = lastSubmitResult.upload_id;
+    let sourceRecord = null;
+    for (const key of ["pending", "submitted", "failed"]) {
+      const records = Array.isArray(sections[key]) ? sections[key] : [];
+      const match = records.find((record) => record.upload_id === uploadId) || null;
+      if (match && !sourceRecord) {
+        sourceRecord = match;
+      }
+      sections[key] = records.filter((record) => record.upload_id !== uploadId);
+    }
+    if (!sourceRecord) {
+      return sections;
+    }
+    const updatedRecord = applyLastSubmitResult([sourceRecord], lastSubmitResult)[0] || sourceRecord;
+    if (lastSubmitResult.status === "submitted") {
+      sections.submitted.push(updatedRecord);
+    } else if (lastSubmitResult.status === "failed" || lastSubmitResult.status === "missing") {
+      sections.failed.push(updatedRecord);
+    } else {
+      sections.pending.push(updatedRecord);
+    }
+    return sections;
   }
 
   function buildBatchBannerState(sessionData) {
@@ -910,7 +912,7 @@
     return response;
   }
 
-  async function loadTabPage(tabName, { silent = false } = {}) {
+  async function loadTabPage(tabName, { append = false, silent = false } = {}) {
     if (tabName === "inProgress") {
       return { ok: true, data: state.tabCache.inProgress };
     }
@@ -925,7 +927,7 @@
         type: "FETCH_RECORD_PAGE",
         section: mapTabToSection(tabName),
         limit: 50,
-        offset: 0,
+        offset: append ? cache.offset : 0,
       },
       { timeoutMs: 10000 },
     );
@@ -937,12 +939,10 @@
       }
       return response;
     }
-    cache.items = Array.isArray(response.data?.items) ? response.data.items : [];
-    cache.total = response.data?.total || 0;
-    cache.offset = response.data?.offset || 0;
-    cache.hasMore = Boolean(response.data?.has_more);
-    cache.loaded = true;
-    cache.lastLoadedAt = Date.now();
+    state.tabCache[tabName] = mergeTabPageState(cache, response.data, {
+      append,
+      loadedAt: Date.now(),
+    });
     return response;
   }
 
@@ -950,11 +950,11 @@
     state.lastLocalData = localData;
     state.lastSessionData = sessionData;
     const activeSubmitId = sessionData.active_submit_id || null;
-    const serverSections = QueueFilter.filterServerSections({
+    const serverSections = buildRenderableServerSections({
       pending: state.tabCache.pending.items,
       submitted: state.tabCache.submitted.items,
       failed: state.tabCache.failed.items,
-    });
+    }, sessionData.last_submit_result || null);
     const sections = QueueFilter.mergeOptimisticSections({
       serverSections,
       batchState: sessionData.submission_batch || [],
@@ -1023,35 +1023,134 @@
       Strings.SECTION_EMPTY_SUBMITTED,
     );
     renderSection("failed-list", failedRecords, "failed", Strings.SECTION_EMPTY_FAILED);
+    renderLoadMoreControls();
     $("submit-all-btn").disabled = !canSubmit || pendingRecords.length === 0;
     $("submit-all-btn").onclick = () => void submitBatch(pendingRecords.map((record) => record.upload_id));
+  }
+
+  function renderLoadMoreControls(doc = document) {
+    const mappings = [
+      ["pending", "pending-load-more"],
+      ["submitted", "submitted-load-more"],
+      ["failed", "failed-load-more"],
+    ];
+    for (const [tabName, buttonId] of mappings) {
+      const button = $(buttonId, doc);
+      const cache = state.tabCache[tabName];
+      if (!button || !cache) {
+        continue;
+      }
+      button.classList.toggle("hidden", !cache.hasMore);
+      button.disabled = cache.loading;
+      button.onclick = cache.hasMore
+        ? () => void loadTabPage(tabName, { append: true }).then(() => {
+          if (state.lastLocalData && state.lastSessionData) {
+            renderWorkspaceFromCache(state.lastLocalData, state.lastSessionData);
+          }
+        })
+        : null;
+    }
+  }
+
+  async function getContractsForUi({ forceRefresh = false } = {}) {
+    const now = Date.now();
+    const shouldUseCache =
+      !forceRefresh
+      && Array.isArray(state.contractsCache)
+      && (now - state.contractsCacheAt) < CONTRACT_CACHE_TTL_MS;
+    const contracts = shouldUseCache ? state.contractsCache : await ContractSelect.fetchContracts();
+    if (!shouldUseCache) {
+      state.contractsCache = contracts;
+      state.contractsCacheAt = now;
+    }
+    return contracts;
+  }
+
+  async function resolveContextAfterContracts(localData, contracts) {
+    const activeUiContext = ContextChange.normalizeActiveUiContext(
+      localData.active_ui_context || (await ContextChange.getActiveUiContext()),
+    );
+    const preferredContractId = localData.masar_contract_id || activeUiContext.contract_id || null;
+    const resolution = ContextChange.resolveContractContext(activeUiContext, contracts, preferredContractId);
+
+    let nextContext = resolution.nextContext;
+    if (resolution.mode === "selected" && resolution.selectedContract) {
+      const selectedContractId = String(resolution.selectedContract.contractId);
+      const groupResponse = await sendMsg({ type: "FETCH_GROUPS", contractId: selectedContractId });
+      const validGroups = ContextChange.filterSelectableGroups(groupResponse?.data?.response?.data?.content || []);
+      nextContext = ContextChange.buildExplicitContractSelectionContext(
+        {
+          ...nextContext,
+          available_contracts: resolution.selectableContracts,
+        },
+        resolution.selectedContract,
+        validGroups,
+      );
+      nextContext = {
+        ...nextContext,
+        available_contracts: resolution.selectableContracts,
+      };
+    }
+
+    await ContextChange.setActiveUiContext(nextContext);
+
+    return {
+      ...localData,
+      masar_contract_id: nextContext.contract_id,
+      masar_contract_name_ar: nextContext.contract_name_ar,
+      masar_contract_name_en: nextContext.contract_name_en,
+      masar_contract_state: nextContext.contract_state,
+      masar_group_id: nextContext.group_id,
+      masar_group_name: nextContext.group_name,
+      masar_group_number: nextContext.group_number,
+      active_ui_context: nextContext,
+    };
+  }
+
+  function buildContractPickerState(contracts, currentContractId) {
+    const resolution = ContextChange.resolveContractContext(
+      ContextChange.getDefaultActiveUiContext(),
+      contracts,
+      currentContractId,
+    );
+    const selectableContracts = resolution.selectableContracts;
+    if (selectableContracts.length === 0) {
+      return {
+        resolution,
+        selectableContracts,
+        showDropdown: false,
+        emptyMessage: Strings.CONTRACT_NONE_AVAILABLE_CURRENT_ACCOUNT,
+      };
+    }
+    return {
+      resolution,
+      selectableContracts,
+      showDropdown: selectableContracts.length > 1,
+      emptyMessage: "",
+    };
   }
 
   async function populateContractDropdown(currentContractId, doc = document, { forceRefresh = false } = {}) {
     const container = $("contract-dropdown-container", doc);
     const select = $("contract-select", doc);
+    const emptyState = $("contract-empty-state", doc);
     select.innerHTML = "";
     select.append(new Option(Strings.CONTRACT_SELECT_PLACEHOLDER, ""));
+    emptyState.textContent = "";
+    emptyState.classList.add("hidden");
+    select.classList.remove("hidden");
     try {
-      const now = Date.now();
-      const shouldUseCache =
-        !forceRefresh
-        && Array.isArray(state.contractsCache)
-        && (now - state.contractsCacheAt) < CONTRACT_CACHE_TTL_MS;
-      const contracts = shouldUseCache ? state.contractsCache : await ContractSelect.fetchContracts();
-      if (!shouldUseCache) {
-        state.contractsCache = contracts;
-        state.contractsCacheAt = now;
-      }
-      const resolution = ContractSelect.resolveContractSelection(contracts, currentContractId);
-      const activeContracts = contracts.filter((contract) => contract?.contractStatus?.id === 0);
-      if (activeContracts.length === 0) {
+      const contracts = await getContractsForUi({ forceRefresh });
+      const pickerState = buildContractPickerState(contracts, currentContractId);
+      if (pickerState.selectableContracts.length === 0) {
         container.classList.remove("hidden");
-        select.append(new Option(Strings.CONTRACT_NONE_AVAILABLE, ""));
         select.disabled = true;
+        select.classList.add("hidden");
+        emptyState.textContent = pickerState.emptyMessage;
+        emptyState.classList.remove("hidden");
         return;
       }
-      activeContracts.forEach((contract) => {
+      pickerState.selectableContracts.forEach((contract) => {
         const option = new Option(
           contract.companyNameAr || contract.companyNameEn || String(contract.contractId),
           String(contract.contractId),
@@ -1059,9 +1158,9 @@
         select.append(option);
       });
       select.disabled = false;
-      container.classList.toggle("hidden", !resolution.showDropdown);
-      if (resolution.selectedContract) {
-        select.value = String(resolution.selectedContract.contractId);
+      container.classList.toggle("hidden", !pickerState.showDropdown);
+      if (pickerState.resolution.selectedContract) {
+        select.value = String(pickerState.resolution.selectedContract.contractId);
       } else if (currentContractId) {
         select.value = String(currentContractId);
       }
@@ -1212,7 +1311,7 @@
       showScreen("loading");
     }
     try {
-      const [localData, sessionData, countsResponse, pageResponse] = await Promise.all([
+      let [localData, sessionData, countsResponse, pageResponse] = await Promise.all([
         localGet([
           "masar_entity_id",
           "masar_user_name",
@@ -1229,6 +1328,8 @@
         fetchRecords ? loadCounts({ silent: true }) : Promise.resolve({ ok: true, data: state.countsState.server }),
         fetchRecords ? loadTabPage(state.activeTab, { silent: true }) : Promise.resolve({ ok: true }),
       ]);
+      const contracts = await getContractsForUi({ forceRefresh: refreshContracts });
+      localData = await resolveContextAfterContracts(localData, contracts);
 
       if (!pageResponse?.ok && !state.tabCache[state.activeTab]?.loaded) {
         const failure = Failure.classifyFailure(pageResponse);
@@ -1294,6 +1395,16 @@
     showScreen("setup");
   }
 
+  function decideBootstrapAction({ hasApiToken, hasEntityAfterSync }) {
+    if (!hasApiToken) {
+      return "setup";
+    }
+    if (!hasEntityAfterSync) {
+      return "activate";
+    }
+    return "main";
+  }
+
   async function init() {
     showScreen("loading");
     const stored = await localGet([
@@ -1303,17 +1414,18 @@
       "agency_phone",
       "agency_phone_country_code",
     ]);
-    if (!stored.api_token) {
+    if (decideBootstrapAction({ hasApiToken: Boolean(stored.api_token), hasEntityAfterSync: false }) === "setup") {
       showSetupError("");
       showScreen("setup");
       return;
     }
-    if (!stored.masar_entity_id) {
+
+    await sendMsg({ type: "SYNC_SESSION" });
+    const synced = await localGet(["masar_entity_id"]);
+    if (decideBootstrapAction({ hasApiToken: true, hasEntityAfterSync: Boolean(synced.masar_entity_id) }) === "activate") {
       showScreen("activate");
       return;
     }
-
-    await sendMsg({ type: "SYNC_SESSION" });
     await loadMainWorkspace({ showLoading: true, fetchRecords: true });
   }
 
@@ -1341,6 +1453,19 @@
       return onMasarLoginRequired();
     }
     return onReload();
+  }
+
+  async function handleResumeBatchResponse({ response, onReload, onUnavailable }) {
+    if (response?.ok) {
+      await onReload();
+      return true;
+    }
+    if (response?.errorCode === "submission-batch-missing") {
+      await onUnavailable();
+      return false;
+    }
+    await onReload();
+    return false;
   }
 
   async function handleContractSelectionChange({ value, writeSelection, reloadWorkspace }) {
@@ -1371,27 +1496,6 @@
       return false;
     }
     return true;
-  }
-
-  function scheduleWorkspaceReload({ fetchRecords = true, refreshContracts = false } = {}) {
-    state.pendingReloadFetchRecords = state.pendingReloadFetchRecords || fetchRecords;
-    state.pendingReloadRefreshContracts =
-      state.pendingReloadRefreshContracts || refreshContracts;
-    if (state.pendingReloadTimer) {
-      clearTimeout(state.pendingReloadTimer);
-    }
-    state.pendingReloadTimer = setTimeout(() => {
-      const shouldFetchRecords = state.pendingReloadFetchRecords;
-      const shouldRefreshContracts = state.pendingReloadRefreshContracts;
-      state.pendingReloadFetchRecords = false;
-      state.pendingReloadRefreshContracts = false;
-      state.pendingReloadTimer = null;
-      void loadMainWorkspace({
-        showLoading: false,
-        fetchRecords: shouldFetchRecords,
-        refreshContracts: shouldRefreshContracts,
-      });
-    }, 200);
   }
 
   function bindEvents() {
@@ -1450,8 +1554,15 @@
       await loadMainWorkspace({ showLoading: false, fetchRecords: true });
     });
     $("submission-resume-btn")?.addEventListener("click", async () => {
-      await sendMsg({ type: "SUBMIT_BATCH", uploadIds: [] }, { timeoutMs: 30000 });
-      await loadMainWorkspace({ showLoading: false, fetchRecords: false });
+      const response = await sendMsg({ type: "SUBMIT_BATCH", uploadIds: [] }, { timeoutMs: 30000 });
+      await handleResumeBatchResponse({
+        response,
+        onReload: () => loadMainWorkspace({ showLoading: false, fetchRecords: false }),
+        onUnavailable: async () => {
+          showToast(Strings.SUBMIT_RESUME_UNAVAILABLE, { tone: "error" });
+          await loadMainWorkspace({ showLoading: false, fetchRecords: false });
+        },
+      });
     });
     $("ctx-change-confirm").addEventListener("click", async () => {
       state.hiddenContextBanner = false;
@@ -1488,14 +1599,6 @@
         activateTab(tab.dataset.tab);
       });
     });
-    chrome.storage.onChanged.addListener((changes, areaName) => {
-      const isMainScreenVisible = !$("screen-main").classList.contains("hidden");
-      if (shouldRefreshWorkspaceForStorageChange({ areaName, changes, isMainScreenVisible })) {
-        const fetchRecords = false;
-        const refreshContracts = shouldRefreshContractsForStorageChange(areaName, changes);
-        scheduleWorkspaceReload({ fetchRecords, refreshContracts });
-      }
-    });
   }
 
   return {
@@ -1503,20 +1606,23 @@
     buildDisplayName,
     buildBatchBannerState,
     buildOptimisticCounts,
+    buildRenderableServerSections,
     ensureActionContextState,
     getRecordNote,
     getScreenTheme,
     handleCardClick,
     handleContractSelectionChange,
+    decideBootstrapAction,
     getSubmissionContextMismatchToast,
+    handleResumeBatchResponse,
     handleSubmitResponse,
     initContextChangeBanner,
+    mergeTabPageState,
     renderHomeSummary,
     renderPendingCard,
+    buildContractPickerState,
     setDetailLinkLoadingState,
     getSubmissionContextMismatch,
     showToast,
-    shouldRefreshContractsForStorageChange,
-    shouldRefreshWorkspaceForStorageChange,
   };
 });

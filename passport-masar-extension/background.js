@@ -13,40 +13,6 @@ const Notifications =
 const ContextChange =
   globalThis.MasarContextChange || (typeof require === "function" ? require("./context-change.js") : undefined);
 
-// ─── Header capture ───────────────────────────────────────────────────────────
-// Passively observe every outgoing request to masar and persist entity headers.
-const debouncedContextChecker =
-  ContextChange?.createDebouncedContextChecker?.((context) => {
-    void handleStableContextChange(context);
-  }, 1500) || null;
-
-if (typeof chrome !== "undefined" && chrome.webRequest?.onSendHeaders) {
-  chrome.webRequest.onSendHeaders.addListener((details) => {
-    const h = {};
-    details.requestHeaders.forEach((r) => { h[r.name.toLowerCase()] = r.value; });
-    if (h["activeentityid"]) {
-      const context = {
-        entity_id: h["activeentityid"],
-        entity_type_id: h["activeentitytypeid"] || null,
-        contract_id: h["contractid"] || null,
-        auth_token: null,
-        user_name: null,
-      };
-      if (h["authorization"]) {
-        const authVal = normalizeMasarAuthorizationHeader(h["authorization"]);
-        context.auth_token = authVal;
-        try {
-          const payload = JSON.parse(atob(authVal.replace(/^Bearer\s+/i, "").split(".")[1]));
-          if (payload.name) context.user_name = payload.name;
-        } catch (_) {}
-      }
-      void captureObservedContext(context);
-    }
-  },
-  { urls: ["https://masar.nusuk.sa/*", "https://*.nusuk.sa/*"] },
-  ["requestHeaders", "extraHeaders"]);
-}
-
 // ─── Badge ────────────────────────────────────────────────────────────────────
 
 function updateBadge(records) {
@@ -73,6 +39,76 @@ function taggedError(failureKind, message, metadata = null) {
   return error;
 }
 
+function decodeJwtPayload(rawToken) {
+  const normalized = typeof rawToken === "string"
+    ? rawToken.replace(/^Bearer\s+/i, "").replace(/^"+|"+$/g, "").trim()
+    : "";
+  if (!normalized) {
+    return null;
+  }
+  const parts = normalized.split(".");
+  if (parts.length < 2 || !parts[1]) {
+    return null;
+  }
+  const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+  const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
+  try {
+    if (typeof atob === "function") {
+      return JSON.parse(atob(padded));
+    }
+    if (typeof Buffer === "function") {
+      return JSON.parse(Buffer.from(padded, "base64").toString("utf8"));
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function tokenConflictsWithEntityContext(payload, entityId, entityTypeId) {
+  if (!payload || typeof payload !== "object") {
+    return false;
+  }
+  if (entityId && payload.defaultEntityId !== undefined && String(payload.defaultEntityId) !== String(entityId)) {
+    return true;
+  }
+  if (
+    entityTypeId
+    && payload.defaultEntityTypeId !== undefined
+    && String(payload.defaultEntityTypeId) !== String(entityTypeId)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function selectMasarAuthToken(tokens, { entityId = "", entityTypeId = "" } = {}) {
+  const candidates = [
+    tokens?.userToken || null,
+    tokens?.sessionToken || null,
+    tokens?.permissionToken || null,
+  ];
+  let fallback = null;
+  for (const rawToken of candidates) {
+    const normalized = normalizeMasarAuthorizationHeader(rawToken);
+    if (!normalized) {
+      continue;
+    }
+    const payload = decodeJwtPayload(normalized);
+    if (payload?.tokenType === 4) {
+      continue;
+    }
+    if (tokenConflictsWithEntityContext(payload, entityId, entityTypeId)) {
+      continue;
+    }
+    if (payload?.tokenType === 5) {
+      return normalized;
+    }
+    fallback = fallback || normalized;
+  }
+  return fallback;
+}
+
 // ─── Submission serializer ────────────────────────────────────────────────────
 // Only one SUBMIT_RECORD runs at a time. Concurrent calls queue behind the
 // current one — prevents parallel Attachment/Upload 429s from Cloudflare and
@@ -97,6 +133,11 @@ function logError(...args) {
 const MASAR_TAB_URLS = ["https://masar.nusuk.sa/*", "https://*.nusuk.sa/*"];
 const MASAR_ENTRY_URL = "https://masar.nusuk.sa/pub/login";
 const RECENTLY_CLOSED_DETAILS_TABS = new Map();
+let _masarSourceTabIdLoaded = false;
+let _masarSourceTabId = null;
+let _contractsFetchInFlight = null;
+let _contractsFetchCachedAt = 0;
+let _contractsFetchCachedValue = null;
 
 function localGet(keys) {
   return new Promise((resolve) => chrome.storage.local.get(keys, resolve));
@@ -116,6 +157,17 @@ function sessionGet(keys) {
 
 function sessionSet(values) {
   return new Promise((resolve) => chrome.storage.session.set(values, resolve));
+}
+
+function normalizeMasarSourceTabId(tabId) {
+  return typeof tabId === "number" && tabId >= 0 ? tabId : null;
+}
+
+async function setMasarSourceTabId(tabId) {
+  _masarSourceTabId = normalizeMasarSourceTabId(tabId);
+  _masarSourceTabIdLoaded = true;
+  await localSet({ masar_source_tab_id: _masarSourceTabId });
+  return _masarSourceTabId;
 }
 
 async function queryMasarTabs() {
@@ -342,6 +394,14 @@ function extractMasarContextFromSnapshot(snapshot) {
   };
 }
 
+function hasUsableMasarCloneSnapshot(snapshot) {
+  if (!snapshot || !Array.isArray(snapshot.sessionEntries) || snapshot.sessionEntries.length === 0) {
+    return false;
+  }
+  const context = extractMasarContextFromSnapshot(snapshot);
+  return Boolean(context.authToken);
+}
+
 function buildStoredCurrentContractValue(record) {
   if (!record?.submission_contract_id) {
     return null;
@@ -374,6 +434,10 @@ function buildStoredDetailsContextOverride(record) {
     contractId: record.submission_contract_id,
     currentContractRaw: JSON.stringify(currentContract),
   };
+}
+
+function hasStoredDetailsContext(record) {
+  return buildStoredDetailsContextOverride(record) !== null;
 }
 
 function applyDetailsContextOverrideToSnapshot(snapshot, override) {
@@ -722,7 +786,7 @@ async function markRecordMissing(uploadId) {
 }
 
 async function resolveMutamerDetailsOutcomeResult(outcome, uploadId) {
-  if (outcome === "ready" || outcome === "unknown") {
+  if (outcome === "ready") {
     return { ok: true, mode: "clone" };
   }
   if (outcome === "mutamer-missing") {
@@ -743,6 +807,9 @@ async function resolveMutamerDetailsOutcomeResult(outcome, uploadId) {
   if (outcome === "session-expired") {
     return { ok: false, errorCode: "mutamer-inaccessible" };
   }
+  if (outcome === "unknown") {
+    return { ok: false, errorCode: "mutamer-open-unconfirmed" };
+  }
   return { ok: false, errorCode: "mutamer-open-failed" };
 }
 
@@ -753,7 +820,9 @@ async function openMutamerDetailsExperiment(clickUrl, uploadId = null, detailsCo
   const sourceTab = source?.tab || null;
   const sourceSnapshot = source?.snapshot || null;
   const sourceContext = source?.context || null;
-  const storedRecordContext = detailsContext || (uploadId ? await fetchRecordById(uploadId) : null);
+  const storedRecordContext = hasStoredDetailsContext(detailsContext)
+    ? detailsContext
+    : (uploadId ? await fetchRecordById(uploadId) : detailsContext);
   const detailsContextOverride = buildStoredDetailsContextOverride(storedRecordContext);
   log("[details experiment] selected source tab", sourceTab ? {
     id: sourceTab.id,
@@ -782,8 +851,11 @@ async function openMutamerDetailsExperiment(clickUrl, uploadId = null, detailsCo
       sessionKeyCount: Array.isArray(snapshot?.sessionEntries) ? snapshot.sessionEntries.length : 0,
       hasCurrentContract: typeof snapshot?.localCurrentContract === "string",
     });
-    if (!snapshot) {
-      log("[details experiment] snapshot missing, falling back to reuse");
+    if (!hasUsableMasarCloneSnapshot(snapshot)) {
+      log("[details experiment] snapshot missing required session context, falling back to reuse", {
+        hasSnapshot: Boolean(snapshot),
+        sessionKeyCount: Array.isArray(snapshot?.sessionEntries) ? snapshot.sessionEntries.length : 0,
+      });
       await navigateExistingMasarTab(sourceTab, clickUrl);
       return { ok: true, mode: "reuse" };
     }
@@ -973,11 +1045,14 @@ function hasValidSessionSyncSignal(snapshot) {
   }
   const entityId = typeof snapshot.entityId === "string" ? snapshot.entityId.trim() : "";
   const jwt = typeof snapshot.jwt === "string" ? snapshot.jwt.trim() : "";
-  return Boolean(entityId || jwt);
+  const authTokens = snapshot.authTokens && typeof snapshot.authTokens === "object"
+    ? Object.values(snapshot.authTokens).some((token) => typeof token === "string" && token.trim())
+    : false;
+  return Boolean(entityId || jwt || authTokens);
 }
 
 // Read all session values directly from the open masar tab's storage.
-// sessionStorage: pms-ac_En_Id (entityId), pms-ac_En_Type_Id (entityTypeId), pms-tk_session (JWT)
+// sessionStorage: pms-ac_En_Id (entityId), pms-ac_En_Type_Id (entityTypeId), Masar JWT variants
 // localStorage:   currentContract.contractId
 async function syncSessionFromMasar() {
   try {
@@ -987,7 +1062,8 @@ async function syncSessionFromMasar() {
       return false;
     }
     let s = null;
-    for (const tab of tabs) {
+    let sourceTab = null;
+    for (const tab of rankSourceMasarTabs(tabs)) {
       try {
         const results = await chrome.scripting.executeScript({
           target: { tabId: tab.id },
@@ -999,7 +1075,12 @@ async function syncSessionFromMasar() {
             return {
               entityId:           sessionStorage.getItem("pms-ac_En_Id"),
               entityTypeId:       sessionStorage.getItem("pms-ac_En_Type_Id"),
-              jwt:                sessionStorage.getItem("pms-tk_session"),
+              authTokens: {
+                sessionToken:    sessionStorage.getItem("pms-tk_session"),
+                refreshToken:    sessionStorage.getItem("pms-ref_tk_session"),
+                permissionToken: sessionStorage.getItem("pms-tk_perm_session"),
+                userToken:       sessionStorage.getItem("pms-usr_tk_session"),
+              },
               contractId:         contract?.contractId ? String(contract.contractId) : null,
               contractNumber:     contract?.contractNumber ? String(contract.contractNumber) : null,
               contractNameEn:     contract?.companyNameEn || null,
@@ -1012,6 +1093,7 @@ async function syncSessionFromMasar() {
         const candidate = results?.[0]?.result || null;
         if (hasValidSessionSyncSignal(candidate)) {
           s = candidate;
+          sourceTab = tab;
           break;
         }
       } catch {
@@ -1019,41 +1101,52 @@ async function syncSessionFromMasar() {
       }
     }
     if (!s) return false;
+    await setMasarSourceTabId(sourceTab?.id ?? null);
 
-    // Determine contract state.
-    // contractEndDate is midnight that starts the end day; treat same-day as "expires today".
-    let contractState = "unknown"; // "active" | "expires-today" | "expired" | "unknown"
-    if (s.contractEndDate) {
-      const now = new Date();
-      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const end = new Date(s.contractEndDate);
-      const endDayStart = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-      if (todayStart > endDayStart) contractState = "expired";
-      else if (todayStart.getTime() === endDayStart.getTime()) contractState = "expires-today";
-      else contractState = "active";
-    }
+    const selectedAuthToken = selectMasarAuthToken(
+      s.authTokens || null,
+      { entityId: s.entityId || "", entityTypeId: s.entityTypeId || "" },
+    );
+
+    const contractState = ContextChange.getSelectableContractState({
+      contractEndDate: s.contractEndDate,
+    });
 
     log("syncSessionFromMasar —", {
       entityId: s.entityId, contractId: s.contractId,
       contractNameEn: s.contractNameEn, contractState,
-      userNameEn: s.userNameEn, hasJwt: !!s.jwt,
+      userNameEn: s.userNameEn, hasJwt: !!selectedAuthToken,
     });
 
-    const update = {};
-    if (s.entityId)           update.masar_entity_id            = s.entityId;
-    if (s.entityTypeId)       update.masar_entity_type_id       = s.entityTypeId;
-    // Contract selection is user-controlled and should not auto-switch.
-    // masar_user_name is decoded from JWT in the webRequest listener — not sourced here.
-    await captureObservedContext({
-      entity_id: s.entityId,
-      entity_type_id: s.entityTypeId,
-      contract_id: s.contractId,
-      auth_token: null,
-      user_name: null,
-    });
-    if (Object.keys(update).length) {
-      chrome.storage.local.set(update);
+    let userName = null;
+    if (typeof selectedAuthToken === "string" && selectedAuthToken.trim()) {
+      try {
+        const payload = decodeJwtPayload(selectedAuthToken);
+        userName = payload?.name || null;
+      } catch {
+        userName = null;
+      }
     }
+    const authToken = selectedAuthToken || null;
+    const activeUiContext = await ContextChange.getActiveUiContext();
+    await ContextChange.setActiveUiContext({
+      ...activeUiContext,
+      entity_id: s.entityId || null,
+      entity_type_id: s.entityTypeId || null,
+      auth_token: authToken,
+      user_name: userName,
+      contract_id: s.contractId || null,
+      contract_name: s.contractNameAr || s.contractNameEn || null,
+      contract_name_ar: s.contractNameAr || null,
+      contract_name_en: s.contractNameEn || null,
+      contract_state: contractState,
+      group_id: null,
+      group_name: null,
+      group_number: null,
+      requires_contract_confirmation: false,
+      requires_group_confirmation: false,
+      drift_reason: null,
+    });
     return true;
   } catch (err) {
     // "Frame with ID 0 is showing error page" — masar tab is closed or on an error page.
@@ -1084,51 +1177,6 @@ async function syncSession() {
     logError("syncSession — error:", err.message);
     return { ok: true }; // non-fatal
   }
-}
-
-async function captureObservedContext(context) {
-  const activeUiContext = await ContextChange.getActiveUiContext();
-  const hasCurrentContext = Boolean(activeUiContext.entity_id || activeUiContext.contract_id);
-  if (!hasCurrentContext) {
-    await handleStableContextChange(context);
-    return;
-  }
-  if (debouncedContextChecker) {
-    debouncedContextChecker(context);
-  }
-}
-
-async function handleStableContextChange(context) {
-  const activeUiContext = await ContextChange.getActiveUiContext();
-  const change = ContextChange.classifyObservedContextChange(activeUiContext, context);
-  if (change === "entity_changed_observed" || !activeUiContext.entity_id) {
-    let contracts = [];
-    try {
-      const nextHeaders = ContextChange.buildLegacyStoragePatch({
-        ...activeUiContext,
-        entity_id: context.entity_id || null,
-        entity_type_id: context.entity_type_id || null,
-        auth_token: context.auth_token || activeUiContext.auth_token || null,
-        user_name: context.user_name || activeUiContext.user_name || null,
-      });
-      await localSet(nextHeaders);
-      contracts = await fetchContracts();
-    } catch (error) {
-      logError("handleStableContextChange — failed to refresh contracts after entity change:", error.message);
-    }
-    const nextContext = ContextChange.buildObservedEntityChangeContext(activeUiContext, context, contracts);
-    await ContextChange.setActiveUiContext(nextContext);
-    await updateBadgeState();
-    await Notifications.notify(Notifications.NOTIFICATION_TYPES.CONTEXT_CHANGE, S.CTX_CHANGED_ENTITY);
-    return;
-  }
-  await ContextChange.setActiveUiContext({
-    ...activeUiContext,
-    entity_id: context.entity_id || activeUiContext.entity_id,
-    entity_type_id: context.entity_type_id || activeUiContext.entity_type_id,
-    auth_token: context.auth_token || activeUiContext.auth_token,
-    user_name: context.user_name || activeUiContext.user_name,
-  });
 }
 
 async function fetchGroups(contractId = null) {
@@ -1199,10 +1247,11 @@ async function fetchAllRecords() {
   }
   await localSet({ session_expired: false });
   const data = await response.json();
+  const items = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
   await updateBadgeState({
-    failedCount: countFailedRecords(data),
+    failedCount: countFailedRecords(items),
   });
-  return { ok: true, data: Array.isArray(data) ? data : [] };
+  return { ok: true, data: items };
 }
 
 async function fetchRecordPage(section, limit, offset) {
@@ -1294,22 +1343,44 @@ async function updateBadgeState({ failedCount = null } = {}) {
 }
 
 async function fetchContracts() {
-  const response = await masarFetch(
-    "https://masar.nusuk.sa/umrah/contracts_apis/api/ExternalAgent/GetContractList",
-    {
-      method: "POST",
-      body: JSON.stringify({
-        umrahCompanyName: null,
-        contractStartDate: null,
-        contractEndDate: null,
-      }),
-    },
-  );
-  if (!response.ok) {
-    throw taggedError(response.status === 401 ? "masar-auth" : null, `contracts ${response.status}`);
+  const now = Date.now();
+  if (_contractsFetchCachedValue && (now - _contractsFetchCachedAt) < 5000) {
+    return _contractsFetchCachedValue;
   }
-  const payload = await response.json();
-  return payload?.response?.data?.contracts || [];
+  if (_contractsFetchInFlight) {
+    return _contractsFetchInFlight;
+  }
+  _contractsFetchInFlight = (async () => {
+    const baseContext = await getMasarRequestContext();
+    const response = await masarFetch(
+      "https://masar.nusuk.sa/umrah/contracts_apis/api/ExternalAgent/GetContractList",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          umrahCompanyName: null,
+          contractStartDate: null,
+          contractEndDate: null,
+        }),
+      },
+      {
+        ...baseContext,
+        contract_id: null,
+      },
+    );
+    if (!response.ok) {
+      throw taggedError(response.status === 401 ? "masar-auth" : null, `contracts ${response.status}`);
+    }
+    const payload = await response.json();
+    const contracts = payload?.response?.data?.contracts || [];
+    _contractsFetchCachedValue = contracts;
+    _contractsFetchCachedAt = Date.now();
+    return contracts;
+  })();
+  try {
+    return await _contractsFetchInFlight;
+  } finally {
+    _contractsFetchInFlight = null;
+  }
 }
 
 async function patchRecordStatus(uploadId, body) {
@@ -2099,31 +2170,6 @@ async function submitToMasar(record, requestContext) {
 
 // ─── Message handler (from popup) ────────────────────────────────────────────
 
-function getContractState(contractOrEndDate) {
-  const contract =
-    contractOrEndDate && typeof contractOrEndDate === "object"
-      ? contractOrEndDate
-      : null;
-  const contractEndDate = contract ? contract.contractEndDate : contractOrEndDate;
-  const contractStatusId =
-    contract && contract.contractStatus && typeof contract.contractStatus.id !== "undefined"
-      ? Number(contract.contractStatus.id)
-      : null;
-  if (contractStatusId !== null && contractStatusId !== 0) {
-    return "inactive";
-  }
-  if (!contractEndDate) {
-    return "unknown";
-  }
-  const now = new Date();
-  const end = new Date(contractEndDate);
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const endDayStart = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-  if (todayStart > endDayStart) return "expired";
-  if (todayStart.getTime() === endDayStart.getTime()) return "expires-today";
-  return "active";
-}
-
 function buildContractSnapshotUpdate(contracts, selectedContractId) {
   const selected = (Array.isArray(contracts) ? contracts : []).find(
     (contract) => String(contract.contractId) === String(selectedContractId),
@@ -2146,7 +2192,7 @@ function buildContractSnapshotUpdate(contracts, selectedContractId) {
     masar_contract_number: selected.contractNumber || "",
     masar_contract_end_date: selected.contractEndDate || "",
     masar_contract_status_name: selected.contractStatus?.name || "",
-    masar_contract_state: getContractState(selected),
+    masar_contract_state: ContextChange.getSelectableContractState(selected),
   };
 }
 
@@ -2336,14 +2382,14 @@ async function drainSubmissionBatch(
         batch = {
           ...batch,
           blocked_reason: result.failureKind || null,
-          blocked_ids: [...(batch.blocked_ids || []), ...(batch.active_id ? [batch.active_id] : [])],
+          blocked_ids: [...(batch.blocked_ids || []), uploadId],
           updated_at: new Date().toISOString(),
         };
         await persistSubmissionBatch(batch);
         terminalFailure = result;
         break;
       }
-      if (!batch.exhausted_source && (batch.queued_ids || []).length < 5) {
+      if (!batch.exhausted_source && !batch.discovery_error) {
         batch = await continueBatchDiscovery(batch);
         await persistSubmissionBatch(batch);
       }
@@ -2359,11 +2405,16 @@ async function drainSubmissionBatch(
       await ContextChange.clearSubmissionBatchContext();
       await clearSubmissionBatch();
     }
-    const records = await fetchAllRecords();
-    if (records.ok) {
-      await updateBadge(records.data);
+    const counts = await fetchRecordCounts();
+    if (counts.ok) {
+      await updateBadgeState({ failedCount: counts.data?.failed || 0 });
     } else {
-      await updateBadgeState({ failedCount: 0 });
+      const records = await fetchAllRecords();
+      if (records.ok) {
+        await updateBadge(records.data);
+      } else {
+        await updateBadgeState({ failedCount: 0 });
+      }
     }
     if (notifyComplete && processedCount > 0) {
       await Notifications.notify(Notifications.NOTIFICATION_TYPES.BATCH_COMPLETE, S.NOTIF_BATCH_COMPLETE);
@@ -2377,7 +2428,7 @@ async function drainSubmissionBatch(
   }
 }
 
-async function handleMessage(msg) {
+async function handleMessage(msg, sender = null) {
   log("handleMessage — type:", msg.type);
   if (msg.type === "POPUP_LOG") {
     log("[popup]", msg.scope || "popup", ...(Array.isArray(msg.args) ? msg.args : []));
@@ -2390,17 +2441,6 @@ async function handleMessage(msg) {
 
   if (msg.type === "SYNC_SESSION") {
     return syncSession();
-  }
-
-  if (msg.type === "GROUP_LIST_CAPTURED") {
-    await localSet({ masar_groups_cache: msg.data });
-    return { ok: true };
-  }
-
-  if (msg.type === "CONTRACT_LIST_CAPTURED") {
-    const contracts = msg.data?.response?.data?.contracts || [];
-    await storeContractSnapshot(contracts);
-    return { ok: true };
   }
 
   if (msg.type === "FETCH_GROUPS") {
@@ -2443,6 +2483,16 @@ async function handleMessage(msg) {
 
   if (msg.type === "SUBMIT_BATCH") {
     const uploadIds = Array.isArray(msg.uploadIds) ? msg.uploadIds : [];
+    if (uploadIds.length === 0) {
+      const existingBatch = await getSubmissionBatchState();
+      const canResume = Boolean(
+        existingBatch?.active_id
+        || (Array.isArray(existingBatch?.queued_ids) && existingBatch.queued_ids.length > 0),
+      );
+      if (!canResume) {
+        return { ok: false, errorCode: "submission-batch-missing" };
+      }
+    }
     serialiseSubmit(() => drainSubmissionBatch(uploadIds, {
       sourceTotal: msg.sourceTotal || null,
       nextOffset: msg.nextOffset || null,
@@ -2495,8 +2545,8 @@ async function handleMessage(msg) {
 }
 
 function startBackground() {
-  chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-    handleMessage(msg)
+  chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    handleMessage(msg, sender)
       .then(sendResponse)
       .catch((error) => {
         logError("handleMessage — unhandled rejection:", error.message);
@@ -2540,6 +2590,7 @@ if (typeof module === "object" && module.exports) {
     hasValidSessionSyncSignal,
     markRecordMissing,
     normalizeMasarAuthorizationHeader,
+    selectMasarAuthToken,
     canRotatePassportImage,
     rankSourceMasarTabs,
     resolveMasarRequestContext,

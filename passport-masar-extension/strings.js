@@ -100,6 +100,7 @@
     ACTION_SETTINGS: "الإعدادات",
     ACTION_REFRESH: "تحديث",
     ACTION_RESUME: "استئناف",
+    ACTION_LOAD_MORE: "تحميل المزيد",
 
     MAIN_KICKER: "جاهز للعمل",
     MAIN_TITLE: "لوحة الجوازات",
@@ -116,6 +117,7 @@
 
     SUBMIT_ALL_CONFIRM: (count) => `هل تريد رفع ${count} جواز؟`,
     SUBMIT_SUCCESS: "تم الرفع بنجاح",
+    SUBMIT_RESUME_UNAVAILABLE: "لا توجد دفعة جاهزة للاستئناف",
     LIST_REFRESH_FAILED: "تعذر تحديث القائمة",
     PROGRESS_BANNER_TITLE: "جارٍ رفع الجوازات",
     PROGRESS_BANNER_SUMMARY: (done, total) => `تم رفع ${done} من ${total}`,
@@ -159,6 +161,7 @@
     CONTRACT_SELECT_LABEL: "العقد",
     CONTRACT_SELECT_PLACEHOLDER: "اختر العقد",
     CONTRACT_NONE_AVAILABLE: "لا يوجد عقد نشط",
+    CONTRACT_NONE_AVAILABLE_CURRENT_ACCOUNT: "لا يوجد عقد نشط في الحساب الحالي",
     CONTRACT_ACTION_REQUIRED: "اختر العقد أولًا",
     CONTRACT_INACTIVE_ACTION_REQUIRED: "اختر عقدًا نشطًا أولًا",
     GROUP_ACTION_REQUIRED: "اختر المجموعة أولًا",

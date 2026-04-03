@@ -51,6 +51,28 @@ test("mergeOptimisticSections shows retried failed rows in progress while queued
   assert.deepEqual(sections.failed.map((record) => record.upload_id), []);
 });
 
+test("mergeOptimisticSections moves completed optimistic rows into submitted and failed sections", () => {
+  const sections = mergeOptimisticSections({
+    serverSections: {
+      pending: [{ upload_id: 1 }, { upload_id: 2 }, { upload_id: 3 }],
+      submitted: [{ upload_id: 4 }],
+      failed: [{ upload_id: 5 }],
+    },
+    batchState: {
+      queued_ids: [3],
+      active_id: null,
+      submitted_ids: [1],
+      failed_ids: [2],
+    },
+    activeSubmitId: null,
+  });
+
+  assert.deepEqual(sections.pending.map((record) => record.upload_id), []);
+  assert.deepEqual(sections.inProgress.map((record) => record.upload_id), [3]);
+  assert.deepEqual(sections.submitted.map((record) => record.upload_id), [1, 4]);
+  assert.deepEqual(sections.failed.map((record) => record.upload_id), [2, 5]);
+});
+
 test("normalizeBatchState supports the current array batch shape and active submit id", () => {
   const normalized = normalizeBatchState([1, 2], 3);
 

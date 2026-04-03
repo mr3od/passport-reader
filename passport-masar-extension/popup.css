@@ -593,6 +593,20 @@ button:disabled {
   padding: 12px;
 }
 
+.contract-empty {
+  min-height: 46px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: rgba(184, 127, 25, 0.08);
+  color: var(--text);
+  padding: 12px 14px;
+  display: grid;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.7;
+}
+
 .toolbar {
   justify-content: stretch;
 }
@@ -676,6 +690,11 @@ button:disabled {
 .skeleton-stack {
   display: grid;
   gap: 10px;
+}
+
+.load-more-row {
+  display: flex;
+  justify-content: center;
 }
 
 .record {

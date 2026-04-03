@@ -5,19 +5,22 @@ const {
   buildBatchBannerState,
   buildDisplayName,
   buildOptimisticCounts,
+  buildRenderableServerSections,
   ensureActionContextState,
   getRecordNote,
   getScreenTheme,
+  mergeTabPageState,
   renderHomeSummary,
   handleCardClick,
   handleSubmitResponse,
   handleContractSelectionChange,
+  buildContractPickerState,
+  decideBootstrapAction,
   getSubmissionContextMismatch,
   getSubmissionContextMismatchToast,
+  handleResumeBatchResponse,
   setDetailLinkLoadingState,
   showToast,
-  shouldRefreshContractsForStorageChange,
-  shouldRefreshWorkspaceForStorageChange,
 } = require("../popup.js");
 
 test("buildBatchBannerState summarizes the richer batch object", () => {
@@ -109,6 +112,82 @@ test("getScreenTheme maps popup screens to proposal-aligned visual tones", () =>
   });
 });
 
+test("decideBootstrapAction retries session sync before showing the activate screen", () => {
+  assert.equal(
+    decideBootstrapAction({
+      hasApiToken: true,
+      hasEntityAfterSync: true,
+    }),
+    "main",
+  );
+  assert.equal(
+    decideBootstrapAction({
+      hasApiToken: true,
+      hasEntityAfterSync: false,
+    }),
+    "activate",
+  );
+  assert.equal(
+    decideBootstrapAction({
+      hasApiToken: false,
+      hasEntityAfterSync: false,
+    }),
+    "setup",
+  );
+});
+
+test("buildContractPickerState hides the dropdown and shows a plain message when no contracts are selectable", () => {
+  const state = buildContractPickerState([
+    {
+      contractId: 7,
+      contractStatus: { id: 0 },
+      contractEndDate: "2020-01-01T00:00:00",
+    },
+  ], "7");
+
+  assert.equal(state.showDropdown, false);
+  assert.equal(state.selectableContracts.length, 0);
+  assert.equal(state.emptyMessage, "لا يوجد عقد نشط في الحساب الحالي");
+});
+
+test("buildContractPickerState keeps the dropdown when there is a real contract choice", () => {
+  const state = buildContractPickerState([
+    {
+      contractId: 7,
+      companyNameAr: "العقد الأول",
+      contractStatus: { id: 0 },
+      contractEndDate: "2099-01-01T00:00:00",
+    },
+    {
+      contractId: 8,
+      companyNameAr: "العقد الثاني",
+      contractStatus: { id: 0 },
+      contractEndDate: "2099-01-01T00:00:00",
+    },
+  ], "7");
+
+  assert.equal(state.showDropdown, true);
+  assert.equal(state.selectableContracts.length, 2);
+  assert.equal(state.emptyMessage, "");
+});
+
+test("handleResumeBatchResponse surfaces a missing batch instead of silently pretending to resume", async () => {
+  const calls = [];
+
+  const result = await handleResumeBatchResponse({
+    response: { ok: false, errorCode: "submission-batch-missing" },
+    onReload: async () => {
+      calls.push("reload");
+    },
+    onUnavailable: async () => {
+      calls.push("unavailable");
+    },
+  });
+
+  assert.equal(result, false);
+  assert.deepEqual(calls, ["unavailable"]);
+});
+
 test("renderHomeSummary updates pending and failed counters", () => {
   const pending = { textContent: "" };
   const failed = { textContent: "", dataset: {} };
@@ -147,6 +226,71 @@ test("buildOptimisticCounts supports the richer batch object shape", () => {
     ),
     { pending: 1, inProgress: 3, submitted: 2, failed: 1 },
   );
+});
+
+test("buildOptimisticCounts applies local submitted and failed transitions", () => {
+  assert.deepEqual(
+    buildOptimisticCounts(
+      { pending: 6, submitted: 2, failed: 1 },
+      {
+        queued_ids: [10],
+        active_id: 11,
+        submitted_ids: [12, 13],
+        failed_ids: [14],
+      },
+      null,
+    ),
+    { pending: 1, inProgress: 2, submitted: 4, failed: 2 },
+  );
+});
+
+test("buildRenderableServerSections replays the last submit result into cached sections", () => {
+  const sections = buildRenderableServerSections(
+    {
+      pending: [{ upload_id: 21, masar_status: null }],
+      submitted: [],
+      failed: [],
+    },
+    {
+      upload_id: 21,
+      status: "submitted",
+      masar_detail_id: "detail-21",
+      submission_contract_id: "c-1",
+    },
+  );
+
+  assert.deepEqual(sections.pending, []);
+  assert.equal(sections.submitted.length, 1);
+  assert.equal(sections.submitted[0].upload_id, 21);
+  assert.equal(sections.submitted[0].masar_status, "submitted");
+  assert.equal(sections.submitted[0].masar_detail_id, "detail-21");
+});
+
+test("mergeTabPageState appends later pages without losing earlier rows", () => {
+  const merged = mergeTabPageState(
+    {
+      items: [{ upload_id: 1 }, { upload_id: 2 }],
+      total: 240,
+      offset: 0,
+      hasMore: true,
+      loaded: true,
+      loading: false,
+      error: null,
+      lastLoadedAt: 1,
+    },
+    {
+      items: [{ upload_id: 3 }, { upload_id: 4 }],
+      total: 240,
+      offset: 2,
+      has_more: true,
+    },
+    { append: true, loadedAt: 2 },
+  );
+
+  assert.deepEqual(merged.items.map((record) => record.upload_id), [1, 2, 3, 4]);
+  assert.equal(merged.offset, 4);
+  assert.equal(merged.hasMore, true);
+  assert.equal(merged.lastLoadedAt, 2);
 });
 
 test("handleCardClick delegates mutamer details opening to the background worker", async () => {
@@ -455,80 +599,4 @@ test("getRecordNote hides unknown raw failure text behind the generic failed lab
     }),
     "فشل",
   );
-});
-
-test("shouldRefreshWorkspaceForStorageChange ignores unrelated local cache updates", () => {
-  const shouldRefresh = shouldRefreshWorkspaceForStorageChange({
-    areaName: "local",
-    changes: {
-      masar_groups_cache: {
-        oldValue: null,
-        newValue: { response: { data: { content: [] } } },
-      },
-    },
-    isMainScreenVisible: true,
-  });
-
-  assert.equal(shouldRefresh, false);
-});
-
-test("shouldRefreshWorkspaceForStorageChange refreshes for active ui context updates", () => {
-  const shouldRefresh = shouldRefreshWorkspaceForStorageChange({
-    areaName: "local",
-    changes: {
-      active_ui_context: {
-        oldValue: null,
-        newValue: { entity_id: "820456" },
-      },
-    },
-    isMainScreenVisible: true,
-  });
-
-  assert.equal(shouldRefresh, true);
-});
-
-test("shouldRefreshWorkspaceForStorageChange ignores contract-only local updates for contract refetch decisions", () => {
-  const shouldRefresh = shouldRefreshWorkspaceForStorageChange({
-    areaName: "local",
-    changes: {
-      masar_contract_id: {
-        oldValue: "1",
-        newValue: "2",
-      },
-    },
-    isMainScreenVisible: true,
-  });
-
-  assert.equal(shouldRefresh, true);
-});
-
-test("shouldRefreshContractsForStorageChange only reacts to entity or auth/session boundary changes", () => {
-  assert.equal(
-    shouldRefreshContractsForStorageChange("local", {
-      masar_contract_id: { oldValue: "1", newValue: "2" },
-      active_ui_context: { oldValue: {}, newValue: {} },
-    }),
-    false,
-  );
-  assert.equal(
-    shouldRefreshContractsForStorageChange("local", {
-      masar_entity_id: { oldValue: "1", newValue: "2" },
-    }),
-    true,
-  );
-});
-
-test("shouldRefreshWorkspaceForStorageChange refreshes for visible workspace state updates", () => {
-  const shouldRefresh = shouldRefreshWorkspaceForStorageChange({
-    areaName: "session",
-    changes: {
-      submission_batch: {
-        oldValue: [],
-        newValue: ["u1"],
-      },
-    },
-    isMainScreenVisible: true,
-  });
-
-  assert.equal(shouldRefresh, true);
 });

@@ -22,6 +22,7 @@ const {
   canRotatePassportImage,
   markRecordMissing,
   normalizeMasarAuthorizationHeader,
+  selectMasarAuthToken,
   rankSourceMasarTabs,
   resolveMutamerDetailsOutcomeResult,
   selectSourceMasarTab,
@@ -298,6 +299,29 @@ test("normalizeMasarAuthorizationHeader strips nested quotes and keeps a single 
   );
 });
 
+test("selectMasarAuthToken prefers the user token over a conflicting portal token", () => {
+  const buildToken = (payload) => `header.${Buffer.from(JSON.stringify(payload)).toString("base64url")}.sig`;
+
+  const selected = selectMasarAuthToken(
+    {
+      sessionToken: buildToken({
+        tokenType: 3,
+        defaultEntityId: 797512,
+        defaultEntityTypeId: 52,
+      }),
+      refreshToken: buildToken({ tokenType: 4 }),
+      permissionToken: buildToken({ tokenType: 3 }),
+      userToken: buildToken({ tokenType: 5 }),
+    },
+    {
+      entityId: "819455",
+      entityTypeId: "58",
+    },
+  );
+
+  assert.equal(selected, "Bearer header.eyJ0b2tlblR5cGUiOjV9.sig");
+});
+
 test("formatCookieDebugSummary groups cookies by name with compact previews", () => {
   assert.deepEqual(
     formatCookieDebugSummary([
@@ -501,7 +525,7 @@ test("resolveMutamerDetailsOutcomeResult maps expired sessions to inaccessible e
   );
   assert.deepEqual(
     await resolveMutamerDetailsOutcomeResult("unknown", null),
-    { ok: true, mode: "clone" },
+    { ok: false, errorCode: "mutamer-open-unconfirmed" },
   );
   assert.deepEqual(
     await resolveMutamerDetailsOutcomeResult("session-expired", null),
@@ -556,6 +580,7 @@ test("handleMessage opens Masar entry when no source tab exists for details expe
 
 test("handleMessage clears stale contract snapshot when contract refresh returns no contracts", async () => {
   const writes = [];
+  let requestHeaders = null;
   global.chrome = {
     storage: {
       local: {
@@ -581,15 +606,20 @@ test("handleMessage clears stale contract snapshot when contract refresh returns
       },
     },
   };
-  global.fetch = async () => ({
-    ok: true,
-    status: 200,
-    json: async () => ({ response: { data: { contracts: [] } } }),
-  });
+  global.fetch = async (_url, init) => {
+    requestHeaders = init?.headers || null;
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ response: { data: { contracts: [] } } }),
+    };
+  };
 
   const response = await handleMessage({ type: "FETCH_CONTRACTS" });
 
   assert.deepEqual(response, { ok: true, contracts: [] });
+  assert.equal(requestHeaders.contractid, "");
+  assert.equal(requestHeaders.activeentityid, "819868");
   assert.deepEqual(writes, [{
     masar_contract_id: "",
     masar_contract_name_en: "",
@@ -773,6 +803,48 @@ test("handleMessage fetches submit-eligible ids only", async () => {
   delete global.fetch;
 });
 
+test("handleMessage keeps records payload items when the list api returns pagination metadata", async () => {
+  global.API_BASE_URL = "https://passport-api.mr3od.dev";
+  global.chrome = {
+    storage: {
+      local: {
+        get: (_keys, callback) => callback({ api_token: "token" }),
+        set: (_values, callback) => callback?.(),
+      },
+      session: {
+        get: (_keys, callback) => callback({}),
+      },
+    },
+  };
+  global.fetch = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      items: [
+        { upload_id: 10, upload_status: "processed", masar_status: "failed" },
+        { upload_id: 11, upload_status: "processed", masar_status: null },
+      ],
+      limit: 50,
+      offset: 0,
+      total: 2,
+      has_more: false,
+    }),
+  });
+
+  const response = await handleMessage({ type: "FETCH_ALL_RECORDS" });
+
+  assert.deepEqual(response, {
+    ok: true,
+    data: [
+      { upload_id: 10, upload_status: "processed", masar_status: "failed" },
+      { upload_id: 11, upload_status: "processed", masar_status: null },
+    ],
+  });
+  delete global.API_BASE_URL;
+  delete global.chrome;
+  delete global.fetch;
+});
+
 test("handleMessage preserves the cloned tab when the details route is not reached before timeout", async () => {
   const operations = [];
   let snapshotCalls = 0;
@@ -852,6 +924,198 @@ test("handleMessage preserves the cloned tab when the details route is not reach
   assert.deepEqual(response, { ok: true, mode: "clone-pending" });
   delete global.chrome;
   delete global.fetch;
+});
+
+test("handleMessage falls back to reuse when the captured snapshot has no session auth", async () => {
+  const operations = [];
+  global.chrome = {
+    tabs: {
+      query: async () => [
+        { id: 22, windowId: 2, url: "https://masar.nusuk.sa/umrah/dashboard", active: true },
+      ],
+      create: async ({ url, active }) => {
+        operations.push(["create", { url, active }]);
+        return { id: 30, windowId: 7, pendingUrl: url, status: "loading" };
+      },
+      update: async (tabId, payload) => {
+        operations.push(["update", { tabId, payload }]);
+        return { id: tabId, windowId: 2, ...payload };
+      },
+      get: async (tabId) => ({
+        id: tabId,
+        windowId: 2,
+        url: "https://masar.nusuk.sa/umrah/dashboard",
+        status: "complete",
+      }),
+    },
+    windows: {
+      update: async (windowId, payload) => {
+        operations.push(["window", { windowId, payload }]);
+      },
+    },
+    scripting: {
+      executeScript: async ({ args }) => {
+        if (args) {
+          return [{ result: true }];
+        }
+        return [{
+          result: {
+            sessionEntries: [],
+            localCurrentContract: "{\"contractId\":111111}",
+          },
+        }];
+      },
+    },
+    storage: {
+      local: {
+        get: (_keys, callback) => callback({}),
+      },
+      session: {
+        get: (_keys, callback) => callback({}),
+      },
+    },
+  };
+  global.fetch = async () => ({
+    status: 200,
+    json: async () => ({ Status: true, data: { id: 7 } }),
+  });
+
+  const response = await handleMessage({
+    type: "OPEN_MUTAMER_DETAILS_EXPERIMENT",
+    clickUrl: "https://masar.nusuk.sa/umrah/mutamer/mutamer-details/7",
+  });
+
+  assert.deepEqual(response, { ok: true, mode: "reuse" });
+  assert.deepEqual(operations, [
+    ["update", { tabId: 22, payload: { url: "https://masar.nusuk.sa/umrah/mutamer/mutamer-details/7", active: true } }],
+    ["window", { windowId: 2, payload: { focused: true } }],
+  ]);
+  delete global.chrome;
+  delete global.fetch;
+});
+
+test("handleMessage falls back to the record detail fetch when row details context is incomplete", async () => {
+  let recordFetches = 0;
+  global.API_BASE_URL = "https://passport-api.mr3od.dev";
+  global.chrome = {
+    tabs: {
+      query: async () => [
+        { id: 12, windowId: 2, url: "https://masar.nusuk.sa/umrah/mutamer/mutamer-list", active: true },
+      ],
+      create: async () => ({ id: 30, windowId: 7, pendingUrl: "https://masar.nusuk.sa/pub/login", status: "loading" }),
+      update: async (tabId, payload) => ({ id: tabId, windowId: tabId === 12 ? 2 : 7, ...payload }),
+      get: async () => ({
+        id: 30,
+        windowId: 7,
+        url: "https://masar.nusuk.sa/umrah/mutamer/mutamer-details/detail-1",
+        pendingUrl: undefined,
+        title: "Masar Nusuk | نسك مسار",
+        status: "complete",
+      }),
+      remove: async () => {},
+    },
+    windows: {
+      update: async () => {},
+    },
+    scripting: {
+      executeScript: async ({ target, args }) => {
+        if (args) {
+          return [{ result: true }];
+        }
+        if (target.tabId === 12) {
+          return [{
+            result: {
+              sessionEntries: [
+                ["pms-ac_En_Id", "819455"],
+                ["pms-ac_En_Type_Id", "58"],
+                ["pms-tk_session", "jwt-b"],
+              ],
+              localCurrentContract: "{\"contractId\":111111}",
+            },
+          }];
+        }
+        return [{ result: { href: "https://masar.nusuk.sa/umrah/mutamer/mutamer-details/detail-1", title: "Masar Nusuk | نسك مسار", bodyText: "passport number group details" } }];
+      },
+    },
+    storage: {
+      local: {
+        get: (_keys, callback) => callback({}),
+        set: (_values, callback) => callback?.(),
+      },
+      session: {
+        get: (_keys, callback) => callback({}),
+      },
+    },
+  };
+  global.fetch = async (url) => {
+    if (url.endsWith("/records/77")) {
+      recordFetches += 1;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          upload_id: 77,
+          submission_entity_id: "819868",
+          submission_entity_type_id: "58",
+          submission_contract_id: "222452",
+          submission_contract_name: "Contract A",
+          submission_contract_name_ar: "العقد أ",
+          submission_contract_name_en: "Contract A",
+          submission_contract_number: "0025",
+          submission_contract_status: true,
+          submission_uo_subscription_status_id: 1,
+        }),
+      };
+    }
+    return { ok: true, status: 200, json: async () => ({}) };
+  };
+
+  const response = await handleMessage({
+    type: "OPEN_MUTAMER_DETAILS_EXPERIMENT",
+    clickUrl: "https://masar.nusuk.sa/umrah/mutamer/mutamer-details/detail-1",
+    uploadId: 77,
+    detailsContext: {
+      submission_entity_id: null,
+      submission_entity_type_id: null,
+      submission_contract_id: null,
+      submission_contract_name: null,
+      submission_contract_name_ar: null,
+      submission_contract_name_en: null,
+      submission_contract_number: null,
+      submission_contract_status: null,
+      submission_uo_subscription_status_id: null,
+    },
+  });
+
+  assert.equal(recordFetches, 1);
+  assert.deepEqual(response, { ok: true, mode: "clone" });
+  delete global.API_BASE_URL;
+  delete global.chrome;
+  delete global.fetch;
+});
+
+test("handleMessage rejects batch resume when no persisted batch exists", async () => {
+  global.chrome = {
+    storage: {
+      local: {
+        get: (_keys, callback) => callback({}),
+      },
+      session: {
+        get: (_keys, callback) => callback({
+          submission_batch: null,
+          active_submit_id: null,
+        }),
+      },
+    },
+  };
+
+  const response = await handleMessage({
+    type: "SUBMIT_BATCH",
+    uploadIds: [],
+  });
+
+  assert.deepEqual(response, { ok: false, errorCode: "submission-batch-missing" });
+  delete global.chrome;
 });
 
 test("handleMessage returns missing-record failure after cloned tab lands on notfound", async () => {

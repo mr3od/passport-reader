@@ -12,6 +12,12 @@
         ? batchState.queued_ids
         : [];
     const activeId = Array.isArray(batchState) ? activeSubmitId : batchState?.active_id || activeSubmitId || null;
+    const submittedIds = new Set(
+      Array.isArray(batchState?.submitted_ids) ? batchState.submitted_ids : [],
+    );
+    const failedIds = new Set(
+      Array.isArray(batchState?.failed_ids) ? batchState.failed_ids : [],
+    );
     const inProgressIds = new Set(batchIds);
     if (activeId) {
       inProgressIds.add(activeId);
@@ -19,6 +25,8 @@
     return {
       inProgressIds,
       activeId,
+      submittedIds,
+      failedIds,
     };
   }
 
@@ -35,23 +43,55 @@
     const sections = {
       pending: [],
       inProgress: [],
-      submitted: Array.isArray(serverSections?.submitted) ? serverSections.submitted.slice() : [],
-      failed: Array.isArray(serverSections?.failed) ? serverSections.failed.slice() : [],
+      submitted: [],
+      failed: [],
+    };
+    const appendedSubmitted = new Set();
+    const appendedFailed = new Set();
+
+    const placeRecord = (record, sourceSection) => {
+      if (normalized.inProgressIds.has(record.upload_id)) {
+        sections.inProgress.push(record);
+        return;
+      }
+      if (normalized.submittedIds.has(record.upload_id)) {
+        if (!appendedSubmitted.has(record.upload_id)) {
+          sections.submitted.push({ ...record, masar_status: "submitted" });
+          appendedSubmitted.add(record.upload_id);
+        }
+        return;
+      }
+      if (normalized.failedIds.has(record.upload_id)) {
+        if (!appendedFailed.has(record.upload_id)) {
+          sections.failed.push({ ...record, masar_status: "failed" });
+          appendedFailed.add(record.upload_id);
+        }
+        return;
+      }
+      if (sourceSection === "submitted" || record.masar_status === "submitted") {
+        sections.submitted.push(record);
+        return;
+      }
+      if (
+        sourceSection === "failed"
+        || record.upload_status === "failed"
+        || record.masar_status === "failed"
+        || record.masar_status === "missing"
+      ) {
+        sections.failed.push(record);
+        return;
+      }
+      sections.pending.push(record);
     };
 
     for (const record of Array.isArray(serverSections?.pending) ? serverSections.pending : []) {
-      if (normalized.inProgressIds.has(record.upload_id)) {
-        sections.inProgress.push(record);
-        continue;
-      }
-      sections.pending.push(record);
+      placeRecord(record, "pending");
     }
-
-    for (const record of sections.failed.slice()) {
-      if (normalized.inProgressIds.has(record.upload_id)) {
-        sections.failed = sections.failed.filter((item) => item.upload_id !== record.upload_id);
-        sections.inProgress.push(record);
-      }
+    for (const record of Array.isArray(serverSections?.submitted) ? serverSections.submitted : []) {
+      placeRecord(record, "submitted");
+    }
+    for (const record of Array.isArray(serverSections?.failed) ? serverSections.failed : []) {
+      placeRecord(record, "failed");
     }
 
     return sections;
