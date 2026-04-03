@@ -229,7 +229,114 @@ def test_count_user_record_sections_returns_pending_submitted_failed(tmp_path) -
     assert counts.failed == 1
 
 
-def test_list_submit_eligible_record_ids_excludes_review_blocked_records(tmp_path) -> None:
+def test_failed_section_stays_scoped_to_the_current_user(tmp_path) -> None:
+    _, users, uploads, records = _build_records_service(tmp_path)
+    first_user = _seed_user(users, "12345", "Agency A")
+    second_user = _seed_user(users, "67890", "Agency B")
+    first_failed = _register_processed_upload(
+        uploads,
+        first_user.id,
+        filename="first-failed.jpg",
+        source_ref="telegram://first-failed",
+        passport_number="11111111",
+    )
+    second_missing = _register_processed_upload(
+        uploads,
+        second_user.id,
+        filename="second-missing.jpg",
+        source_ref="telegram://second-missing",
+        passport_number="22222222",
+    )
+    records.update_masar_status(
+        upload_id=first_failed.id,
+        user_id=first_user.id,
+        status="failed",
+        masar_mutamer_id=None,
+        masar_scan_result={"ok": False},
+        failure_reason_code="submit-failed",
+        failure_reason_text="Failed",
+    )
+    records.update_masar_status(
+        upload_id=second_missing.id,
+        user_id=second_user.id,
+        status="missing",
+        masar_mutamer_id=None,
+        masar_scan_result={"ok": False},
+        failure_reason_code="missing",
+        failure_reason_text="Missing",
+    )
+
+    failed_items = records.list_user_record_items(
+        first_user.id,
+        limit=50,
+        offset=0,
+        section="failed",
+    )
+    counts = records.count_user_record_sections(first_user.id)
+
+    assert [item.upload_id for item in failed_items.items] == [first_failed.id]
+    assert failed_items.total == 1
+    assert counts.failed == 1
+
+
+def test_count_user_record_sections_treats_review_needed_rows_as_pending_and_eligible(
+    tmp_path,
+) -> None:
+    _, users, uploads, records = _build_records_service(tmp_path)
+    user = _seed_user(users, "12345", "Agency A")
+    review_needed = _register_processed_upload(
+        uploads,
+        user.id,
+        filename="review-needed.jpg",
+        source_ref="telegram://review-needed",
+        passport_number="11111111",
+        review_status="needs_review",
+    )
+    retry_failed = _register_processed_upload(
+        uploads,
+        user.id,
+        filename="retry-failed.jpg",
+        source_ref="telegram://retry-failed",
+        passport_number="22222222",
+    )
+    retry_missing = _register_processed_upload(
+        uploads,
+        user.id,
+        filename="retry-missing.jpg",
+        source_ref="telegram://retry-missing",
+        passport_number="33333333",
+    )
+    records.update_masar_status(
+        upload_id=retry_failed.id,
+        user_id=user.id,
+        status="failed",
+        masar_mutamer_id=None,
+        masar_scan_result={"ok": False},
+        failure_reason_code="submit-failed",
+        failure_reason_text="Failed",
+    )
+    records.update_masar_status(
+        upload_id=retry_missing.id,
+        user_id=user.id,
+        status="missing",
+        masar_mutamer_id=None,
+        masar_scan_result={"ok": False},
+        failure_reason_code="missing",
+        failure_reason_text="Missing",
+    )
+
+    pending = records.list_user_record_items(user.id, limit=50, offset=0, section="pending")
+    counts = records.count_user_record_sections(user.id)
+    eligible = records.list_submit_eligible_record_ids(user.id, limit=100, offset=0)
+
+    assert review_needed.id in [item.upload_id for item in pending.items]
+    assert retry_failed.id not in [item.upload_id for item in pending.items]
+    assert retry_missing.id not in [item.upload_id for item in pending.items]
+    assert counts.pending == 1
+    assert [item.upload_id for item in eligible.items] == [review_needed.id]
+
+
+def test_list_submit_eligible_record_ids_includes_review_needed_records(tmp_path) -> None:
     _, users, uploads, records = _build_records_service(tmp_path)
     user = _seed_user(users, "12345", "Agency A")
     eligible_upload = _register_processed_upload(
@@ -240,7 +347,7 @@ def test_list_submit_eligible_record_ids_excludes_review_blocked_records(tmp_pat
         passport_number="11111111",
         review_status="auto",
     )
-    _register_processed_upload(
+    review_needed_upload = _register_processed_upload(
         uploads,
         user.id,
         filename="blocked.jpg",
@@ -251,15 +358,21 @@ def test_list_submit_eligible_record_ids_excludes_review_blocked_records(tmp_pat
 
     result = records.list_submit_eligible_record_ids(user.id, limit=100, offset=0)
 
-    assert result.total == 1
+    assert result.total == 2
     assert result.has_more is False
     assert result.items == [
+        type(result.items[0])(
+            upload_id=review_needed_upload.id,
+            upload_status=result.items[0].upload_status,
+            review_status="needs_review",
+            masar_status=None,
+        ),
         type(result.items[0])(
             upload_id=eligible_upload.id,
             upload_status=result.items[0].upload_status,
             review_status="auto",
             masar_status=None,
-        )
+        ),
     ]
 
 

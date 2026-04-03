@@ -33,11 +33,19 @@ It currently exposes:
   - `pending`
   - `submitted`
   - `failed`
+- `pending` list/count semantics are extension-workspace semantics:
+  - includes processed records that can still be submitted from the main lane
+  - `review_status` does not block pending visibility
+  - excludes records whose latest submit attempt is already `failed` or `missing`
 - `GET /records/ids` is the lightweight submit-eligibility discovery endpoint for the extension bulk-submit flow.
   - query params:
     - `section=pending`
     - `limit`: default `100`, max `100`
     - `offset`: default `0`
+  - eligibility matches the main pending lane:
+    - `upload_status = processed`
+    - latest `masar_status IS NULL`
+    - `review_status` does not block bulk submission
 - `GET /records/{upload_id}` remains the heavy detail endpoint.
   - this route may still return:
     - `extraction_result`

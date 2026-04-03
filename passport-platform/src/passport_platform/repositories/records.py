@@ -472,13 +472,14 @@ def _section_where_clause(section: str) -> str:
     clauses = {
         "pending": """
             uploads.status = 'processed'
-            AND COALESCE(processing_results.review_status, 'auto') != 'needs_review'
             AND ms.masar_status IS NULL
         """,
         "submitted": "ms.masar_status = 'submitted'",
         "failed": """
-            uploads.status = 'failed'
-            OR ms.masar_status IN ('failed', 'missing')
+            (
+                uploads.status = 'failed'
+                OR ms.masar_status IN ('failed', 'missing')
+            )
         """,
         "all": "1 = 1",
     }
@@ -492,8 +493,7 @@ def _submit_eligible_where_clause() -> str:
     """Return the SQL predicate for bulk-submit discovery."""
     return """
         uploads.status = 'processed'
-        AND COALESCE(processing_results.review_status, 'auto') != 'needs_review'
-        AND (ms.masar_status IS NULL OR ms.masar_status IN ('failed', 'missing'))
+        AND ms.masar_status IS NULL
     """
 
 
