@@ -173,6 +173,67 @@ class UserRecord:
     masar_mutamer_id: str | None
     masar_scan_result: dict[str, Any] | None
     masar_detail_id: str | None
+    submission_entity_id: str | None
+    submission_entity_type_id: str | None
+    submission_entity_name: str | None
+    submission_contract_id: str | None
+    submission_contract_name: str | None
+    submission_contract_name_ar: str | None
+    submission_contract_name_en: str | None
+    submission_contract_number: str | None
+    submission_contract_status: bool | None
+    submission_uo_subscription_status_id: int | None
+    submission_group_id: str | None
+    submission_group_name: str | None
+    submission_group_number: str | None
+    failure_reason_code: str | None
+    failure_reason_text: str | None
+
+
+@dataclass(slots=True)
+class UserRecordListItem:
+    upload_id: int
+    filename: str
+    upload_status: UploadStatus
+    review_status: str | None
+    masar_status: str | None
+    masar_detail_id: str | None
+    passport_number: str | None
+    full_name_ar: str | None
+    full_name_en: str | None
+    created_at: datetime
+    completed_at: datetime | None
+    failure_reason_code: str | None
+    failure_reason_text: str | None
+
+
+@dataclass(slots=True)
+class UserRecordListResult:
+    items: list[UserRecordListItem]
+    total: int
+    has_more: bool
+
+
+@dataclass(slots=True)
+class UserRecordCounts:
+    pending: int
+    submitted: int
+    failed: int
+
+
+@dataclass(slots=True)
+class UserRecordIdItem:
+    upload_id: int
+    upload_status: UploadStatus
+    review_status: str | None
+    masar_status: str | None
+
+
+@dataclass(slots=True)
+class UserRecordIdListResult:
+    items: list[UserRecordIdItem]
+    total: int
+    has_more: bool
 
 
 def _build_extraction_view(data: object | None) -> PassportExtractionView | None:
