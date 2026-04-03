@@ -8,6 +8,7 @@ on:
     paths:
       - "passport-masar-extension/**"
       - "scripts/build-extension.sh"
+      - ".github/workflows/extension-release.yml"
 
 jobs:
   release-extension:
