@@ -9,7 +9,7 @@ test("config exposes API_BASE_URL on the global object for popup bootstrap", () 
 
   require("../config.js");
 
-  assert.equal(global.API_BASE_URL, "http://127.0.0.1:8000");
+  assert.equal(global.API_BASE_URL, "https://passport-api.mr3od.dev");
 });
 
 test("normalizeBaseUrl trims trailing slashes", () => {
