@@ -1113,17 +1113,34 @@
   }
 
   async function submitBatch(uploadIds) {
-    if (!uploadIds.length) {
-      return;
-    }
     if (!(await ensureActionContext("batch"))) {
       return;
     }
-    const confirmed = window.confirm(Strings.SUBMIT_ALL_CONFIRM(uploadIds.length));
+    const discovery = await sendMsg(
+      { type: "FETCH_SUBMIT_ELIGIBLE_IDS", section: "pending", limit: 100, offset: 0 },
+      { timeoutMs: 10000 },
+    );
+    if (!discovery?.ok) {
+      showToast(Strings.ERR_UNEXPECTED, { tone: "error" });
+      return;
+    }
+    const discoveredIds = Array.isArray(discovery.data?.items)
+      ? discovery.data.items.map((item) => item.upload_id).filter(Boolean)
+      : [];
+    const sourceTotal = discovery.data?.total || discoveredIds.length;
+    if (!discoveredIds.length) {
+      return;
+    }
+    const confirmed = window.confirm(Strings.SUBMIT_ALL_CONFIRM(sourceTotal));
     if (!confirmed) {
       return;
     }
-    const response = await sendMsg({ type: "SUBMIT_BATCH", uploadIds }, { timeoutMs: 30000 });
+    const response = await sendMsg({
+      type: "SUBMIT_BATCH",
+      uploadIds: discoveredIds,
+      sourceTotal,
+      nextOffset: discoveredIds.length,
+    }, { timeoutMs: 30000 });
     await handleSubmitResponse({
       response,
       classifyFailure: Failure.classifyFailure,

@@ -2,7 +2,9 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
+  appendDiscoveredIds,
   buildPassportImageUpload,
+  buildSubmissionBatchState,
   buildContractSnapshotUpdate,
   buildStoredSubmissionContext,
   buildStoredDetailsContextOverride,
@@ -25,6 +27,39 @@ const {
   selectSourceMasarTab,
   shouldPersistContractSnapshot,
 } = require("../background.js");
+
+test("buildSubmissionBatchState seeds active and queued ids from the first discovery page", () => {
+  const batch = buildSubmissionBatchState({
+    discoveredIds: [10, 11, 12],
+    sourceTotal: 240,
+    nextOffset: 100,
+  });
+
+  assert.equal(batch.active_id, 10);
+  assert.deepEqual(batch.queued_ids, [11, 12]);
+  assert.equal(batch.source_total, 240);
+  assert.equal(batch.next_offset, 100);
+  assert.equal(batch.exhausted_source, false);
+});
+
+test("appendDiscoveredIds appends later discovery pages without duplicating queued ids", () => {
+  const batch = buildSubmissionBatchState({
+    discoveredIds: [10, 11, 12],
+    sourceTotal: 240,
+    nextOffset: 100,
+  });
+
+  const updated = appendDiscoveredIds(
+    batch,
+    [{ upload_id: 12 }, { upload_id: 13 }, { upload_id: 14 }],
+    240,
+    200,
+  );
+
+  assert.deepEqual(updated.discovered_ids, [10, 11, 12, 13, 14]);
+  assert.deepEqual(updated.queued_ids, [11, 12, 13, 14]);
+  assert.equal(updated.next_offset, 200);
+});
 
 test("buildPassportImageUpload preserves stored mime type and filename", async () => {
   const payload = buildPassportImageUpload(

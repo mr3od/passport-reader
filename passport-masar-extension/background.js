@@ -1391,6 +1391,97 @@ function buildSubmissionBatchContext(submissionContext) {
   };
 }
 
+function isRichSubmissionBatch(batch) {
+  return Boolean(
+    batch
+    && typeof batch === "object"
+    && !Array.isArray(batch)
+    && (
+      Array.isArray(batch.discovered_ids)
+      || Array.isArray(batch.queued_ids)
+      || batch.active_id
+    ),
+  );
+}
+
+function buildSubmissionBatchState({
+  discoveredIds,
+  sourceTotal,
+  nextOffset,
+  activeId = null,
+  startedAt = null,
+}) {
+  const uniqueIds = [...new Set(Array.isArray(discoveredIds) ? discoveredIds : [])];
+  const resolvedActiveId = activeId || uniqueIds[0] || null;
+  return {
+    batch_id: `${Date.now()}-${resolvedActiveId || "batch"}`,
+    discovered_ids: uniqueIds,
+    queued_ids: uniqueIds.filter((uploadId) => uploadId !== resolvedActiveId),
+    active_id: resolvedActiveId,
+    submitted_ids: [],
+    failed_ids: [],
+    blocked_ids: [],
+    blocked_reason: null,
+    discovery_error: false,
+    exhausted_source: nextOffset >= sourceTotal,
+    next_offset: nextOffset,
+    source_total: sourceTotal,
+    started_at: startedAt || new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+}
+
+function appendDiscoveredIds(batch, items, sourceTotal, nextOffset) {
+  const discoveredIds = [...new Set([
+    ...(Array.isArray(batch?.discovered_ids) ? batch.discovered_ids : []),
+    ...((Array.isArray(items) ? items : []).map((item) => item.upload_id).filter(Boolean)),
+  ])];
+  const queuedIds = [...new Set([
+    ...(Array.isArray(batch?.queued_ids) ? batch.queued_ids : []),
+    ...((Array.isArray(items) ? items : []).map((item) => item.upload_id).filter((uploadId) => (
+      uploadId
+      && uploadId !== batch.active_id
+      && !(batch.submitted_ids || []).includes(uploadId)
+      && !(batch.failed_ids || []).includes(uploadId)
+      && !(batch.blocked_ids || []).includes(uploadId)
+    ))),
+  ])];
+  return {
+    ...batch,
+    discovered_ids: discoveredIds,
+    queued_ids: queuedIds,
+    discovery_error: false,
+    exhausted_source: nextOffset >= sourceTotal,
+    next_offset: nextOffset,
+    source_total: sourceTotal,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+async function persistSubmissionBatch(batch) {
+  await sessionSet({
+    submission_batch: batch,
+    active_submit_id: batch?.active_id || null,
+  });
+}
+
+async function getSubmissionBatchState() {
+  const session = await sessionGet(["submission_batch", "active_submit_id"]);
+  if (isRichSubmissionBatch(session.submission_batch)) {
+    return session.submission_batch;
+  }
+  const legacyBatch = Array.isArray(session.submission_batch) ? session.submission_batch : [];
+  if (legacyBatch.length === 0 && !session.active_submit_id) {
+    return null;
+  }
+  return buildSubmissionBatchState({
+    discoveredIds: legacyBatch,
+    sourceTotal: legacyBatch.length,
+    nextOffset: legacyBatch.length,
+    activeId: session.active_submit_id || null,
+  });
+}
+
 async function buildRecordLookup(uploadIds) {
   const lookup = new Map();
   for (const uploadId of uploadIds) {
@@ -1404,7 +1495,7 @@ async function buildRecordLookup(uploadIds) {
 
 async function clearSubmissionBatch() {
   await sessionSet({
-    submission_batch: [],
+    submission_batch: null,
     active_submit_id: null,
     last_submit_result: null,
     submission_state: ContextChange.SUBMISSION_STATES.IDLE,
@@ -1417,17 +1508,53 @@ async function ensureSubmissionSessionConsistency() {
     return;
   }
   const session = await sessionGet(["submission_batch", "active_submit_id"]);
+  if (isRichSubmissionBatch(session.submission_batch)) {
+    return;
+  }
   const batch = Array.isArray(session.submission_batch) ? session.submission_batch : [];
   if (batch.length > 0 || session.active_submit_id) {
     await clearSubmissionBatch();
   }
 }
 
-async function removeFromBatch(uploadId) {
-  const session = await sessionGet(["submission_batch"]);
-  const nextBatch = (session.submission_batch || []).filter((id) => id !== uploadId);
-  await sessionSet({ submission_batch: nextBatch });
-  return nextBatch;
+function advanceSubmissionBatch(batch, uploadId, result) {
+  const remainingQueuedIds = [uploadId, ...(batch.queued_ids || [])].filter((id) => id !== uploadId);
+  const nextActiveId = remainingQueuedIds[0] || null;
+  return {
+    ...batch,
+    queued_ids: nextActiveId ? remainingQueuedIds.slice(1) : [],
+    active_id: nextActiveId,
+    submitted_ids: result?.status === "submitted"
+      ? [...(batch.submitted_ids || []), uploadId]
+      : (batch.submitted_ids || []),
+    failed_ids: result?.status === "failed"
+      ? [...(batch.failed_ids || []), uploadId]
+      : (batch.failed_ids || []),
+    blocked_reason: null,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+async function continueBatchDiscovery(batch) {
+  if (batch.exhausted_source || batch.next_offset >= batch.source_total) {
+    return batch;
+  }
+  const response = await fetchSubmitEligibleIds(100, batch.next_offset);
+  if (!response.ok) {
+    return {
+      ...batch,
+      discovery_error: true,
+      updated_at: new Date().toISOString(),
+    };
+  }
+  const items = Array.isArray(response.data?.items) ? response.data.items : [];
+  const nextOffset = (response.data?.offset || batch.next_offset) + items.length;
+  return appendDiscoveredIds(
+    batch,
+    items,
+    response.data?.total || batch.source_total,
+    nextOffset,
+  );
 }
 
 // ─── Submission workflow ──────────────────────────────────────────────────────
@@ -2125,7 +2252,10 @@ function shouldStopBatchAfterResult(result) {
   );
 }
 
-async function drainSubmissionBatch(uploadIds, { notifyComplete = true } = {}) {
+async function drainSubmissionBatch(
+  uploadIds,
+  { notifyComplete = true, sourceTotal = null, nextOffset = null } = {},
+) {
   _isDrainingSubmissions = true;
   const uniqueIds = [...new Set(uploadIds)];
   try {
@@ -2133,24 +2263,41 @@ async function drainSubmissionBatch(uploadIds, { notifyComplete = true } = {}) {
     const submissionContext = await getCurrentSubmissionContext();
     const batchRequestContext = buildSubmissionBatchContext(submissionContext);
     await ContextChange.setSubmissionBatchContext(batchRequestContext);
+    let batch = await getSubmissionBatchState();
+    if (!batch) {
+      batch = buildSubmissionBatchState({
+        discoveredIds: uniqueIds,
+        sourceTotal: sourceTotal || uniqueIds.length,
+        nextOffset: nextOffset || uniqueIds.length,
+      });
+    }
+    await persistSubmissionBatch(batch);
     await sessionSet({
-      submission_batch: uniqueIds,
-      active_submit_id: null,
       submission_state:
-        uniqueIds.length > 1 ? ContextChange.SUBMISSION_STATES.QUEUED_MORE : ContextChange.SUBMISSION_STATES.IDLE,
+        ((batch.queued_ids || []).length > 0)
+          ? ContextChange.SUBMISSION_STATES.QUEUED_MORE
+          : ContextChange.SUBMISSION_STATES.IDLE,
     });
-    const recordsLookup = await buildRecordLookup(uniqueIds);
+    const recordsLookup = await buildRecordLookup(batch.discovered_ids || uniqueIds);
 
     let processedCount = 0;
     let terminalFailure = null;
-    for (const uploadId of uniqueIds) {
+    while (batch?.active_id) {
+      const uploadId = batch.active_id;
+      if (!recordsLookup.has(uploadId)) {
+        const fetchedRecord = await fetchRecordById(uploadId);
+        if (fetchedRecord?.upload_id === uploadId) {
+          recordsLookup.set(uploadId, fetchedRecord);
+        }
+      }
       const record = recordsLookup.get(uploadId) || null;
       if (!record || !shouldSubmitRecord(record)) {
-        await removeFromBatch(uploadId);
+        batch = advanceSubmissionBatch(batch, uploadId, { status: "failed" });
+        await persistSubmissionBatch(batch);
         continue;
       }
 
-      await sessionSet({ active_submit_id: uploadId });
+      await persistSubmissionBatch(batch);
       await ContextChange.setSubmissionState(ContextChange.SUBMISSION_STATES.SUBMITTING_CURRENT);
       const result = await processRecordSubmission(record, submissionContext, batchRequestContext);
       processedCount += 1;
@@ -2183,24 +2330,34 @@ async function drainSubmissionBatch(uploadIds, { notifyComplete = true } = {}) {
           at: Date.now(),
         },
       });
-
-      const remaining = await removeFromBatch(uploadId);
-      await sessionSet({ active_submit_id: null });
+      batch = advanceSubmissionBatch(batch, uploadId, result);
+      await persistSubmissionBatch(batch);
       if (shouldStopBatchAfterResult(result)) {
+        batch = {
+          ...batch,
+          blocked_reason: result.failureKind || null,
+          blocked_ids: [...(batch.blocked_ids || []), ...(batch.active_id ? [batch.active_id] : [])],
+          updated_at: new Date().toISOString(),
+        };
+        await persistSubmissionBatch(batch);
         terminalFailure = result;
         break;
       }
-      if (remaining.length > 0) {
+      if (!batch.exhausted_source && (batch.queued_ids || []).length < 5) {
+        batch = await continueBatchDiscovery(batch);
+        await persistSubmissionBatch(batch);
+      }
+      if ((batch.queued_ids || []).length > 0 || batch.active_id) {
         await ContextChange.setSubmissionState(ContextChange.SUBMISSION_STATES.QUEUED_MORE);
       }
     }
 
-    const tail = await sessionGet(["submission_batch"]);
-    if ((tail.submission_batch || []).length > 0) {
-      await clearSubmissionBatch();
+    if (terminalFailure) {
+      await ContextChange.setSubmissionState(ContextChange.SUBMISSION_STATES.IDLE);
     } else {
       await ContextChange.setSubmissionState(ContextChange.SUBMISSION_STATES.IDLE);
       await ContextChange.clearSubmissionBatchContext();
+      await clearSubmissionBatch();
     }
     const records = await fetchAllRecords();
     if (records.ok) {
@@ -2286,7 +2443,10 @@ async function handleMessage(msg) {
 
   if (msg.type === "SUBMIT_BATCH") {
     const uploadIds = Array.isArray(msg.uploadIds) ? msg.uploadIds : [];
-    serialiseSubmit(() => drainSubmissionBatch(uploadIds)).catch((error) => {
+    serialiseSubmit(() => drainSubmissionBatch(uploadIds, {
+      sourceTotal: msg.sourceTotal || null,
+      nextOffset: msg.nextOffset || null,
+    })).catch((error) => {
       logError("SUBMIT_BATCH — unhandled submission failure:", error.message);
     });
     return { ok: true };
@@ -2360,9 +2520,11 @@ function startBackground() {
 if (typeof module === "object" && module.exports) {
   module.exports = {
     buildPassportImageUpload,
+    buildSubmissionBatchState,
     buildSubmissionBatchContext,
     buildStoredCurrentContractValue,
     buildStoredDetailsContextOverride,
+    appendDiscoveredIds,
     buildContractSnapshotUpdate,
     buildStoredSubmissionContext,
     classifyMutamerDetailsOutcome,

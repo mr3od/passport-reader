@@ -115,6 +115,17 @@ test("buildOptimisticCounts moves queued records from pending into in-progress",
   );
 });
 
+test("buildOptimisticCounts supports the richer batch object shape", () => {
+  assert.deepEqual(
+    buildOptimisticCounts(
+      { pending: 4, submitted: 2, failed: 1 },
+      { queued_ids: [10, 11], active_id: 12 },
+      null,
+    ),
+    { pending: 1, inProgress: 3, submitted: 2, failed: 1 },
+  );
+});
+
 test("handleCardClick delegates mutamer details opening to the background worker", async () => {
   const messages = [];
   global.chrome = {
