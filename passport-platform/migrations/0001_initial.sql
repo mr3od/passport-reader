@@ -48,6 +48,21 @@ CREATE TABLE IF NOT EXISTS masar_submissions (
     mutamer_id TEXT,
     scan_result_json TEXT,
     masar_detail_id TEXT,
+    submission_entity_id TEXT,
+    submission_entity_type_id TEXT,
+    submission_entity_name TEXT,
+    submission_contract_id TEXT,
+    submission_contract_name TEXT,
+    submission_contract_name_ar TEXT,
+    submission_contract_name_en TEXT,
+    submission_contract_number TEXT,
+    submission_contract_status INTEGER,
+    submission_uo_subscription_status_id INTEGER,
+    submission_group_id TEXT,
+    submission_group_name TEXT,
+    submission_group_number TEXT,
+    failure_reason_code TEXT,
+    failure_reason_text TEXT,
     submitted_at TEXT,
     created_at TEXT NOT NULL,
     FOREIGN KEY (upload_id) REFERENCES uploads(id) ON DELETE CASCADE
@@ -82,3 +97,6 @@ CREATE TABLE IF NOT EXISTS usage_ledger (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (upload_id) REFERENCES uploads(id) ON DELETE SET NULL
 );
+
+CREATE INDEX IF NOT EXISTS idx_uploads_user_created_at_id_desc
+    ON uploads (user_id, created_at DESC, id DESC);

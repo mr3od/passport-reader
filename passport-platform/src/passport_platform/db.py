@@ -58,6 +58,21 @@ CREATE TABLE IF NOT EXISTS masar_submissions (
     mutamer_id TEXT,
     scan_result_json TEXT,
     masar_detail_id TEXT,
+    submission_entity_id TEXT,
+    submission_entity_type_id TEXT,
+    submission_entity_name TEXT,
+    submission_contract_id TEXT,
+    submission_contract_name TEXT,
+    submission_contract_name_ar TEXT,
+    submission_contract_name_en TEXT,
+    submission_contract_number TEXT,
+    submission_contract_status INTEGER,
+    submission_uo_subscription_status_id INTEGER,
+    submission_group_id TEXT,
+    submission_group_name TEXT,
+    submission_group_number TEXT,
+    failure_reason_code TEXT,
+    failure_reason_text TEXT,
     submitted_at TEXT,
     created_at TEXT NOT NULL,
     FOREIGN KEY (upload_id) REFERENCES uploads(id) ON DELETE CASCADE
@@ -100,6 +115,9 @@ CREATE INDEX IF NOT EXISTS idx_users_external_identity
 
 CREATE INDEX IF NOT EXISTS idx_uploads_user_created_at
     ON uploads (user_id, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_uploads_user_created_at_id_desc
+    ON uploads (user_id, created_at DESC, id DESC);
 
 CREATE INDEX IF NOT EXISTS idx_processing_results_upload_id
     ON processing_results (upload_id);
@@ -166,8 +184,51 @@ class Database:
 
     @staticmethod
     def _upgrade_schema(conn: sqlite3.Connection) -> None:
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_uploads_user_created_at_id_desc "
+            "ON uploads (user_id, created_at DESC, id DESC)"
+        )
         masar_columns = {
             row["name"] for row in conn.execute("PRAGMA table_info(masar_submissions)").fetchall()
         }
         if "masar_detail_id" not in masar_columns:
             conn.execute("ALTER TABLE masar_submissions ADD COLUMN masar_detail_id TEXT")
+        if "submission_entity_id" not in masar_columns:
+            conn.execute("ALTER TABLE masar_submissions ADD COLUMN submission_entity_id TEXT")
+        if "submission_entity_type_id" not in masar_columns:
+            conn.execute("ALTER TABLE masar_submissions ADD COLUMN submission_entity_type_id TEXT")
+        if "submission_entity_name" not in masar_columns:
+            conn.execute("ALTER TABLE masar_submissions ADD COLUMN submission_entity_name TEXT")
+        if "submission_contract_id" not in masar_columns:
+            conn.execute("ALTER TABLE masar_submissions ADD COLUMN submission_contract_id TEXT")
+        if "submission_contract_name" not in masar_columns:
+            conn.execute("ALTER TABLE masar_submissions ADD COLUMN submission_contract_name TEXT")
+        if "submission_contract_name_ar" not in masar_columns:
+            conn.execute(
+                "ALTER TABLE masar_submissions ADD COLUMN submission_contract_name_ar TEXT"
+            )
+        if "submission_contract_name_en" not in masar_columns:
+            conn.execute(
+                "ALTER TABLE masar_submissions ADD COLUMN submission_contract_name_en TEXT"
+            )
+        if "submission_contract_number" not in masar_columns:
+            conn.execute("ALTER TABLE masar_submissions ADD COLUMN submission_contract_number TEXT")
+        if "submission_contract_status" not in masar_columns:
+            conn.execute(
+                "ALTER TABLE masar_submissions ADD COLUMN submission_contract_status INTEGER"
+            )
+        if "submission_uo_subscription_status_id" not in masar_columns:
+            conn.execute(
+                "ALTER TABLE masar_submissions "
+                "ADD COLUMN submission_uo_subscription_status_id INTEGER"
+            )
+        if "submission_group_id" not in masar_columns:
+            conn.execute("ALTER TABLE masar_submissions ADD COLUMN submission_group_id TEXT")
+        if "submission_group_name" not in masar_columns:
+            conn.execute("ALTER TABLE masar_submissions ADD COLUMN submission_group_name TEXT")
+        if "submission_group_number" not in masar_columns:
+            conn.execute("ALTER TABLE masar_submissions ADD COLUMN submission_group_number TEXT")
+        if "failure_reason_code" not in masar_columns:
+            conn.execute("ALTER TABLE masar_submissions ADD COLUMN failure_reason_code TEXT")
+        if "failure_reason_text" not in masar_columns:
+            conn.execute("ALTER TABLE masar_submissions ADD COLUMN failure_reason_text TEXT")
