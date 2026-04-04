@@ -53,3 +53,7 @@ validate-setup.sh
 *.har
 state.json
 passport-benchmark/runs
+scripts/seed_dev_benchmark_user.py
+research/EXTENSION_CODEX_ANALYSIS_PROMPT.md
+research/script-results.json
+research/bad request in submission flow.md
