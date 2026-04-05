@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import io
 import logging
 import mimetypes
@@ -10,6 +11,8 @@ from typing import Any, cast
 
 from passport_platform import (
     AuthService,
+    BroadcastContentType,
+    BroadcastService,
     ChannelName,
     ExternalProvider,
     ProcessingFailedError,
@@ -173,6 +176,7 @@ class BotServices:
     quotas: QuotaService
     reporting: ReportingService
     records: RecordsService
+    broadcasts: BroadcastService
 
     def close(self) -> None:
         self.processing.close()
@@ -186,7 +190,13 @@ def build_application(settings: TelegramSettings) -> Application:
         acquire_timeout_seconds=settings.inflight_acquire_timeout_seconds,
     )
 
-    application = Application.builder().token(settings.bot_token.get_secret_value()).build()
+    application = (
+        Application.builder()
+        .token(settings.bot_token.get_secret_value())
+        .post_init(_post_init)
+        .post_shutdown(_post_shutdown)
+        .build()
+    )
     application.bot_data["settings"] = settings
     application.bot_data["services"] = services
     application.bot_data["collector"] = collector
@@ -479,6 +489,77 @@ async def telegram_error_handler(
     logging.getLogger(__name__).exception("telegram_update_failed", exc_info=context.error)
 
 
+async def deliver_pending_broadcast(*, bot, services: BotServices) -> None:
+    broadcast = await asyncio.to_thread(services.broadcasts.claim_next_pending_broadcast)
+    if broadcast is None:
+        return
+
+    users = await asyncio.to_thread(
+        services.users.list_active_users_by_provider,
+        ExternalProvider.TELEGRAM,
+    )
+    sent_count = 0
+    failed_count = 0
+
+    try:
+        for user in users:
+            chat_id = int(user.external_user_id)
+            try:
+                if broadcast.content_type is BroadcastContentType.TEXT:
+                    await bot.send_message(chat_id=chat_id, text=broadcast.text_body or "")
+                else:
+                    with Path(broadcast.artifact_path or "").open("rb") as photo_file:
+                        await bot.send_photo(
+                            chat_id=chat_id,
+                            photo=photo_file,
+                            caption=broadcast.caption,
+                        )
+                sent_count += 1
+            except Exception:
+                logging.getLogger(__name__).exception(
+                    "broadcast_delivery_failed",
+                    extra={"broadcast_id": broadcast.id, "external_user_id": user.external_user_id},
+                )
+                failed_count += 1
+    except Exception as exc:
+        await asyncio.to_thread(
+            services.broadcasts.mark_failed,
+            broadcast.id,
+            error_message=str(exc),
+        )
+        return
+
+    await asyncio.to_thread(
+        services.broadcasts.mark_completed,
+        broadcast.id,
+        sent_count=sent_count,
+        failed_count=failed_count,
+    )
+
+
+async def broadcast_worker(application: Application) -> None:
+    services: BotServices = application.bot_data["services"]
+    while True:
+        try:
+            await deliver_pending_broadcast(bot=application.bot, services=services)
+        except Exception:
+            logging.getLogger(__name__).exception("broadcast_worker_failed")
+        await asyncio.sleep(3)
+
+
+async def _post_init(application: Application) -> None:
+    application.bot_data["broadcast_worker_task"] = asyncio.create_task(broadcast_worker(application))
+
+
+async def _post_shutdown(application: Application) -> None:
+    task = application.bot_data.get("broadcast_worker_task")
+    if task is None:
+        return
+    task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await task
+
+
 def _build_bot_services(settings: TelegramSettings) -> BotServices:
     platform_runtime = build_platform_runtime()
     processing_runtime = build_processing_runtime(platform_runtime=platform_runtime)
@@ -493,6 +574,7 @@ def _build_bot_services(settings: TelegramSettings) -> BotServices:
         quotas=platform_runtime.quotas,
         reporting=platform_runtime.reporting,
         records=platform_runtime.records,
+        broadcasts=platform_runtime.broadcasts,
     )
 
 

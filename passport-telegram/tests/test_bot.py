@@ -2,18 +2,20 @@ from __future__ import annotations
 
 import asyncio
 from datetime import UTC, datetime
+from pathlib import Path
 from types import SimpleNamespace
 from typing import cast
 from unittest.mock import patch
 
 import pytest
-from passport_platform import IssuedTempToken, PlanName, QuotaDecision
+from passport_platform import BroadcastContentType, IssuedTempToken, PlanName, QuotaDecision
 from passport_platform.enums import UserStatus
 from passport_platform.models.auth import TempToken
 from passport_telegram.bot import (
     InflightLimiter,
     TelegramImageUpload,
     account_command,
+    deliver_pending_broadcast,
     plan_command,
     process_upload_batch,
     token_command,
@@ -40,6 +42,19 @@ class FakeBot:
         parse_mode: str | None = None,
     ) -> None:
         self.photos.append((chat_id, photo, caption, parse_mode))
+
+
+class BroadcastAwareBot(FakeBot):
+    async def send_photo(
+        self,
+        *,
+        chat_id: int,
+        photo,
+        caption: str | None = None,
+        parse_mode: str | None = None,
+    ) -> None:
+        payload = photo.read() if hasattr(photo, "read") else photo
+        self.photos.append((chat_id, payload, caption or "", parse_mode))
 
 
 class FakeReplyMessage:
@@ -398,3 +413,60 @@ def test_inflight_limiter_allows_same_user_up_to_global_limit():
         second.release()
 
     asyncio.run(run())
+
+
+def test_deliver_pending_broadcast_sends_text_to_active_users(tmp_path) -> None:
+    bot = BroadcastAwareBot()
+    broadcast = SimpleNamespace(
+        id=7,
+        content_type=BroadcastContentType.TEXT,
+        text_body="Maintenance",
+        caption=None,
+        artifact_path=None,
+    )
+    services = SimpleNamespace(
+        broadcasts=SimpleNamespace(
+            claim_next_pending_broadcast=lambda: broadcast,
+            mark_completed=lambda broadcast_id, sent_count, failed_count: SimpleNamespace(),
+            mark_failed=lambda broadcast_id, error_message: SimpleNamespace(),
+        ),
+        users=SimpleNamespace(
+            list_active_users_by_provider=lambda provider: [
+                SimpleNamespace(external_user_id="100"),
+                SimpleNamespace(external_user_id="200"),
+            ]
+        ),
+    )
+
+    asyncio.run(deliver_pending_broadcast(bot=bot, services=services))
+
+    assert bot.messages == [(100, "Maintenance"), (200, "Maintenance")]
+
+
+def test_deliver_pending_broadcast_reuploads_photo_bytes(tmp_path) -> None:
+    bot = BroadcastAwareBot()
+    artifact = tmp_path / "broadcast.jpg"
+    artifact.write_bytes(b"image")
+    broadcast = SimpleNamespace(
+        id=9,
+        content_type=BroadcastContentType.PHOTO,
+        text_body=None,
+        caption="Read this",
+        artifact_path=str(artifact),
+    )
+    services = SimpleNamespace(
+        broadcasts=SimpleNamespace(
+            claim_next_pending_broadcast=lambda: broadcast,
+            mark_completed=lambda broadcast_id, sent_count, failed_count: SimpleNamespace(),
+            mark_failed=lambda broadcast_id, error_message: SimpleNamespace(),
+        ),
+        users=SimpleNamespace(
+            list_active_users_by_provider=lambda provider: [SimpleNamespace(external_user_id="100")]
+        ),
+    )
+
+    asyncio.run(deliver_pending_broadcast(bot=bot, services=services))
+
+    assert bot.photos[0][0] == 100
+    assert bot.photos[0][1] == b"image"
+    assert bot.photos[0][2] == "Read this"
