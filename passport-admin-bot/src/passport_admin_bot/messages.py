@@ -17,7 +17,9 @@ def help_text() -> str:
         "/usage <telegram_user_id> - usage for one agency\n"
         "/setplan <telegram_user_id> <free|basic|pro> - change plan\n"
         "/block <telegram_user_id> - block agency access\n"
-        "/unblock <telegram_user_id> - restore agency access"
+        "/unblock <telegram_user_id> - restore agency access\n"
+        "/broadcast <message> - queue a text broadcast\n"
+        "/broadcast - reply to a photo to queue a photo broadcast"
     )
 
 
@@ -35,6 +37,18 @@ def setplan_help_text() -> str:
 
 def status_help_text(command_name: str) -> str:
     return f"Usage: /{command_name} <telegram_user_id>"
+
+
+def broadcast_help_text() -> str:
+    return "Usage:\n/broadcast <message>\nor reply to a photo with /broadcast"
+
+
+def broadcast_queued_text() -> str:
+    return "Broadcast queued successfully."
+
+
+def broadcast_download_failed_text() -> str:
+    return "Could not download the photo for broadcast."
 
 
 def user_not_found_text(external_user_id: str) -> str:

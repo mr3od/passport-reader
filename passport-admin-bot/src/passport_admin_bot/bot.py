@@ -5,6 +5,7 @@ import logging
 from dataclasses import dataclass
 
 from passport_platform import (
+    BroadcastService,
     ExternalProvider,
     PlanName,
     ReportingService,
@@ -12,12 +13,15 @@ from passport_platform import (
     UserStatus,
     build_platform_runtime,
 )
-from telegram import Update
+from telegram import Message, PhotoSize, Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 from passport_admin_bot.config import AdminBotSettings
 from passport_admin_bot.messages import (
     admin_only_text,
+    broadcast_download_failed_text,
+    broadcast_help_text,
+    broadcast_queued_text,
     format_monthly_usage_report,
     format_recent_uploads,
     format_user_usage_report,
@@ -36,6 +40,7 @@ from passport_admin_bot.messages import (
 class BotServices:
     users: UserService
     reporting: ReportingService
+    broadcasts: BroadcastService
 
     def close(self) -> None:
         return None
@@ -56,6 +61,7 @@ def build_application(settings: AdminBotSettings) -> Application:
     application.add_handler(CommandHandler("setplan", setplan_command))
     application.add_handler(CommandHandler("block", block_command))
     application.add_handler(CommandHandler("unblock", unblock_command))
+    application.add_handler(CommandHandler("broadcast", broadcast_command))
     return application
 
 
@@ -145,6 +151,49 @@ async def unblock_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     await _set_user_status(update, context, UserStatus.ACTIVE, "unblock")
 
 
+async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not await _require_admin(update, context):
+        return
+
+    services: BotServices = context.application.bot_data["services"]
+    admin_user = update.effective_user
+    if admin_user is None:
+        await _reply_text(update, broadcast_help_text())
+        return
+
+    message_text = " ".join(context.args or []).strip()
+    if message_text:
+        services.broadcasts.create_text_broadcast(
+            created_by_external_user_id=str(admin_user.id),
+            text_body=message_text,
+        )
+        await _reply_text(update, broadcast_queued_text())
+        return
+
+    message = getattr(update, "message", None)
+    reply_to_message = message.reply_to_message if message else None
+    photo = _largest_photo(reply_to_message)
+    if photo is None:
+        await _reply_text(update, broadcast_help_text())
+        return
+
+    telegram_file = await context.bot.get_file(photo.file_id)
+    try:
+        photo_bytes = bytes(await telegram_file.download_as_bytearray())
+    except Exception:
+        await _reply_text(update, broadcast_download_failed_text())
+        return
+
+    services.broadcasts.create_photo_broadcast(
+        created_by_external_user_id=str(admin_user.id),
+        photo_bytes=photo_bytes,
+        filename="broadcast.jpg",
+        content_type="image/jpeg",
+        caption=reply_to_message.caption if reply_to_message else None,
+    )
+    await _reply_text(update, broadcast_queued_text())
+
+
 async def telegram_error_handler(
     update: object,
     context: ContextTypes.DEFAULT_TYPE,
@@ -157,6 +206,7 @@ def _build_bot_services() -> BotServices:
     return BotServices(
         users=platform_runtime.users,
         reporting=platform_runtime.reporting,
+        broadcasts=platform_runtime.broadcasts,
     )
 
 
@@ -218,6 +268,12 @@ def _parse_plan(value: str) -> PlanName | None:
         return PlanName(value.lower())
     except ValueError:
         return None
+
+
+def _largest_photo(message: Message | None) -> PhotoSize | None:
+    if message is None or not message.photo:
+        return None
+    return message.photo[-1]
 
 
 async def _reply_text(update: Update, text: str) -> None:
