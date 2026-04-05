@@ -23,6 +23,7 @@ COPY passport-api/src /build/passport-api/src
 COPY passport-telegram/src /build/passport-telegram/src
 COPY passport-admin-bot/src /build/passport-admin-bot/src
 COPY passport-benchmark/src /build/passport-benchmark/src
+COPY passport-benchmark/cases/labeled /build/passport-benchmark/cases/labeled
 
 RUN uv sync --all-packages --locked --no-dev --no-editable && \
     /build/.venv/bin/python -c "import passport_admin_bot.cli, passport_api.cli, passport_platform, passport_telegram.cli"
@@ -41,6 +42,7 @@ WORKDIR /app
 
 COPY --from=builder /build/.venv /app/.venv
 COPY --from=builder /build/passport-core/assets /app/assets
+COPY --from=builder /build/passport-benchmark/cases/labeled /app/benchmark-cases
 
 RUN mkdir -p /data/artifacts && \
     useradd -m -u 1000 appuser && \
