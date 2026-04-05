@@ -107,6 +107,23 @@ CREATE TABLE IF NOT EXISTS usage_ledger (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (upload_id) REFERENCES uploads(id) ON DELETE SET NULL
 );
+
+CREATE TABLE IF NOT EXISTS broadcasts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_by_external_user_id TEXT NOT NULL,
+    content_type TEXT NOT NULL,
+    text_body TEXT,
+    caption TEXT,
+    artifact_path TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    total_targets INTEGER NOT NULL DEFAULT 0,
+    sent_count INTEGER NOT NULL DEFAULT 0,
+    failed_count INTEGER NOT NULL DEFAULT 0,
+    error_message TEXT,
+    created_at TEXT NOT NULL,
+    started_at TEXT,
+    completed_at TEXT
+);
 """
 
 INDEX_SQL = """
@@ -142,6 +159,9 @@ CREATE INDEX IF NOT EXISTS idx_extension_sessions_user_created_at
 
 CREATE INDEX IF NOT EXISTS idx_usage_ledger_user_event_created_at
     ON usage_ledger (user_id, event_type, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_broadcasts_status_created_at
+    ON broadcasts (status, created_at, id);
 """
 
 
@@ -187,6 +207,30 @@ class Database:
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_uploads_user_created_at_id_desc "
             "ON uploads (user_id, created_at DESC, id DESC)"
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS broadcasts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_by_external_user_id TEXT NOT NULL,
+                content_type TEXT NOT NULL,
+                text_body TEXT,
+                caption TEXT,
+                artifact_path TEXT,
+                status TEXT NOT NULL DEFAULT 'pending',
+                total_targets INTEGER NOT NULL DEFAULT 0,
+                sent_count INTEGER NOT NULL DEFAULT 0,
+                failed_count INTEGER NOT NULL DEFAULT 0,
+                error_message TEXT,
+                created_at TEXT NOT NULL,
+                started_at TEXT,
+                completed_at TEXT
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_broadcasts_status_created_at "
+            "ON broadcasts (status, created_at, id)"
         )
         masar_columns = {
             row["name"] for row in conn.execute("PRAGMA table_info(masar_submissions)").fetchall()
