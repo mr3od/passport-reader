@@ -15,18 +15,6 @@ const ContextChange =
 
 // ─── Badge ────────────────────────────────────────────────────────────────────
 
-function updateBadge(records) {
-  return updateBadgeState({ failedCount: countFailedRecords(records) });
-}
-
-function countFailedRecords(records) {
-  return (Array.isArray(records) ? records : []).filter(
-    (record) =>
-      record.upload_status === "failed"
-      || record.masar_status === "failed"
-      || record.masar_status === "missing",
-  ).length;
-}
 
 function taggedError(failureKind, message, metadata = null) {
   const error = new Error(message);
@@ -1232,27 +1220,6 @@ async function apiFetch(path, options = {}) {
   return res;
 }
 
-async function fetchAllRecords() {
-  const response = await apiFetch("/records?limit=200");
-  if (!response.ok) {
-    if (response.status === 401) {
-      await localSet({ session_expired: true });
-      await updateBadgeState({ failedCount: 0 });
-    }
-    return {
-      ok: false,
-      status: response.status,
-      failureKind: response.status === 401 ? "backend-auth" : null,
-    };
-  }
-  await localSet({ session_expired: false });
-  const data = await response.json();
-  const items = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
-  await updateBadgeState({
-    failedCount: countFailedRecords(items),
-  });
-  return { ok: true, data: items };
-}
 
 async function fetchRecordPage(section, limit, offset) {
   const response = await apiFetch(
@@ -2404,16 +2371,7 @@ async function drainSubmissionBatch(
       await clearSubmissionBatch();
     }
     const counts = await fetchRecordCounts();
-    if (counts.ok) {
-      await updateBadgeState({ failedCount: counts.data?.failed || 0 });
-    } else {
-      const records = await fetchAllRecords();
-      if (records.ok) {
-        await updateBadge(records.data);
-      } else {
-        await updateBadgeState({ failedCount: 0 });
-      }
-    }
+    await updateBadgeState({ failedCount: counts.ok ? (counts.data?.failed || 0) : 0 });
     if (notifyComplete && processedCount > 0) {
       await Notifications.notify(Notifications.NOTIFICATION_TYPES.BATCH_COMPLETE, S.NOTIF_BATCH_COMPLETE);
     }
@@ -2463,11 +2421,7 @@ async function handleMessage(msg, sender = null) {
     }
   }
 
-  if (msg.type === "FETCH_ALL_RECORDS") {
-    return fetchAllRecords();
-  }
-
-  if (msg.type === "FETCH_RECORD_PAGE") {
+if (msg.type === "FETCH_RECORD_PAGE") {
     return fetchRecordPage(msg.section || "pending", msg.limit || 50, msg.offset || 0);
   }
 
@@ -2590,7 +2544,6 @@ if (typeof module === "object" && module.exports) {
     buildContractSnapshotUpdate,
     buildStoredSubmissionContext,
     classifyMutamerDetailsOutcome,
-    countFailedRecords,
     extractMutamerDetailId,
     extractMasarContextFromSnapshot,
     fetchRecordCounts,

@@ -11,7 +11,6 @@ const {
   buildStoredCurrentContractValue,
   classifyMutamerDetailsOutcome,
   shouldSubmitRecord,
-  countFailedRecords,
   extractMutamerDetailId,
   extractMasarContextFromSnapshot,
   formatCookieDebugSummary,
@@ -118,17 +117,6 @@ test("shouldSubmitRecord allows retries for missing Masar records", () => {
   );
 });
 
-test("countFailedRecords includes processing failures and Masar failures", () => {
-  assert.equal(
-    countFailedRecords([
-      { upload_status: "failed", masar_status: null },
-      { upload_status: "processed", masar_status: "failed" },
-      { upload_status: "processed", masar_status: "missing" },
-      { upload_status: "processed", masar_status: "submitted" },
-    ]),
-    3,
-  );
-});
 
 test("shouldStopBatchAfterResult aborts the batch when auth recovery is needed", () => {
   assert.equal(shouldStopBatchAfterResult({ ok: false, failureKind: "backend-auth" }), true);
@@ -803,47 +791,6 @@ test("handleMessage fetches submit-eligible ids only", async () => {
   delete global.fetch;
 });
 
-test("handleMessage keeps records payload items when the list api returns pagination metadata", async () => {
-  global.API_BASE_URL = "https://passport-api.mr3od.dev";
-  global.chrome = {
-    storage: {
-      local: {
-        get: (_keys, callback) => callback({ api_token: "token" }),
-        set: (_values, callback) => callback?.(),
-      },
-      session: {
-        get: (_keys, callback) => callback({}),
-      },
-    },
-  };
-  global.fetch = async () => ({
-    ok: true,
-    status: 200,
-    json: async () => ({
-      items: [
-        { upload_id: 10, upload_status: "processed", masar_status: "failed" },
-        { upload_id: 11, upload_status: "processed", masar_status: null },
-      ],
-      limit: 50,
-      offset: 0,
-      total: 2,
-      has_more: false,
-    }),
-  });
-
-  const response = await handleMessage({ type: "FETCH_ALL_RECORDS" });
-
-  assert.deepEqual(response, {
-    ok: true,
-    data: [
-      { upload_id: 10, upload_status: "processed", masar_status: "failed" },
-      { upload_id: 11, upload_status: "processed", masar_status: null },
-    ],
-  });
-  delete global.API_BASE_URL;
-  delete global.chrome;
-  delete global.fetch;
-});
 
 test("handleMessage preserves the cloned tab when the details route is not reached before timeout", async () => {
   const operations = [];

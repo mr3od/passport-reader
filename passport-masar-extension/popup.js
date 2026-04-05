@@ -1414,9 +1414,28 @@ function renderEmptyState(container, message) {
     await loadMainWorkspace({ showLoading: true, fetchRecords: true });
   }
 
+  function bindStorageListener() {
+    if (typeof chrome === "undefined" || !chrome.storage?.session?.onChanged) return;
+    chrome.storage.session.onChanged.addListener((changes) => {
+      if (!changes.submission_batch && !changes.active_submit_id) return;
+      if (!state.lastLocalData) return;
+      sessionGet(["submission_batch", "active_submit_id", "last_submit_result"]).then((sessionData) => {
+        const prevBatch = state.lastSessionData?.submission_batch;
+        const nextBatch = sessionData?.submission_batch;
+        const prevInProgress = QueueFilter.normalizeBatchState(prevBatch || [], state.lastSessionData?.active_submit_id || null).inProgressIds.size;
+        const nextInProgress = QueueFilter.normalizeBatchState(nextBatch || [], sessionData?.active_submit_id || null).inProgressIds.size;
+        renderWorkspaceFromCache(state.lastLocalData, sessionData);
+        if (prevInProgress > 0 && nextInProgress === 0 && !state.isWorkspaceLoading) {
+          void loadMainWorkspace({ showLoading: false, fetchRecords: true, refreshContracts: false });
+        }
+      });
+    });
+  }
+
   async function bootstrap() {
     setStaticCopy();
     bindEvents();
+    bindStorageListener();
     await init();
   }
 
