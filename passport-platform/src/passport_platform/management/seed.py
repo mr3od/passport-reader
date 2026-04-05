@@ -51,6 +51,22 @@ def _source_ref(case_dir: Path) -> str:
     return f"benchmark://{case_dir.name}"
 
 
+def _reset_masar_submissions(runtime, user) -> int:
+    """Delete all masar submission rows for the user's benchmark uploads. Returns deleted count."""
+    with runtime.db.transaction() as conn:
+        result = conn.execute(
+            """
+            DELETE FROM masar_submissions
+            WHERE upload_id IN (
+                SELECT id FROM uploads
+                WHERE user_id = ? AND source_ref LIKE 'benchmark://%'
+            )
+            """,
+            (user.id,),
+        )
+        return result.rowcount
+
+
 def _seed_user(runtime, user, cases_dir: Path) -> tuple[int, int]:
     """Import benchmark cases for a single user. Returns (created, skipped)."""
     existing = {
@@ -149,11 +165,13 @@ def main() -> int:
             continue
 
         created, skipped = _seed_user(runtime, user, args.cases_dir)
+        reset = _reset_masar_submissions(runtime, user)
         print(
             f"telegram_user_id={telegram_user_id} "
             f"user_id={user.id} "
             f"records_created={created} "
-            f"records_skipped={skipped}"
+            f"records_skipped={skipped} "
+            f"masar_submissions_reset={reset}"
         )
 
     return 0
