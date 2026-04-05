@@ -1519,7 +1519,7 @@ function renderEmptyState(container, message) {
           tempToken: $("api-token-input").value.trim(),
           fetchImpl: fetch,
         });
-        await localSet({ api_token: issued.sessionToken });
+        await localSet({ api_token: issued.sessionToken, session_expired: false, submit_auth_required: null });
         $("api-token-input").value = "";
         await init();
       } catch (error) {

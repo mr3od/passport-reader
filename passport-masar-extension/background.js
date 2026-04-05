@@ -927,12 +927,7 @@ async function openMutamerDetailsExperiment(clickUrl, uploadId = null, detailsCo
 // ─── Masar API helpers ────────────────────────────────────────────────────────
 
 async function getMasarEntityHeaders() {
-  return new Promise((resolve) => {
-    chrome.storage.local.get(
-      ["masar_entity_id", "masar_entity_type_id", "masar_contract_id", "masar_auth_token"],
-      (items) => resolve(items)
-    );
-  });
+  return localGet(["masar_entity_id", "masar_entity_type_id", "masar_contract_id", "masar_auth_token"]);
 }
 
 function resolveMasarRequestContext(batchContext, storedContext) {
@@ -1153,7 +1148,7 @@ async function syncSessionFromMasar() {
 async function syncSession() {
   try {
     const synced = await syncSessionFromMasar();
-    chrome.storage.local.set({
+    void localSet({
       masar_last_synced: Date.now(),
       ...(synced ? { session_expired: false, submit_auth_required: null } : {}),
     });
@@ -1199,14 +1194,8 @@ async function fetchGroups(contractId = null) {
 
 // ─── Passport-API helpers ─────────────────────────────────────────────────────
 
-async function getApiToken() {
-  return new Promise((resolve) => {
-    chrome.storage.local.get(["api_token"], (items) => resolve(items.api_token || null));
-  });
-}
-
 async function apiFetch(path, options = {}) {
-  const token = await getApiToken();
+  const { api_token: token } = await localGet(["api_token"]);
   log(`apiFetch — ${options.method || "GET"} ${API_BASE_URL}${path} token:`, token ? token.slice(0, 20) + "..." : "MISSING");
   const res = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
@@ -1217,6 +1206,10 @@ async function apiFetch(path, options = {}) {
     },
   });
   log(`apiFetch — response status:`, res.status);
+  if (res.status === 401) {
+    await localSet({ session_expired: true });
+    await updateBadgeState({ failedCount: 0 });
+  }
   return res;
 }
 
@@ -1226,34 +1219,24 @@ async function fetchRecordPage(section, limit, offset) {
     `/records?section=${encodeURIComponent(section)}&limit=${limit}&offset=${offset}`,
   );
   if (!response.ok) {
-    if (response.status === 401) {
-      await localSet({ session_expired: true });
-      await updateBadgeState({ failedCount: 0 });
-    }
     return {
       ok: false,
       status: response.status,
       failureKind: response.status === 401 ? "backend-auth" : null,
     };
   }
-  await localSet({ session_expired: false });
   return { ok: true, data: await response.json() };
 }
 
 async function fetchRecordCounts() {
   const response = await apiFetch("/records/counts");
   if (!response.ok) {
-    if (response.status === 401) {
-      await localSet({ session_expired: true });
-      await updateBadgeState({ failedCount: 0 });
-    }
     return {
       ok: false,
       status: response.status,
       failureKind: response.status === 401 ? "backend-auth" : null,
     };
   }
-  await localSet({ session_expired: false });
   return { ok: true, data: await response.json() };
 }
 
@@ -1262,34 +1245,22 @@ async function fetchSubmitEligibleIds(limit, offset) {
     `/records/ids?section=pending&limit=${limit}&offset=${offset}`,
   );
   if (!response.ok) {
-    if (response.status === 401) {
-      await localSet({ session_expired: true });
-      await updateBadgeState({ failedCount: 0 });
-    }
     return {
       ok: false,
       status: response.status,
       failureKind: response.status === 401 ? "backend-auth" : null,
     };
   }
-  await localSet({ session_expired: false });
   return { ok: true, data: await response.json() };
 }
 
 async function fetchRecordById(uploadId) {
   const response = await apiFetch(`/records/${uploadId}`);
   if (!response.ok) {
-    if (response.status === 401) {
-      await localSet({ session_expired: true });
-      await updateBadgeState({ failedCount: 0 });
-      throw taggedError("backend-auth", `record ${response.status}`);
-    }
-    if (response.status === 404) {
-      return null;
-    }
+    if (response.status === 401) throw taggedError("backend-auth", `record ${response.status}`);
+    if (response.status === 404) return null;
     throw taggedError(null, `record ${response.status}`);
   }
-  await localSet({ session_expired: false });
   return response.json();
 }
 
@@ -1817,9 +1788,7 @@ async function submitToMasar(record, requestContext) {
       failureReason: buildFailureReason("contract-missing"),
     });
   }
-  const settings = await new Promise((resolve) =>
-    chrome.storage.local.get(["agency_email", "agency_phone", "agency_phone_country_code"], resolve)
-  );
+  const settings = await localGet(["agency_email", "agency_phone", "agency_phone_country_code"]);
 
   // passport-core OCR data — used for all text fields (better quality than ScanPassport OCR).
   // ScanPassport is still called for image uploads and numeric IDs it returns.
