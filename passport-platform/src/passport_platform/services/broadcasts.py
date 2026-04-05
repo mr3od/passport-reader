@@ -18,7 +18,9 @@ class BroadcastService:
         self.users = users
         self.artifacts = artifacts
 
-    def create_text_broadcast(self, *, created_by_external_user_id: str, text_body: str) -> Broadcast:
+    def create_text_broadcast(
+        self, *, created_by_external_user_id: str, text_body: str
+    ) -> Broadcast:
         return self.broadcasts.create(
             created_by_external_user_id=created_by_external_user_id,
             content_type=BroadcastContentType.TEXT,

@@ -15,9 +15,7 @@ def test_database_initializes_broadcasts_table(tmp_path) -> None:
     db.initialize()
 
     with db.connect() as conn:
-        columns = {
-            row["name"] for row in conn.execute("PRAGMA table_info(broadcasts)").fetchall()
-        }
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info(broadcasts)").fetchall()}
 
     assert {
         "id",

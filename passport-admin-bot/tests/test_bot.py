@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from typing import cast
 
 from passport_admin_bot.bot import admin_command, broadcast_command, recent_command, stats_command
-from passport_platform import MonthlyUsageReport
+from passport_platform import MonthlyUsageReport, PlanName
 from passport_platform.enums import UploadStatus, UserStatus
 from passport_platform.schemas.results import RecentUploadRecord
 from telegram import Update
@@ -101,7 +101,7 @@ def test_recent_command_formats_recent_uploads_for_admin():
                     external_provider="telegram",
                     external_user_id="12345",
                     display_name="Agency A",
-                    plan="basic",
+                    plan=PlanName.BASIC,
                     user_status=UserStatus.ACTIVE,
                     filename="passport.jpg",
                     source_ref="telegram://1",

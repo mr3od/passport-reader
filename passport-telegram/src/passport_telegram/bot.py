@@ -548,7 +548,9 @@ async def broadcast_worker(application: Application) -> None:
 
 
 async def _post_init(application: Application) -> None:
-    application.bot_data["broadcast_worker_task"] = asyncio.create_task(broadcast_worker(application))
+    application.bot_data["broadcast_worker_task"] = asyncio.create_task(
+        broadcast_worker(application)
+    )
 
 
 async def _post_shutdown(application: Application) -> None:

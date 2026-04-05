@@ -19,6 +19,13 @@ Agent-maintained log of significant changes. Each entry records what was done an
 - Added a main-workspace nudge banner that appears when `agency_email` and `agency_phone` are both unset, with an "إعداد الآن" button that opens settings
 - Changed default country code from 966 to 967 (Yemen)
 
+## 2026-04-06 — admin-to-agency Telegram broadcasts [codex]
+
+- Added a platform-backed broadcast queue for text and photo notifications, including artifact storage for admin-uploaded images
+- Added an admin-only `/broadcast` command for text messages and reply-to-photo broadcasts
+- Added an agency-bot background worker that claims queued broadcasts and fans them out to active Telegram users
+- Added focused platform, admin bot, and agency bot tests covering queue creation, user targeting, and delivery behavior
+
 ## 2026-03-31 — submission stability follow-up and record lookup optimization [codex]
 
 - Added `GET /records/{upload_id}` to `passport-api` so extension flows can fetch a specific record without reloading the full `/records?limit=200` list

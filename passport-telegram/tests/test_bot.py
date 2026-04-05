@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 from datetime import UTC, datetime
-from pathlib import Path
 from types import SimpleNamespace
 from typing import cast
 from unittest.mock import patch
@@ -12,6 +11,7 @@ from passport_platform import BroadcastContentType, IssuedTempToken, PlanName, Q
 from passport_platform.enums import UserStatus
 from passport_platform.models.auth import TempToken
 from passport_telegram.bot import (
+    BotServices,
     InflightLimiter,
     TelegramImageUpload,
     account_command,
@@ -438,7 +438,7 @@ def test_deliver_pending_broadcast_sends_text_to_active_users(tmp_path) -> None:
         ),
     )
 
-    asyncio.run(deliver_pending_broadcast(bot=bot, services=services))
+    asyncio.run(deliver_pending_broadcast(bot=bot, services=cast(BotServices, services)))
 
     assert bot.messages == [(100, "Maintenance"), (200, "Maintenance")]
 
@@ -465,7 +465,7 @@ def test_deliver_pending_broadcast_reuploads_photo_bytes(tmp_path) -> None:
         ),
     )
 
-    asyncio.run(deliver_pending_broadcast(bot=bot, services=services))
+    asyncio.run(deliver_pending_broadcast(bot=bot, services=cast(BotServices, services)))
 
     assert bot.photos[0][0] == 100
     assert bot.photos[0][1] == b"image"

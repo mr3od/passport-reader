@@ -99,7 +99,11 @@ class BroadcastsRepository:
             conn.execute(
                 """
                 UPDATE broadcasts
-                SET status = ?, sent_count = ?, failed_count = ?, completed_at = ?, error_message = NULL
+                SET status = ?,
+                    sent_count = ?,
+                    failed_count = ?,
+                    completed_at = ?,
+                    error_message = NULL
                 WHERE id = ?
                 """,
                 (
