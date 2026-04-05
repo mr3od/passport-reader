@@ -43,7 +43,6 @@
 
   const state = {
     activeTab: "pending",
-    hiddenContextBanner: false,
     pendingRecords: [],
     skippedIds: new Set(),
     sectionData: null,
@@ -217,9 +216,7 @@
     setText("pending-load-more", Strings.ACTION_LOAD_MORE);
     setText("submitted-load-more", Strings.ACTION_LOAD_MORE);
     setText("failed-load-more", Strings.ACTION_LOAD_MORE);
-    setText("ctx-change-confirm", Strings.CTX_CHANGE_YES);
-    setText("ctx-change-defer", Strings.CTX_CHANGE_LATER);
-    setText("workspace-empty-note", Strings.SECTION_EMPTY_PENDING);
+setText("workspace-empty-note", Strings.SECTION_EMPTY_PENDING);
     setText("settings-kicker", Strings.SETTINGS_KICKER);
     setText("settings-title", Strings.SETTINGS_TITLE);
     setText("settings-subtitle", Strings.SETTINGS_SUBTITLE);
@@ -659,19 +656,7 @@
     return article;
   }
 
-  async function initContextChangeBanner(doc = document) {
-    const banner = $("context-change-banner", doc);
-    const pending = await ContextChange.hasContextChangePending();
-    const text = $("context-change-text", doc);
-    if (!pending || state.hiddenContextBanner) {
-      banner.classList.add("hidden");
-      return;
-    }
-    text.textContent = Strings.CTX_CHANGE_ENTITY;
-    banner.classList.remove("hidden");
-  }
-
-  function renderEmptyState(container, message) {
+function renderEmptyState(container, message) {
     container.innerHTML = "";
     const doc = container.ownerDocument;
     const empty = container.ownerDocument.createElement("div");
@@ -1356,7 +1341,6 @@
       }
       renderWorkspaceFromCache(localData, sessionData);
       await populateContractDropdown(localData.masar_contract_id, document, { forceRefresh: refreshContracts });
-      await initContextChangeBanner();
       showScreen("main");
       activateTab(state.activeTab);
     } finally {
@@ -1565,16 +1549,7 @@
         },
       });
     });
-    $("ctx-change-confirm").addEventListener("click", async () => {
-      state.hiddenContextBanner = false;
-      await sendMsg({ type: "SYNC_SESSION" });
-      await loadMainWorkspace({ showLoading: false, fetchRecords: true, refreshContracts: true });
-    });
-    $("ctx-change-defer").addEventListener("click", async () => {
-      state.hiddenContextBanner = true;
-      await initContextChangeBanner();
-    });
-    $("contract-select").addEventListener("change", async (event) => {
+$("contract-select").addEventListener("change", async (event) => {
       if (!event.target.value) {
         return;
       }
@@ -1617,7 +1592,6 @@
     getSubmissionContextMismatchToast,
     handleResumeBatchResponse,
     handleSubmitResponse,
-    initContextChangeBanner,
     mergeTabPageState,
     renderHomeSummary,
     renderPendingCard,

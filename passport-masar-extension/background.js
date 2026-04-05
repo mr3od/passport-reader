@@ -1653,6 +1653,19 @@ function buildPassportImageUpload(record, imageBytes) {
   };
 }
 
+async function readMasarErrorText(response) {
+  try {
+    const payload = await response.json();
+    return payload?.traceError || payload?.TraceError || payload?.traceErrorStacktrace || payload?.responseDesc || null;
+  } catch {
+    try {
+      return await response.text() || null;
+    } catch {
+      return null;
+    }
+  }
+}
+
 function buildFailureReason(failureKind, fallbackMessage = null) {
   if (failureKind === "scan-image-unclear") {
     return {
@@ -1972,14 +1985,23 @@ async function submitToMasar(record, requestContext) {
   );
   log("submitToMasar [2/6] — status:", step2Res.status);
   if (!step2Res.ok) {
+    const traceError = await readMasarErrorText(step2Res);
     throw taggedError(
       step2Res.status === 401 ? "masar-auth" : null,
       S.ERR_SUBMIT_PASSPORT(step2Res.status),
+      { failureReason: buildFailureReason(null, traceError) },
     );
   }
   const step2Json = await step2Res.json();
   // Response envelope: { response: { data: { id: "<mutamerId>" } } }
-  const mutamerId = step2Json.response.data.id;
+  const mutamerId = step2Json.response?.data?.id;
+  if (!mutamerId) {
+    const traceError = step2Json?.traceError || step2Json?.TraceError || step2Json?.traceErrorStacktrace || step2Json?.responseDesc || null;
+    logError("submitToMasar [2/6] — SubmitPassportInforamtionWithNationality returned no id. traceError:", traceError);
+    throw taggedError(null, S.ERR_SUBMIT_PASSPORT(step2Json?.ResponseCode || "err"), {
+      failureReason: buildFailureReason(null, traceError),
+    });
+  }
   log("submitToMasar [2/6] — mutamerId:", mutamerId);
 
   // ── Step 3: GetPersonalAndContactInfos ───────────────────────────────────
@@ -1994,9 +2016,11 @@ async function submitToMasar(record, requestContext) {
   );
   log("submitToMasar [3/6] — status:", step3Res.status);
   if (!step3Res.ok) {
+    const traceError = await readMasarErrorText(step3Res);
     throw taggedError(
       step3Res.status === 401 ? "masar-auth" : null,
       S.ERR_FETCH_CONTACT(step3Res.status),
+      { failureReason: buildFailureReason(null, traceError) },
     );
   }
   const step3Json = await step3Res.json();
@@ -2028,19 +2052,20 @@ async function submitToMasar(record, requestContext) {
     await new Promise((r) => setTimeout(r, retryAfter * 1000));
   }
   if (!step4Res.ok) {
-    const errText = await step4Res.text();
-    logError("submitToMasar [4/6] — error body:", errText);
+    const traceError = await readMasarErrorText(step4Res);
+    logError("submitToMasar [4/6] — error body:", traceError);
     throw taggedError(
       step4Res.status === 401 ? "masar-auth" : null,
       S.ERR_UPLOAD_ATTACH(step4Res.status),
+      { failureReason: buildFailureReason(null, traceError) },
     );
   }
   const step4Json = await step4Res.json();
   // Response envelope: { response: { data: { attachmentResponse: {...} } } }
   if (!step4Json.response || !step4Json.response.data) {
-    const traceError = step4Json.traceError || step4Json.TraceError || "unknown";
+    const traceError = step4Json.traceError || step4Json.TraceError || step4Json.traceErrorStacktrace || step4Json.responseDesc || null;
     logError("submitToMasar [4/6] — Attachment/Upload returned no data. traceError:", traceError);
-    throw new Error(S.ERR_UPLOAD_NO_DATA);
+    throw taggedError(null, S.ERR_UPLOAD_NO_DATA, { failureReason: buildFailureReason(null, traceError) });
   }
   const vaccinationMeta = step4Json.response.data.attachmentResponse;
   log("submitToMasar [4/6] — vaccinationMeta id:", vaccinationMeta?.id);
@@ -2090,10 +2115,18 @@ async function submitToMasar(record, requestContext) {
   );
   log("submitToMasar [5/6] — status:", step5Res.status);
   if (!step5Res.ok) {
+    const traceError = await readMasarErrorText(step5Res);
     throw taggedError(
       step5Res.status === 401 ? "masar-auth" : null,
       S.ERR_SUBMIT_PERSONAL(step5Res.status),
+      { failureReason: buildFailureReason(null, traceError) },
     );
+  }
+  const step5Json = await step5Res.json().catch(() => null);
+  if (step5Json && step5Json.Status === false) {
+    const traceError = step5Json?.traceError || step5Json?.TraceError || step5Json?.traceErrorStacktrace || step5Json?.responseDesc || null;
+    logError("submitToMasar [5/6] — SubmitPersonalAndContactInfos returned Status:false. traceError:", traceError);
+    throw taggedError(null, S.ERR_SUBMIT_PERSONAL("err"), { failureReason: buildFailureReason(null, traceError) });
   }
 
   // ── Step 6: SubmitDisclosureForm ──────────────────────────────────────────
@@ -2128,10 +2161,18 @@ async function submitToMasar(record, requestContext) {
   );
   log("submitToMasar [6/6] — status:", step6Res.status);
   if (!step6Res.ok) {
+    const traceError = await readMasarErrorText(step6Res);
     throw taggedError(
       step6Res.status === 401 ? "masar-auth" : null,
       S.ERR_SUBMIT_DISCLOSURE(step6Res.status),
+      { failureReason: buildFailureReason(null, traceError) },
     );
+  }
+  const step6Json = await step6Res.json().catch(() => null);
+  if (step6Json && step6Json.Status === false) {
+    const traceError = step6Json?.traceError || step6Json?.TraceError || step6Json?.traceErrorStacktrace || step6Json?.responseDesc || null;
+    logError("submitToMasar [6/6] — SubmitDisclosureForm returned Status:false. traceError:", traceError);
+    throw taggedError(null, S.ERR_SUBMIT_DISCLOSURE("err"), { failureReason: buildFailureReason(null, traceError) });
   }
 
   let masarDetailId = null;
@@ -2506,6 +2547,20 @@ async function handleMessage(msg, sender = null) {
     const record = msg.record;
     if (!record?.upload_id) {
       return { ok: false, error: S.ERR_UNEXPECTED };
+    }
+    if (record.masar_status === "failed" || record.masar_status === "missing") {
+      try {
+        await patchRecordStatus(record.upload_id, {
+          status: "pending",
+          masar_mutamer_id: null,
+          masar_scan_result: null,
+          masar_detail_id: null,
+          failure_reason_code: null,
+          failure_reason_text: null,
+        });
+      } catch (patchError) {
+        logError("SUBMIT_RECORD — failed to reset status to pending:", patchError.message);
+      }
     }
     serialiseSubmit(() =>
       drainSubmissionBatch([record.upload_id], { notifyComplete: false }),
