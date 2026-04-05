@@ -30,7 +30,7 @@ spec:
         - name: seed
           image: registry.mohammed-alkebsi.dev/mohammed/passport-reader:latest
           imagePullPolicy: Always
-          command: ["passport-platform-seed"]
+          command: ["python", "-m", "passport_platform.management.seed"]
           envFrom:
             - secretRef:
                 name: passport-reader-env
