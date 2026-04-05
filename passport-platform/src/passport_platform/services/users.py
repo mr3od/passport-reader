@@ -37,6 +37,12 @@ class UserService:
     def list_users(self, *, limit: int = 50) -> list[User]:
         return self.users.list_all(limit=limit)
 
+    def list_active_users_by_provider(
+        self,
+        external_provider: ExternalProvider,
+    ) -> list[User]:
+        return self.users.list_active_by_provider(external_provider)
+
     def change_plan(self, user_id: int, plan: PlanName) -> User:
         return self.users.update_plan(user_id, plan)
 
