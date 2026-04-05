@@ -145,7 +145,9 @@
     DETAILS_OPEN_FROM_OTHER_ENTITY: "افتح الحساب الذي تم الرفع منه",
     DETAILS_OPEN_FROM_OTHER_CONTRACT: "افتح العقد الذي تم الرفع منه",
     VIEW_DETAILS: "عرض التفاصيل",
-    HELP_LINK_LABEL: "مساعدة",
+    HELP_LINK_LABEL: "تواصل معنا",
+    HELP_LINK_TITLE: "محتاج مساعدة؟ تواصل مع فريق الدعم مباشرةً على تيليغرام — نرد بسرعة إن شاء الله 🤝",
+    HELP_LINK_URL: "https://t.me/mr3od",
 
     CTX_CHANGE_ENTITY: "تم تغيير الحساب. اختر العقد عند المتابعة",
     CTX_CHANGE_YES: "تحديث الآن",

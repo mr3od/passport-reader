@@ -158,10 +158,10 @@
     setText("topbar-title", Strings.TOPBAR_TITLE);
     setText("topbar-kicker", Strings.TOPBAR_KICKER);
     if ($("help-support-link", doc)) {
-      $("help-support-link", doc).textContent = "؟";
-      $("help-support-link", doc).title = Strings.HELP_LINK_LABEL;
+      $("help-support-link", doc).textContent = Strings.HELP_LINK_LABEL;
+      $("help-support-link", doc).title = Strings.HELP_LINK_TITLE;
       $("help-support-link", doc).ariaLabel = Strings.HELP_LINK_LABEL;
-      $("help-support-link", doc).href = apiBaseUrl || "#";
+      $("help-support-link", doc).href = Strings.HELP_LINK_URL;
     }
     if ($("btn-settings", doc)) {
       $("btn-settings", doc).textContent = "⚙";
