@@ -857,11 +857,12 @@
     );
     const batch = sessionData?.submission_batch;
     const submittedCount = Array.isArray(batch?.submitted_ids) ? batch.submitted_ids.length : 0;
+    const failedCount = Array.isArray(batch?.failed_ids) ? batch.failed_ids.length : 0;
     const activeCount = normalized.activeId ? 1 : 0;
     const queuedCount = Math.max(normalized.inProgressIds.size - activeCount, 0);
     const total = typeof batch?.source_total === "number"
       ? batch.source_total
-      : submittedCount + normalized.inProgressIds.size;
+      : submittedCount + failedCount + normalized.inProgressIds.size;
     const blockedReason = batch && typeof batch === "object" && !Array.isArray(batch)
       ? batch.blocked_reason || null
       : null;
@@ -869,7 +870,7 @@
       visible: normalized.inProgressIds.size > 0 || Boolean(blockedReason),
       title: Strings.PROGRESS_BANNER_TITLE,
       summary: Strings.PROGRESS_BANNER_SUMMARY(submittedCount, total || submittedCount),
-      detail: Strings.PROGRESS_BANNER_DETAIL(activeCount, queuedCount),
+      detail: Strings.PROGRESS_BANNER_DETAIL(activeCount, queuedCount, failedCount),
       blockedReason,
     };
   }

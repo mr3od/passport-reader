@@ -45,6 +45,29 @@ test("buildBatchBannerState summarizes the richer batch object", () => {
   );
 });
 
+test("buildBatchBannerState includes failed count in detail when failures exist", () => {
+  assert.deepEqual(
+    buildBatchBannerState({
+      submission_batch: {
+        source_total: 66,
+        queued_ids: [21, 22, 23],
+        active_id: 20,
+        submitted_ids: Array.from({ length: 56 }, (_, i) => i + 1),
+        failed_ids: [57, 58, 59, 60, 61, 62],
+        blocked_reason: null,
+      },
+      active_submit_id: 20,
+    }),
+    {
+      visible: true,
+      title: "جارٍ رفع الجوازات",
+      summary: "تم رفع 56 من 66",
+      detail: "جواز واحد جارٍ رفعه و3 في الانتظار • 6 فشل",
+      blockedReason: null,
+    },
+  );
+});
+
 test("buildDisplayName prefers slim Arabic list names before OCR payloads", () => {
   assert.equal(
     buildDisplayName({

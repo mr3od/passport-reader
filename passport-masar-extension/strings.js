@@ -121,17 +121,19 @@
     LIST_REFRESH_FAILED: "تعذر تحديث القائمة",
     PROGRESS_BANNER_TITLE: "جارٍ رفع الجوازات",
     PROGRESS_BANNER_SUMMARY: (done, total) => `تم رفع ${done} من ${total}`,
-    PROGRESS_BANNER_DETAIL: (activeCount, queuedCount) => {
+    PROGRESS_BANNER_DETAIL: (activeCount, queuedCount, failedCount = 0) => {
+      let detail = "";
       if (activeCount > 0 && queuedCount > 0) {
-        return `جواز واحد جارٍ رفعه و${queuedCount} في الانتظار`;
+        detail = `جواز واحد جارٍ رفعه و${queuedCount} في الانتظار`;
+      } else if (activeCount > 0) {
+        detail = "جواز واحد جارٍ رفعه";
+      } else if (queuedCount > 0) {
+        detail = `${queuedCount} في الانتظار`;
       }
-      if (activeCount > 0) {
-        return "جواز واحد جارٍ رفعه";
+      if (failedCount > 0) {
+        detail = detail ? `${detail} • ${failedCount} فشل` : `${failedCount} فشل`;
       }
-      if (queuedCount > 0) {
-        return `${queuedCount} في الانتظار`;
-      }
-      return "";
+      return detail;
     },
     DETAILS_UNAVAILABLE: "تفاصيل غير متوفرة",
     DETAILS_RECORD_MISSING: "هذا الجواز غير موجود",
