@@ -12,6 +12,15 @@ Successful results are returned as a single photo message (the original upload) 
 - review status summary
 - confidence summary and warning count
 
+User commands:
+
+- `/start`
+- `/help`
+- `/me`
+- `/token`
+- `/masar`
+- `/extension`
+
 ## Setup
 
 ```bash

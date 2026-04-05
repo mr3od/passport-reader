@@ -14,12 +14,10 @@ from passport_telegram.bot import (
     BotServices,
     InflightLimiter,
     TelegramImageUpload,
-    account_command,
+    me_command,
     deliver_pending_broadcast,
-    plan_command,
     process_upload_batch,
     token_command,
-    usage_command,
 )
 from telegram import Update
 from telegram.ext import ContextTypes
@@ -60,9 +58,11 @@ class BroadcastAwareBot(FakeBot):
 class FakeReplyMessage:
     def __init__(self) -> None:
         self.replies: list[str] = []
+        self.parse_modes: list[str | None] = []
 
-    async def reply_text(self, text: str) -> None:
+    async def reply_text(self, text: str, parse_mode: str | None = None) -> None:
         self.replies.append(text)
+        self.parse_modes.append(parse_mode)
 
 
 def _agency_context(*, services: object, args: list[str] | None = None):
@@ -135,11 +135,12 @@ def test_token_command_issues_single_use_token_text():
     asyncio.run(token_command(update, context))
 
     assert len(reply.replies) == 1
-    assert "tmp-token" in reply.replies[0]
+    assert "`tmp-token`" in reply.replies[0]
     assert "مرة واحدة" in reply.replies[0]
+    assert reply.parse_modes == ["Markdown"]
 
 
-def test_account_command_returns_user_usage_summary():
+def test_me_command_returns_user_usage_summary():
     reply = FakeReplyMessage()
     report = SimpleNamespace(
         user=SimpleNamespace(
@@ -166,92 +167,12 @@ def test_account_command_returns_user_usage_summary():
     context = _agency_context(services=services)
     update = _agency_update(reply)
 
-    asyncio.run(account_command(update, context))
+    asyncio.run(me_command(update, context))
 
     assert len(reply.replies) == 1
     assert "Agency A" in reply.replies[0]
     assert "12345" in reply.replies[0]
     assert "18" in reply.replies[0]
-
-
-def test_usage_command_returns_self_usage_without_admin_args():
-    reply = FakeReplyMessage()
-    report = SimpleNamespace(
-        user=SimpleNamespace(
-            display_name="Agency A",
-            external_user_id="12345",
-            plan=SimpleNamespace(value="free"),
-            status=SimpleNamespace(value="active"),
-        ),
-        upload_count=2,
-        success_count=1,
-        failure_count=1,
-        quota_decision=SimpleNamespace(remaining_uploads=18, remaining_successes=19),
-    )
-    services = SimpleNamespace(
-        users=SimpleNamespace(
-            get_or_create_user=lambda command: SimpleNamespace(
-                id=1,
-                external_user_id="12345",
-                status=UserStatus.ACTIVE,
-            )
-        ),
-        reporting=SimpleNamespace(get_user_usage_report=lambda user_id: report),
-    )
-    context = _agency_context(services=services, args=[])
-    update = _agency_update(reply)
-
-    asyncio.run(usage_command(update, context))
-
-    assert len(reply.replies) == 1
-    assert "Agency A" in reply.replies[0]
-    assert "18" in reply.replies[0]
-
-
-def test_usage_command_with_args_returns_self_only_help_text():
-    reply = FakeReplyMessage()
-    services = SimpleNamespace(
-        users=SimpleNamespace(
-            get_or_create_user=lambda command: SimpleNamespace(
-                id=1,
-                external_user_id="12345",
-                status=UserStatus.ACTIVE,
-            )
-        ),
-        reporting=SimpleNamespace(get_user_usage_report=lambda user_id: None),
-    )
-    context = _agency_context(services=services, args=["999"])
-    update = _agency_update(reply)
-
-    asyncio.run(usage_command(update, context))
-
-    assert len(reply.replies) == 1
-    assert "/usage" in reply.replies[0]
-    assert "<telegram_user_id>" not in reply.replies[0]
-
-
-def test_plan_command_returns_short_user_plan_summary():
-    reply = FakeReplyMessage()
-    services = SimpleNamespace(
-        users=SimpleNamespace(
-            get_or_create_user=lambda command: SimpleNamespace(
-                id=1,
-                display_name="Agency A",
-                external_user_id="12345",
-                plan=SimpleNamespace(value="pro"),
-                status=SimpleNamespace(value="active"),
-            )
-        )
-    )
-    context = _agency_context(services=services)
-    update = _agency_update(reply)
-
-    asyncio.run(plan_command(update, context))
-
-    assert len(reply.replies) == 1
-    assert "Agency A" in reply.replies[0]
-    assert "pro" in reply.replies[0]
-    assert "active" in reply.replies[0]
 
 
 def test_process_upload_batch_splits_batches_above_plan_limit():

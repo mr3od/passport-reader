@@ -51,7 +51,6 @@ from passport_telegram.messages import (
     format_failure_text,
     format_masar_status_text,
     format_success_text,
-    format_user_plan_text,
     format_user_usage_report,
     help_text,
     processing_busy_text,
@@ -59,7 +58,6 @@ from passport_telegram.messages import (
     quota_exceeded_text,
     temp_token_text,
     unsupported_file_text,
-    usage_help_text,
     user_blocked_text,
     welcome_text,
 )
@@ -205,9 +203,7 @@ def build_application(settings: TelegramSettings) -> Application:
 
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(CommandHandler("account", account_command))
-    application.add_handler(CommandHandler("usage", usage_command))
-    application.add_handler(CommandHandler("plan", plan_command))
+    application.add_handler(CommandHandler("me", me_command))
     application.add_handler(CommandHandler("token", token_command))
     application.add_handler(CommandHandler("masar", masar_command))
     application.add_handler(CommandHandler("extension", extension_command))
@@ -225,17 +221,11 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await _reply_text(update, help_text())
 
 
-async def account_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def me_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     services: BotServices = context.application.bot_data["services"]
     user = await _get_or_create_user(update, services)
     report = await asyncio.to_thread(services.reporting.get_user_usage_report, user.id)
     await _reply_text(update, format_user_usage_report(report))
-
-
-async def plan_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    services: BotServices = context.application.bot_data["services"]
-    user = await _get_or_create_user(update, services)
-    await _reply_text(update, format_user_plan_text(user))
 
 
 async def token_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -245,7 +235,7 @@ async def token_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await _reply_text(update, user_blocked_text())
         return
     issued = await asyncio.to_thread(services.auth.issue_temp_token, user.id)
-    await _reply_text(update, temp_token_text(issued))
+    await _reply_text(update, temp_token_text(issued), parse_mode="Markdown")
 
 
 async def masar_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -292,17 +282,6 @@ async def extension_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         document=io.BytesIO(zip_bytes),
         filename="passport-masar-extension.zip",
     )
-
-
-async def usage_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    services: BotServices = context.application.bot_data["services"]
-    if context.args:
-        await _reply_text(update, usage_help_text())
-        return
-    user = await _get_or_create_user(update, services)
-    report = await asyncio.to_thread(services.reporting.get_user_usage_report, user.id)
-    await _reply_text(update, format_user_usage_report(report))
-
 
 async def image_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = update.effective_message
@@ -657,7 +636,7 @@ def _display_name(update: Update) -> str | None:
     return user.username
 
 
-async def _reply_text(update: Update, text: str) -> None:
+async def _reply_text(update: Update, text: str, parse_mode: str | None = None) -> None:
     if update.effective_message is None:
         return
-    await update.effective_message.reply_text(text)
+    await update.effective_message.reply_text(text, parse_mode=parse_mode)

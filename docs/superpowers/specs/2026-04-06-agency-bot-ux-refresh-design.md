@@ -79,6 +79,7 @@ Requirements:
 - no long command dump
 - include a direct instruction to send a passport image now
 - mention `/extension` as the recommended setup for full use and Masar-related flow
+- mention `/extension` as the recommended setup for full use and Nusuk-related flow
 
 ### `/help`
 
@@ -109,6 +110,7 @@ Contents:
 
 Optional guidance:
 - include one short extension hint for active users, such as using the extension for the full workflow and Masar follow-up
+- include one short extension hint for active users, such as using the extension for the full workflow and Nusuk follow-up
 
 ### `/token`
 
@@ -121,7 +123,7 @@ Requirement:
 ### `/masar`
 
 Purpose:
-- keep it as the follow-up command for pending/failed Masar cases
+- keep it as the follow-up command for pending/failed Nusuk cases
 
 Requirement:
 - wording should assume non-technical users
@@ -192,7 +194,7 @@ They should tell the user:
 The bot should make this clear within the first interaction:
 - direct image processing in Telegram is supported
 - the extension is the recommended path for full use
-- Masar-related follow-up is best handled through the extension
+- Nusuk-related follow-up is best handled through the extension
 
 Where to say this:
 - `/start`
