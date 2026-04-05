@@ -1667,31 +1667,8 @@ async function readMasarErrorText(response) {
 }
 
 function buildFailureReason(failureKind, fallbackMessage = null) {
-  if (failureKind === "scan-image-unclear") {
-    return {
-      code: "scan-image-unclear",
-      text: "Passport image is not clear",
-    };
-  }
-  if (failureKind === "contract-missing") {
-    return {
-      code: "contract-missing",
-      text: "No contract sent in request",
-    };
-  }
-  if (failureKind === "contract-inactive") {
-    return {
-      code: "contract-inactive",
-      text: "No Active Contract",
-    };
-  }
-  if (!fallbackMessage) {
-    return { code: null, text: null };
-  }
-  return {
-    code: "unknown",
-    text: fallbackMessage,
-  };
+  const code = failureKind || (fallbackMessage ? "unknown" : null);
+  return { code, text: fallbackMessage || null };
 }
 
 function classifyScanPassportFailure(traceError, requestContext) {
@@ -1758,20 +1735,7 @@ async function scanPassportWithFallback(imageUpload, requestContext) {
     );
     log("submitToMasar [1/6] — status:", response.status, "rotation:", rotation);
     if (!response.ok) {
-      let payload = null;
-      let errorBody = null;
-      try {
-        payload = await response.json();
-      } catch {
-        errorBody = await response.text();
-      }
-      const traceError =
-        payload?.traceError
-        || payload?.TraceError
-        || payload?.traceErrorStacktrace
-        || payload?.responseDesc
-        || errorBody
-        || null;
+      const traceError = await readMasarErrorText(response);
       const failureKind = classifyScanPassportFailure(traceError, requestContext);
       if (failureKind === "scan-image-unclear" && rotation !== rotations[rotations.length - 1]) {
         log("submitToMasar [1/6] — retrying ScanPassport with rotation", { rotation, traceError });
@@ -1789,11 +1753,11 @@ async function scanPassportWithFallback(imageUpload, requestContext) {
           { failureReason: buildFailureReason(failureKind, traceError) },
         );
       }
-      logError("submitToMasar [1/6] — error body:", traceError || errorBody || payload);
+      logError("submitToMasar [1/6] — error body:", traceError);
       throw taggedError(
         response.status === 401 ? "masar-auth" : null,
         S.ERR_SCAN_PASSPORT(response.status),
-        { failureReason: buildFailureReason(null, traceError || errorBody || null) },
+        { failureReason: buildFailureReason(null, traceError) },
       );
     }
 
@@ -1873,17 +1837,10 @@ function mapNameTokens(tokens, sanitise) {
   if (!Array.isArray(tokens) || tokens.length === 0) {
     return { first: null, second: null, third: null };
   }
-  if (tokens.length <= 3) {
-    return {
-      first: sanitise(tokens[0]),
-      second: sanitise(tokens[1]),
-      third: sanitise(tokens[2]),
-    };
-  }
   return {
     first: sanitise(tokens[0]),
-    second: sanitise(tokens.slice(1, -1).join(" ")),
-    third: sanitise(tokens[tokens.length - 1]),
+    second: sanitise(tokens[1]),
+    third: sanitise(tokens[2]),
   };
 }
 
