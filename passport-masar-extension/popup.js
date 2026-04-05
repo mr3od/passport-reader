@@ -42,6 +42,7 @@
   }
 
   const state = {
+    currentScreen: null,
     activeTab: "pending",
     pendingRecords: [],
     skippedIds: new Set(),
@@ -101,6 +102,7 @@
   }
 
   function showScreen(name, doc = document) {
+    state.currentScreen = name;
     doc.querySelectorAll(".screen").forEach((element) => element.classList.add("hidden"));
     const screen = $(`screen-${name}`, doc);
     if (screen) {
@@ -1418,12 +1420,16 @@ function renderEmptyState(container, message) {
     if (typeof chrome === "undefined" || !chrome.storage?.session?.onChanged) return;
     chrome.storage.session.onChanged.addListener((changes) => {
       if (!changes.submission_batch && !changes.active_submit_id) return;
-      if (!state.lastLocalData) return;
+      if (state.currentScreen !== "main") return;
       sessionGet(["submission_batch", "active_submit_id", "last_submit_result"]).then((sessionData) => {
-        const prevBatch = state.lastSessionData?.submission_batch;
-        const nextBatch = sessionData?.submission_batch;
-        const prevInProgress = QueueFilter.normalizeBatchState(prevBatch || [], state.lastSessionData?.active_submit_id || null).inProgressIds.size;
-        const nextInProgress = QueueFilter.normalizeBatchState(nextBatch || [], sessionData?.active_submit_id || null).inProgressIds.size;
+        const prevInProgress = QueueFilter.normalizeBatchState(
+          state.lastSessionData?.submission_batch || [],
+          state.lastSessionData?.active_submit_id || null,
+        ).inProgressIds.size;
+        const nextInProgress = QueueFilter.normalizeBatchState(
+          sessionData?.submission_batch || [],
+          sessionData?.active_submit_id || null,
+        ).inProgressIds.size;
         renderWorkspaceFromCache(state.lastLocalData, sessionData);
         if (prevInProgress > 0 && nextInProgress === 0 && !state.isWorkspaceLoading) {
           void loadMainWorkspace({ showLoading: false, fetchRecords: true, refreshContracts: false });
