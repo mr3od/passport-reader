@@ -70,6 +70,45 @@ Use the root `.env.example` and copy it to the repository root `.env`.
 - `PASSPORT_PLATFORM_DB_PATH`: SQLite database file path
 - `PASSPORT_PLATFORM_ARTIFACTS_DIR`: local root for stored upload and face-crop artifacts
 
+## Benchmark Seeder
+
+Seeds benchmark passport records for admin users so you can test the extension without sending real passport images via Telegram.
+
+**Prerequisites:** each admin user must have sent `/start` to the Telegram bot at least once — the seeder looks up existing Telegram users and will skip any that are not yet in the database.
+
+**What it does on every run:**
+- Imports all labeled cases from `passport-benchmark/cases/labeled` as processed records (skips already-imported ones)
+- Deletes all Masar submission rows for those records so the full submission flow can be re-tested
+
+**Locally:**
+```bash
+uv run python -m passport_platform.management.seed
+```
+
+**On the production server (exec into the running API pod):**
+```bash
+microk8s kubectl exec -n passport-reader deployment/passport-api -- python -m passport_platform.management.seed
+```
+
+**As a one-off k8s Job** (after deploying a new image):
+```bash
+microk8s kubectl apply -f k8s/seed-job.yaml
+microk8s kubectl logs -n passport-reader -l job-name=passport-platform-seed -f
+```
+
+The Job self-deletes 10 minutes after completion. To re-run it manually, delete and re-apply:
+```bash
+microk8s kubectl delete job passport-platform-seed -n passport-reader
+microk8s kubectl apply -f k8s/seed-job.yaml
+```
+
+**Custom cases directory** (optional):
+```bash
+uv run python -m passport_platform.management.seed --cases-dir /path/to/cases
+```
+
+Admin user IDs are read from `PASSPORT_ADMIN_BOT_ADMIN_USER_IDS` (comma-separated Telegram user IDs, same env var used by the admin bot).
+
 ## Development
 
 ```bash
