@@ -99,8 +99,8 @@ function selectMasarAuthToken(tokens, { entityId = "", entityTypeId = "" } = {})
 
 // ─── Submission serializer ────────────────────────────────────────────────────
 // Only one SUBMIT_RECORD runs at a time. Concurrent calls queue behind the
-// current one — prevents parallel Attachment/Upload 429s from Cloudflare and
-// ensures no orphaned partial mutamers are left in Masar.
+// current one — prevents race conditions and ensures no orphaned partial
+// mutamers are left in Masar.
 let _submitChain = Promise.resolve();
 let _isDrainingSubmissions = false;
 function serialiseSubmit(fn) {
@@ -1665,12 +1665,12 @@ async function scanPassportWithFallback(imageUpload, requestContext) {
       formData,
       requestContext,
     );
-    log("submitToMasar [1/6] — status:", response.status, "rotation:", rotation);
+    log("submitToMasar [1/5] — status:", response.status, "rotation:", rotation);
     if (!response.ok) {
       const traceError = await readMasarErrorText(response);
       const failureKind = classifyScanPassportFailure(traceError, requestContext);
       if (failureKind === "scan-image-unclear" && rotation !== rotations[rotations.length - 1]) {
-        log("submitToMasar [1/6] — retrying ScanPassport with rotation", { rotation, traceError });
+        log("submitToMasar [1/5] — retrying ScanPassport with rotation", { rotation, traceError });
         lastError = taggedError(failureKind, S.ERR_SCAN_IMAGE_UNCLEAR, {
           failureReason: buildFailureReason(failureKind, traceError),
         });
@@ -1685,7 +1685,7 @@ async function scanPassportWithFallback(imageUpload, requestContext) {
           { failureReason: buildFailureReason(failureKind, traceError) },
         );
       }
-      logError("submitToMasar [1/6] — error body:", traceError);
+      logError("submitToMasar [1/5] — error body:", traceError);
       throw taggedError(
         response.status === 401 ? "masar-auth" : null,
         S.ERR_SCAN_PASSPORT(response.status),
@@ -1703,7 +1703,7 @@ async function scanPassportWithFallback(imageUpload, requestContext) {
         || "unknown";
       const failureKind = classifyScanPassportFailure(traceError, requestContext);
       if (failureKind === "scan-image-unclear" && rotation !== rotations[rotations.length - 1]) {
-        log("submitToMasar [1/6] — retrying ScanPassport envelope with rotation", { rotation, traceError });
+        log("submitToMasar [1/5] — retrying ScanPassport envelope with rotation", { rotation, traceError });
         lastError = taggedError(failureKind, S.ERR_SCAN_IMAGE_UNCLEAR, {
           failureReason: buildFailureReason(failureKind, traceError),
         });
@@ -1718,13 +1718,13 @@ async function scanPassportWithFallback(imageUpload, requestContext) {
           { failureReason: buildFailureReason(failureKind, traceError) },
         );
       }
-      logError("submitToMasar [1/6] — ScanPassport returned no data. traceError:", traceError);
+      logError("submitToMasar [1/5] — ScanPassport returned no data. traceError:", traceError);
       throw taggedError(null, S.ERR_SCAN_NO_DATA, {
         failureReason: buildFailureReason(null, traceError),
       });
     }
     if (rotation !== 0) {
-      log("submitToMasar [1/6] — ScanPassport succeeded after rotation", { rotation });
+      log("submitToMasar [1/5] — ScanPassport succeeded after rotation", { rotation });
     }
     return payload.response.data;
   }
@@ -1825,7 +1825,7 @@ async function submitToMasar(record, requestContext) {
   });
 
   // ── Step 1: ScanPassport ──────────────────────────────────────────────────
-  log("submitToMasar [1/6] — ScanPassport");
+  log("submitToMasar [1/5] — ScanPassport");
   const step1Json = { response: { data: await scanPassportWithFallback(imageUpload, requestContext) } };
   // Response envelope: { response: { data: { passportResponse: {...}, ... } } }
   const scanData = step1Json.response.data;
@@ -1833,11 +1833,11 @@ async function submitToMasar(record, requestContext) {
   const passportImageMeta = scan.passportImage;
   const personalPictureMeta = scan.personalPicture;
 
-  log("submitToMasar [1/6] — scanData:", JSON.stringify(scan).slice(0, 300));
+  log("submitToMasar [1/5] — scanData:", JSON.stringify(scan).slice(0, 300));
 
   // ── Step 2: SubmitPassportInforamtionWithNationality ──────────────────────
   // Text fields from passport-core OCR; image IDs + numeric nationality IDs from ScanPassport.
-  log("submitToMasar [2/6] — SubmitPassportInforamtionWithNationality");
+  log("submitToMasar [2/5] — SubmitPassportInforamtionWithNationality");
   const step2Body = {
     id: null,
     firstName: { en: firstEn || scan.firstNameEn },
@@ -1870,7 +1870,7 @@ async function submitToMasar(record, requestContext) {
     { method: "POST", body: JSON.stringify(step2Body) },
     requestContext,
   );
-  log("submitToMasar [2/6] — status:", step2Res.status);
+  log("submitToMasar [2/5] — status:", step2Res.status);
   if (!step2Res.ok) {
     const traceError = await readMasarErrorText(step2Res);
     throw taggedError(
@@ -1884,24 +1884,24 @@ async function submitToMasar(record, requestContext) {
   const mutamerId = step2Json.response?.data?.id;
   if (!mutamerId) {
     const traceError = step2Json?.traceError || step2Json?.TraceError || step2Json?.traceErrorStacktrace || step2Json?.responseDesc || null;
-    logError("submitToMasar [2/6] — SubmitPassportInforamtionWithNationality returned no id. traceError:", traceError);
+    logError("submitToMasar [2/5] — SubmitPassportInforamtionWithNationality returned no id. traceError:", traceError);
     throw taggedError(null, S.ERR_SUBMIT_PASSPORT(step2Json?.ResponseCode || "err"), {
       failureReason: buildFailureReason(null, traceError),
     });
   }
-  log("submitToMasar [2/6] — mutamerId:", mutamerId);
+  log("submitToMasar [2/5] — mutamerId:", mutamerId);
 
   // ── Step 3: GetPersonalAndContactInfos ───────────────────────────────────
   // Must run before Attachment/Upload (matches the order observed in the browser HAR).
   // Fetches the server-assigned personalPictureId (the server reassigns the ID from step 1).
-  log("submitToMasar [3/6] — GetPersonalAndContactInfos, mutamerId:", mutamerId);
+  log("submitToMasar [3/5] — GetPersonalAndContactInfos, mutamerId:", mutamerId);
   const encodedMutamerId = encodeURIComponent(mutamerId);
   const step3Res = await masarFetch(
     `https://masar.nusuk.sa/umrah/groups_apis/api/Mutamer/GetPersonalAndContactInfos?Id=${encodedMutamerId}`,
     { method: "POST", body: "{}" },
     requestContext,
   );
-  log("submitToMasar [3/6] — status:", step3Res.status);
+  log("submitToMasar [3/5] — status:", step3Res.status);
   if (!step3Res.ok) {
     const traceError = await readMasarErrorText(step3Res);
     throw taggedError(
@@ -1912,57 +1912,14 @@ async function submitToMasar(record, requestContext) {
   }
   const step3Json = await step3Res.json();
   const currentPersonalInfo = step3Json.response.data.personalInfo;
-  log("submitToMasar [3/6] — personalPictureId:", currentPersonalInfo?.personalPictureId);
+  log("submitToMasar [3/5] — personalPictureId:", currentPersonalInfo?.personalPictureId);
 
-  // ── Step 4: Attachment/Upload (vaccination = passport image) ─────────────
-  // Note: this is common_apis, not groups_apis.
-  // Brief pause before upload — Masar/Cloudflare enforces a per-session
-  // rate limit on Attachment/Upload. 4 s is enough to clear the burst window
-  // between sequential submissions without noticeably slowing down a single one.
-  await new Promise((r) => setTimeout(r, 4000));
-
-  log("submitToMasar [4/6] — Attachment/Upload");
-  const fd4 = new FormData();
-  fd4.append("type", "3");
-  fd4.append("file", imageUpload.blob, imageUpload.fileName);
-  let step4Res;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    step4Res = await masarFetchMultipart(
-      "https://masar.nusuk.sa/umrah/common_apis/api/Attachment/Upload",
-      fd4,
-      requestContext,
-    );
-    log("submitToMasar [4/6] — status:", step4Res.status, "attempt:", attempt + 1);
-    if (step4Res.status !== 429) break;
-    const retryAfter = parseInt(step4Res.headers.get("Retry-After") || "10", 10);
-    logError(`submitToMasar [4/6] — 429, waiting ${retryAfter}s before retry`);
-    await new Promise((r) => setTimeout(r, retryAfter * 1000));
-  }
-  if (!step4Res.ok) {
-    const traceError = await readMasarErrorText(step4Res);
-    logError("submitToMasar [4/6] — error body:", traceError);
-    throw taggedError(
-      step4Res.status === 401 ? "masar-auth" : null,
-      S.ERR_UPLOAD_ATTACH(step4Res.status),
-      { failureReason: buildFailureReason(null, traceError) },
-    );
-  }
-  const step4Json = await step4Res.json();
-  // Response envelope: { response: { data: { attachmentResponse: {...} } } }
-  if (!step4Json.response || !step4Json.response.data) {
-    const traceError = step4Json.traceError || step4Json.TraceError || step4Json.traceErrorStacktrace || step4Json.responseDesc || null;
-    logError("submitToMasar [4/6] — Attachment/Upload returned no data. traceError:", traceError);
-    throw taggedError(null, S.ERR_UPLOAD_NO_DATA, { failureReason: buildFailureReason(null, traceError) });
-  }
-  const vaccinationMeta = step4Json.response.data.attachmentResponse;
-  log("submitToMasar [4/6] — vaccinationMeta id:", vaccinationMeta?.id);
-
-  // ── Step 5: SubmitPersonalAndContactInfos ─────────────────────────────────
-  log("submitToMasar [5/6] — SubmitPersonalAndContactInfos");
+  // ── Step 4: SubmitPersonalAndContactInfos ─────────────────────────────────
+  log("submitToMasar [4/5] — SubmitPersonalAndContactInfos");
   const phoneCC = parseInt(settings.agency_phone_country_code || "966", 10);
   const phoneNo = settings.agency_phone || "";
-  // Text fields from passport-core; numeric IDs from scan; image IDs from steps 3/4.
-  const step5Body = {
+  // Text fields from passport-core; numeric IDs from scan; image IDs from step 3.
+  const step4Body = {
     id: mutamerId,
     firstName: { en: firstEn || scan.firstNameEn, ar: firstAr || scan.firstNameAr || null },
     secondName: { en: secondEn || scan.secondNameEn, ar: secondAr || scan.secondNameAr || null },
@@ -1978,14 +1935,8 @@ async function submitToMasar(record, requestContext) {
     residencyPicture: null,
     residencyNumber: null,
     residencyExpirationDate: null,
-    vaccinationPictureId: vaccinationMeta.id,
-    vaccinationPicture: {
-      id: vaccinationMeta.id,
-      fileName: vaccinationMeta.fileName,
-      fileSize: vaccinationMeta.fileSize,
-      fileExtension: vaccinationMeta.fileExtension,
-      showDelete: true,
-    },
+    vaccinationPictureId: null,
+    vaccinationPicture: null,
     email: settings.agency_email || "",
     phone: { countryCode: phoneCC, phoneNumber: phoneNo },
     mobileCountryKey: phoneCC,
@@ -1995,32 +1946,32 @@ async function submitToMasar(record, requestContext) {
     birthCountryId: scan.nationalityId,
     birthCityName: sanitiseArName(core.BirthCityAr) || sanitiseEnName(core.BirthCityEn) || scan.birthCity || "",
   };
-  const step5Res = await masarFetch(
+  const step4Res = await masarFetch(
     "https://masar.nusuk.sa/umrah/groups_apis/api/Mutamer/SubmitPersonalAndContactInfos",
-    { method: "POST", body: JSON.stringify(step5Body) },
+    { method: "POST", body: JSON.stringify(step4Body) },
     requestContext,
   );
-  log("submitToMasar [5/6] — status:", step5Res.status);
-  if (!step5Res.ok) {
-    const traceError = await readMasarErrorText(step5Res);
+  log("submitToMasar [4/5] — status:", step4Res.status);
+  if (!step4Res.ok) {
+    const traceError = await readMasarErrorText(step4Res);
     throw taggedError(
-      step5Res.status === 401 ? "masar-auth" : null,
-      S.ERR_SUBMIT_PERSONAL(step5Res.status),
+      step4Res.status === 401 ? "masar-auth" : null,
+      S.ERR_SUBMIT_PERSONAL(step4Res.status),
       { failureReason: buildFailureReason(null, traceError) },
     );
   }
-  const step5Json = await step5Res.json().catch(() => null);
-  if (step5Json && step5Json.Status === false) {
-    const traceError = step5Json?.traceError || step5Json?.TraceError || step5Json?.traceErrorStacktrace || step5Json?.responseDesc || null;
-    logError("submitToMasar [5/6] — SubmitPersonalAndContactInfos returned Status:false. traceError:", traceError);
+  const step4Json = await step4Res.json().catch(() => null);
+  if (step4Json && step4Json.Status === false) {
+    const traceError = step4Json?.traceError || step4Json?.TraceError || step4Json?.traceErrorStacktrace || step4Json?.responseDesc || null;
+    logError("submitToMasar [4/5] — SubmitPersonalAndContactInfos returned Status:false. traceError:", traceError);
     throw taggedError(null, S.ERR_SUBMIT_PERSONAL("err"), { failureReason: buildFailureReason(null, traceError) });
   }
 
-  // ── Step 6: SubmitDisclosureForm ──────────────────────────────────────────
-  log("submitToMasar [6/6] — SubmitDisclosureForm");
+  // ── Step 5: SubmitDisclosureForm ──────────────────────────────────────────
+  log("submitToMasar [5/5] — SubmitDisclosureForm");
   // Questions 12 and 13 require placeholder detailedAnswers even when answer=false.
   // Question 16 also requires a placeholder detailedAnswers: [{}] (observed in HAR).
-  const step6Body = {
+  const step5Body = {
     muamerInformationId: mutamerId,
     answers: [
       { questionId: 1, answer: false, simpleReason: null, detailedAnswers: [] },
@@ -2041,24 +1992,24 @@ async function submitToMasar(record, requestContext) {
       { questionId: 16, answer: false, simpleReason: null, detailedAnswers: [{}] },
     ],
   };
-  const step6Res = await masarFetch(
+  const step5Res = await masarFetch(
     "https://masar.nusuk.sa/umrah/groups_apis/api/Mutamer/SubmitDisclosureForm",
-    { method: "POST", body: JSON.stringify(step6Body) },
+    { method: "POST", body: JSON.stringify(step5Body) },
     requestContext,
   );
-  log("submitToMasar [6/6] — status:", step6Res.status);
-  if (!step6Res.ok) {
-    const traceError = await readMasarErrorText(step6Res);
+  log("submitToMasar [5/5] — status:", step5Res.status);
+  if (!step5Res.ok) {
+    const traceError = await readMasarErrorText(step5Res);
     throw taggedError(
-      step6Res.status === 401 ? "masar-auth" : null,
-      S.ERR_SUBMIT_DISCLOSURE(step6Res.status),
+      step5Res.status === 401 ? "masar-auth" : null,
+      S.ERR_SUBMIT_DISCLOSURE(step5Res.status),
       { failureReason: buildFailureReason(null, traceError) },
     );
   }
-  const step6Json = await step6Res.json().catch(() => null);
-  if (step6Json && step6Json.Status === false) {
-    const traceError = step6Json?.traceError || step6Json?.TraceError || step6Json?.traceErrorStacktrace || step6Json?.responseDesc || null;
-    logError("submitToMasar [6/6] — SubmitDisclosureForm returned Status:false. traceError:", traceError);
+  const step5Json = await step5Res.json().catch(() => null);
+  if (step5Json && step5Json.Status === false) {
+    const traceError = step5Json?.traceError || step5Json?.TraceError || step5Json?.traceErrorStacktrace || step5Json?.responseDesc || null;
+    logError("submitToMasar [5/5] — SubmitDisclosureForm returned Status:false. traceError:", traceError);
     throw taggedError(null, S.ERR_SUBMIT_DISCLOSURE("err"), { failureReason: buildFailureReason(null, traceError) });
   }
 

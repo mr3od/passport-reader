@@ -2,6 +2,13 @@
 
 Agent-maintained log of significant changes. Each entry records what was done and who did it.
 
+## 2026-04-07 — extension submission flow simplified [kiro]
+
+- Removed step 4 (Attachment/Upload) from Masar submission flow
+- vaccinationPictureId and vaccinationPicture now set to null
+- Updated step numbers from 6 to 5 total steps
+- Removed unused ERR_UPLOAD_ATTACH and ERR_UPLOAD_NO_DATA strings
+
 ## 2026-04-07 — extension UI counts double-counting fix [kiro]
 
 - Fixed bug where UI counts showed inflated numbers during active submission

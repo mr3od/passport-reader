@@ -25,8 +25,6 @@
     ERR_CONTRACT_NOT_ACTIVE: "لا يوجد عقد نشط",
     ERR_SUBMIT_PASSPORT: (status) => `فشل حفظ بيانات الجواز (${status})`,
     ERR_FETCH_CONTACT: (status) => `تعذر جلب بيانات التواصل (${status})`,
-    ERR_UPLOAD_ATTACH: (status) => `فشل رفع الصورة (${status})`,
-    ERR_UPLOAD_NO_DATA: "لم يتم رفع الصورة",
     ERR_SUBMIT_PERSONAL: (status) => `فشل حفظ البيانات الشخصية (${status})`,
     ERR_SUBMIT_DISCLOSURE: (status) => `فشل إرسال الإقرار (${status})`,
     ERR_IMAGE_FETCH: (status) => `تعذر تحميل الصورة (${status})`,

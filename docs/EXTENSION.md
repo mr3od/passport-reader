@@ -272,7 +272,7 @@ When implementing group assignment, the workflow should change in two distinct p
      - each group can contain at most 50 mutamers
 
 2. after submission:
-   - add a new submission step after the current step 6
+   - add a new submission step after the current step 5
    - assign the created mutamer to the selected or auto-created group
    - use HAR evidence from:
      - `research/har/masar.nusuk.sa-assing-mutamer-to-group.har`
@@ -283,7 +283,7 @@ When implementing group assignment, the workflow should change in two distinct p
 Until that future feature exists:
 
 - group ID is not required for the current Masar submission flow
-- the current 6-step submission flow should remain group-optional
+- the current 5-step submission flow should remain group-optional
 - API and extension behavior should keep allowing submit without a selected group when no valid group is required by workflow
 
 Implementation:
@@ -683,15 +683,14 @@ In the current production extension, these endpoints support context and UI stat
 
 The production submission path is implemented in [`/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/background.js:567`](/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/background.js:567).
 
-Operationally, it is a 6-step submission flow followed by one detail lookup step:
+Operationally, it is a 5-step submission flow followed by one detail lookup step:
 
 1. `POST /umrah/groups_apis/api/Mutamer/ScanPassport`
 2. `POST /umrah/groups_apis/api/Mutamer/SubmitPassportInforamtionWithNationality`
 3. `POST /umrah/groups_apis/api/Mutamer/GetPersonalAndContactInfos?Id=...`
-4. `POST /umrah/common_apis/api/Attachment/Upload`
-5. `POST /umrah/groups_apis/api/Mutamer/SubmitPersonalAndContactInfos`
-6. `POST /umrah/groups_apis/api/Mutamer/SubmitDisclosureForm`
-7. `POST /umrah/groups_apis/api/Mutamer/GetMutamerList`
+4. `POST /umrah/groups_apis/api/Mutamer/SubmitPersonalAndContactInfos`
+5. `POST /umrah/groups_apis/api/Mutamer/SubmitDisclosureForm`
+6. `POST /umrah/groups_apis/api/Mutamer/GetMutamerList`
 
 This production submission sequence does not call `Groups/AssignMutamers` and does not pass a group ID during mutamer creation.
 
@@ -718,8 +717,6 @@ Examples:
 - Arabic names are sanitized to remove diacritics, tatweel, and unsupported characters
 - dates from backend extraction are converted from `DD/MM/YYYY` to `YYYY-MM-DD`
 - marital status is derived from age with a local rule
-- upload step waits 4 seconds before `Attachment/Upload`
-- `429` on upload is retried using `Retry-After`
 - disclosure form always sends placeholder `detailedAnswers` for specific questions because Masar expects them even when answer is false
 
 ## 11. Record Status Model
@@ -871,8 +868,7 @@ Implementation:
 
 Purpose:
 
-- avoid parallel attachment uploads
-- avoid Cloudflare `429` bursts
+- avoid race conditions during submission
 - avoid orphaned partial records in Masar
 
 ### Batch/session state machine
@@ -995,7 +991,7 @@ The stronger intended rule is:
 
 ### Submission is deliberately serialized
 
-The worker avoids concurrent uploads because Masar and Cloudflare appear sensitive to burst traffic, especially during attachment upload.
+The worker avoids concurrent submissions to prevent race conditions and ensure no orphaned partial mutamers are left in Masar.
 
 ### Page interception exists in addition to direct fetch
 
