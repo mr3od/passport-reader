@@ -176,9 +176,6 @@
 
     RECORD_FALLBACK: (id) => `جواز ${id}`,
     REVIEW_SUMMARY: "يحتاج مراجعة",
-    FAILURE_REASON_SCAN_IMAGE_UNCLEAR: "صورة الجواز غير واضحة",
-    FAILURE_REASON_CONTRACT_MISSING: "اختر العقد أولًا",
-    FAILURE_REASON_CONTRACT_INACTIVE: "اختر عقدًا نشطًا أولًا",
     THUMBNAIL_LABEL: "جواز",
   });
 });

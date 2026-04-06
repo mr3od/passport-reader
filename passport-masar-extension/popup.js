@@ -218,7 +218,7 @@
     setText("pending-load-more", Strings.ACTION_LOAD_MORE);
     setText("submitted-load-more", Strings.ACTION_LOAD_MORE);
     setText("failed-load-more", Strings.ACTION_LOAD_MORE);
-setText("workspace-empty-note", Strings.SECTION_EMPTY_PENDING);
+    setText("workspace-empty-note", Strings.SECTION_EMPTY_PENDING);
     setText("settings-kicker", Strings.SETTINGS_KICKER);
     setText("settings-title", Strings.SETTINGS_TITLE);
     setText("settings-subtitle", Strings.SETTINGS_SUBTITLE);
@@ -373,26 +373,9 @@ setText("workspace-empty-note", Strings.SECTION_EMPTY_PENDING);
     if (record.review_status === "needs_review") {
       return Strings.REVIEW_SUMMARY;
     }
-    if (record.failure_reason_code === "scan-image-unclear") {
-      return Strings.FAILURE_REASON_SCAN_IMAGE_UNCLEAR;
-    }
-    if (record.failure_reason_code === "contract-missing") {
-      return Strings.FAILURE_REASON_CONTRACT_MISSING;
-    }
-    if (record.failure_reason_code === "contract-inactive") {
-      return Strings.FAILURE_REASON_CONTRACT_INACTIVE;
-    }
     if (typeof record.failure_reason_text === "string" && record.failure_reason_text.trim()) {
       const normalized = record.failure_reason_text.trim().toLowerCase();
-      if (normalized.includes("passport image is not clear")) {
-        return Strings.FAILURE_REASON_SCAN_IMAGE_UNCLEAR;
-      }
-      if (normalized.includes("no active contract")) {
-        return Strings.FAILURE_REASON_CONTRACT_INACTIVE;
-      }
-      if (normalized.includes("no contract sent in request")) {
-        return Strings.FAILURE_REASON_CONTRACT_MISSING;
-      }
+      return normalized;
     }
     if (record.masar_status === "missing") {
       return Strings.DETAILS_RECORD_MISSING;
@@ -640,15 +623,15 @@ setText("workspace-empty-note", Strings.SECTION_EMPTY_PENDING);
               submission_contract_status: record.submission_contract_status ?? null,
               submission_uo_subscription_status_id: record.submission_uo_subscription_status_id ?? null,
             },
-          onOpenStart: (message) => showToast(message, { durationMs: 15000 }),
-          onMissingRecord: async (message) => {
+            onOpenStart: (message) => showToast(message, { durationMs: 15000 }),
+            onMissingRecord: async (message) => {
               state.activeTab = "failed";
               await loadMainWorkspace({ showLoading: false, fetchRecords: true });
               showToast(message, { tone: "error", durationMs: 5000 });
-          },
-          onInaccessible: (message) => showToast(message, { tone: "error" }),
-          onOpenFailed: (message) => showToast(message, { tone: "error" }),
-        });
+            },
+            onInaccessible: (message) => showToast(message, { tone: "error" }),
+            onOpenFailed: (message) => showToast(message, { tone: "error" }),
+          });
         } finally {
           setDetailLinkLoadingState(link, false, linkLabel);
         }
@@ -662,7 +645,7 @@ setText("workspace-empty-note", Strings.SECTION_EMPTY_PENDING);
     return article;
   }
 
-function renderEmptyState(container, message) {
+  function renderEmptyState(container, message) {
     container.innerHTML = "";
     const doc = container.ownerDocument;
     const empty = container.ownerDocument.createElement("div");
@@ -969,11 +952,11 @@ function renderEmptyState(container, message) {
     const counts = state.countsState.server
       ? buildOptimisticCounts(state.countsState.server, sessionData.submission_batch || [], activeSubmitId)
       : {
-          pending: pendingVisible.length,
-          inProgress: sections.inProgress.length,
-          submitted: sections.submitted.length,
-          failed: sections.failed.length,
-        };
+        pending: pendingVisible.length,
+        inProgress: sections.inProgress.length,
+        submitted: sections.submitted.length,
+        failed: sections.failed.length,
+      };
 
     state.sectionData = sections;
     applySummaryContext(localData);
@@ -1596,7 +1579,7 @@ function renderEmptyState(container, message) {
         },
       });
     });
-$("contract-select").addEventListener("change", async (event) => {
+    $("contract-select").addEventListener("change", async (event) => {
       if (!event.target.value) {
         return;
       }
