@@ -950,7 +950,8 @@
       && Boolean(localData.masar_contract_id)
       && localData.masar_contract_state !== "expired"
       && localData.masar_contract_state !== "inactive";
-    const counts = state.countsState.server
+    const hasActiveBatch = sections.inProgress.length > 0;
+    const counts = state.countsState.server && !hasActiveBatch
       ? buildOptimisticCounts(state.countsState.server, sessionData.submission_batch || [], activeSubmitId)
       : {
         pending: pendingVisible.length,
