@@ -14,8 +14,8 @@ from passport_telegram.bot import (
     BotServices,
     InflightLimiter,
     TelegramImageUpload,
-    me_command,
     deliver_pending_broadcast,
+    me_command,
     process_upload_batch,
     token_command,
 )
