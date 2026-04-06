@@ -2,6 +2,13 @@
 
 Agent-maintained log of significant changes. Each entry records what was done and who did it.
 
+## 2026-04-07 — extension UI counts double-counting fix [kiro]
+
+- Fixed bug where UI counts showed inflated numbers during active submission
+- Server counts refreshed during batch were being adjusted with batch state,
+  causing double-counting (e.g., showing 100+ when API returns 60)
+- Now uses tab cache section lengths during active batch instead of optimistic adjustments
+
 ## 2026-04-07 — extension submit button gating fix [kiro]
 
 - Fixed bug where submit/retry buttons were clickable when no contract was selected
