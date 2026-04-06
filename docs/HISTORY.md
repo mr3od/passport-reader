@@ -2,6 +2,12 @@
 
 Agent-maintained log of significant changes. Each entry records what was done and who did it.
 
+## 2026-04-07 — extension submit button gating fix [kiro]
+
+- Fixed bug where submit/retry buttons were clickable when no contract was selected
+- Added `masar_contract_id` check to `canSubmit` logic in `renderWorkspaceFromCache`
+- Buttons now correctly disable when contract is missing, expired, or inactive
+
 ## 2026-04-07 — extension failed record retry fix [kiro]
 
 - Fixed bug where failed passport card retry did not submit to Masar and the record was swallowed (not showing in any section)
