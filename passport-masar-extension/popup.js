@@ -947,6 +947,7 @@
     const pendingVisible = sections.pending.filter((record) => !state.skippedIds.has(record.upload_id));
     const canSubmit =
       Boolean(localData.masar_entity_id)
+      && Boolean(localData.masar_contract_id)
       && localData.masar_contract_state !== "expired"
       && localData.masar_contract_state !== "inactive";
     const counts = state.countsState.server
