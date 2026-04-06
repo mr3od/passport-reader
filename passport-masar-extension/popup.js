@@ -222,6 +222,8 @@ setText("workspace-empty-note", Strings.SECTION_EMPTY_PENDING);
     setText("settings-kicker", Strings.SETTINGS_KICKER);
     setText("settings-title", Strings.SETTINGS_TITLE);
     setText("settings-subtitle", Strings.SETTINGS_SUBTITLE);
+    setText("settings-contact-hint-title", Strings.SETTINGS_CONTACT_HINT_TITLE);
+    setText("settings-contact-hint-body", Strings.SETTINGS_CONTACT_HINT_BODY);
     setText("btn-back", Strings.ACTION_BACK);
     setText("settings-email-label", Strings.SETTINGS_EMAIL_LABEL);
     setPlaceholder("settings-email", Strings.SETTINGS_EMAIL_PLACEHOLDER);
@@ -231,6 +233,8 @@ setText("workspace-empty-note", Strings.SECTION_EMPTY_PENDING);
     setPlaceholder("settings-phone", Strings.SETTINGS_PHONE_PLACEHOLDER);
     setText("btn-save-settings", Strings.SETTINGS_SAVE);
     setText("btn-reset-token", Strings.SETTINGS_RESET);
+    setText("contact-defaults-nudge-text", Strings.CONTACT_DEFAULTS_NUDGE);
+    setText("contact-defaults-nudge-btn", Strings.CONTACT_DEFAULTS_NUDGE_ACTION);
   }
 
   function buildDisplayName(record) {
@@ -862,6 +866,15 @@ function renderEmptyState(container, message) {
     };
   }
 
+  function renderContactDefaultsNudge(localData) {
+    const nudge = $("contact-defaults-nudge");
+    if (!nudge) {
+      return;
+    }
+    const missing = !localData.agency_email && !localData.agency_phone;
+    nudge.classList.toggle("hidden", !missing);
+  }
+
   function renderSubmissionBanner(sessionData, doc = document) {
     const banner = $("submission-progress-banner", doc);
     if (!banner) {
@@ -964,6 +977,7 @@ function renderEmptyState(container, message) {
 
     state.sectionData = sections;
     applySummaryContext(localData);
+    renderContactDefaultsNudge(localData);
     renderSubmissionBanner(sessionData);
     renderHomeSummary(document, {
       pendingCount: counts.pending,
@@ -1311,6 +1325,8 @@ function renderEmptyState(container, message) {
           "masar_group_id",
           "masar_group_name",
           "active_ui_context",
+          "agency_email",
+          "agency_phone",
         ]),
         sessionGet(["submission_batch", "active_submit_id", "last_submit_result"]),
         fetchRecords ? loadCounts({ silent: true }) : Promise.resolve({ ok: true, data: state.countsState.server }),
@@ -1356,7 +1372,7 @@ function renderEmptyState(container, message) {
 
   function populateSettings(values) {
     $("settings-email").value = values.agency_email || "";
-    $("settings-phone-cc").value = values.agency_phone_country_code || "966";
+    $("settings-phone-cc").value = values.agency_phone_country_code || "967";
     $("settings-phone").value = values.agency_phone || "";
   }
 
@@ -1536,6 +1552,12 @@ function renderEmptyState(container, message) {
       void sendMsg({ type: "OPEN_MASAR" });
     });
     $("btn-settings").addEventListener("click", async () => {
+      populateSettings(
+        await localGet(["agency_email", "agency_phone", "agency_phone_country_code"]),
+      );
+      showScreen("settings");
+    });
+    $("contact-defaults-nudge-btn")?.addEventListener("click", async () => {
       populateSettings(
         await localGet(["agency_email", "agency_phone", "agency_phone_country_code"]),
       );
