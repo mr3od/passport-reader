@@ -106,6 +106,17 @@ test("shouldSubmitRecord allows retries for failed Masar submissions", () => {
   );
 });
 
+test("shouldSubmitRecord allows retries for pending Masar records", () => {
+  assert.equal(
+    shouldSubmitRecord({
+      upload_status: "processed",
+      masar_status: "pending",
+      review_status: "auto",
+    }),
+    true,
+  );
+});
+
 test("shouldSubmitRecord allows retries for missing Masar records", () => {
   assert.equal(
     shouldSubmitRecord({

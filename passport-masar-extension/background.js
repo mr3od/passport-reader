@@ -105,7 +105,7 @@ let _submitChain = Promise.resolve();
 let _isDrainingSubmissions = false;
 function serialiseSubmit(fn) {
   const next = _submitChain.then(() => fn());
-  _submitChain = next.catch(() => {}); // keep chain alive on failure
+  _submitChain = next.catch(() => { }); // keep chain alive on failure
   return next;
 }
 
@@ -609,14 +609,14 @@ async function logClonedTabRuntimeState(tabId, reason) {
     snapshot,
     storage: storageState
       ? {
-          href: storageState.href || null,
-          sessionEntries: Array.isArray(storageState.sessionEntries)
-            ? storageState.sessionEntries.map(([key, value]) => [key, truncateDebugValue(value)])
-            : null,
-          localEntries: Array.isArray(storageState.localEntries)
-            ? storageState.localEntries.map(([key, value]) => [key, truncateDebugValue(value)])
-            : null,
-        }
+        href: storageState.href || null,
+        sessionEntries: Array.isArray(storageState.sessionEntries)
+          ? storageState.sessionEntries.map(([key, value]) => [key, truncateDebugValue(value)])
+          : null,
+        localEntries: Array.isArray(storageState.localEntries)
+          ? storageState.localEntries.map(([key, value]) => [key, truncateDebugValue(value)])
+          : null,
+      }
       : null,
     cookies: formatCookieDebugSummary(cookies),
   });
@@ -676,7 +676,7 @@ async function closeTabQuietly(tabId, reason = "unspecified") {
       reason,
     });
     await chrome.tabs.remove(tabId);
-  } catch {}
+  } catch { }
 }
 
 async function captureMasarTabSnapshot(tabId) {
@@ -1056,19 +1056,19 @@ async function syncSessionFromMasar() {
             })();
             // User name is decoded from the webRequest-captured JWT — no need to re-read here.
             return {
-              entityId:           sessionStorage.getItem("pms-ac_En_Id"),
-              entityTypeId:       sessionStorage.getItem("pms-ac_En_Type_Id"),
+              entityId: sessionStorage.getItem("pms-ac_En_Id"),
+              entityTypeId: sessionStorage.getItem("pms-ac_En_Type_Id"),
               authTokens: {
-                sessionToken:    sessionStorage.getItem("pms-tk_session"),
-                refreshToken:    sessionStorage.getItem("pms-ref_tk_session"),
+                sessionToken: sessionStorage.getItem("pms-tk_session"),
+                refreshToken: sessionStorage.getItem("pms-ref_tk_session"),
                 permissionToken: sessionStorage.getItem("pms-tk_perm_session"),
-                userToken:       sessionStorage.getItem("pms-usr_tk_session"),
+                userToken: sessionStorage.getItem("pms-usr_tk_session"),
               },
-              contractId:         contract?.contractId ? String(contract.contractId) : null,
-              contractNumber:     contract?.contractNumber ? String(contract.contractNumber) : null,
-              contractNameEn:     contract?.companyNameEn || null,
-              contractNameAr:     contract?.companyNameAr || null,
-              contractEndDate:    contract?.contractEndDate || null,
+              contractId: contract?.contractId ? String(contract.contractId) : null,
+              contractNumber: contract?.contractNumber ? String(contract.contractNumber) : null,
+              contractNameEn: contract?.companyNameEn || null,
+              contractNameAr: contract?.companyNameAr || null,
+              contractEndDate: contract?.contractEndDate || null,
               contractStatusName: contract?.contractStatus?.name || null,
             };
           },
@@ -1166,9 +1166,9 @@ async function fetchGroups(contractId = null) {
   log("fetchGroups — calling GetGroupList");
   const contextOverride = contractId
     ? {
-        ...(await getMasarRequestContext()),
-        contract_id: contractId,
-      }
+      ...(await getMasarRequestContext()),
+      contract_id: contractId,
+    }
     : null;
   const res = await masarFetch(
     "https://masar.nusuk.sa/umrah/groups_apis/api/Groups/GetGroupList",
@@ -1266,7 +1266,7 @@ async function fetchRecordById(uploadId) {
 
 function shouldSubmitRecord(record) {
   return record?.upload_status === "processed"
-    && (!record?.masar_status || record.masar_status === "failed" || record.masar_status === "missing");
+    && (!record?.masar_status || record.masar_status === "pending" || record.masar_status === "failed" || record.masar_status === "missing");
 }
 
 async function updateBadgeState({ failedCount = null } = {}) {
@@ -1493,12 +1493,6 @@ async function getSubmissionBatchState() {
 
 async function buildRecordLookup(uploadIds) {
   const lookup = new Map();
-  for (const uploadId of uploadIds) {
-    const record = await fetchRecordById(uploadId);
-    if (record?.upload_id === uploadId) {
-      lookup.set(uploadId, record);
-    }
-  }
   return lookup;
 }
 
@@ -1611,7 +1605,7 @@ function buildFailureReason(failureKind, fallbackMessage = null) {
 
 function classifyScanPassportFailure(traceError, requestContext) {
   const normalized = typeof traceError === "string" ? traceError.trim().toLowerCase() : "";
-  if (normalized.includes("passport image is not clear")) {
+  if (normalized.includes("passport image is not clear") || normalized.includes("mutamers.errors.invalidCountryInactiveOrDeleted")) {
     return "scan-image-unclear";
   }
   if (normalized.includes("no active contract")) {
@@ -1797,12 +1791,12 @@ async function submitToMasar(record, requestContext) {
 
   const namesEn = mapNameTokens(core.GivenNameTokensEn, sanitiseEnName);
   const namesAr = mapNameTokens(core.GivenNameTokensAr, sanitiseArName);
-  const firstEn  = namesEn.first;
+  const firstEn = namesEn.first;
   const secondEn = namesEn.second;
-  const thirdEn  = namesEn.third;
-  const firstAr  = namesAr.first;
+  const thirdEn = namesEn.third;
+  const firstAr = namesAr.first;
   const secondAr = namesAr.second;
-  const thirdAr  = namesAr.third;
+  const thirdAr = namesAr.third;
   const familyEn = sanitiseEnName(core.SurnameEn);
   const familyAr = sanitiseArName(core.SurnameAr);
 
@@ -1810,9 +1804,9 @@ async function submitToMasar(record, requestContext) {
   const coreGender = core.Sex === "M" ? 1 : core.Sex === "F" ? 2 : null;
 
   // passport-core dates are DD/MM/YYYY — convert before use.
-  const coreBirthDate   = coreDate(core.DateOfBirth);
-  const coreIssueDate   = coreDate(core.DateOfIssue);
-  const coreExpiryDate  = coreDate(core.DateOfExpiry);
+  const coreBirthDate = coreDate(core.DateOfBirth);
+  const coreIssueDate = coreDate(core.DateOfIssue);
+  const coreExpiryDate = coreDate(core.DateOfExpiry);
 
   // Marital status: agency rule is >20 → Married (2), ≤20 → Single (1).
   const martialStatusId = (() => {
@@ -1853,7 +1847,7 @@ async function submitToMasar(record, requestContext) {
     passportTypeId: 1,
     birthDate: coreBirthDate || scan.birthDate,
     passportExpiryDate: coreExpiryDate || scan.passportExpiryDate,
-    passportIssueDate: coreIssueDate   || scan.passportIssueDate,
+    passportIssueDate: coreIssueDate || scan.passportIssueDate,
     nationalityId: scan.nationalityId,   // integer ID — only available from ScanPassport
     issueCountryId: scan.countryId,      // integer ID — only available from ScanPassport
     passportNumber: core.PassportNumber || scan.passportNumber,
@@ -1970,9 +1964,9 @@ async function submitToMasar(record, requestContext) {
   // Text fields from passport-core; numeric IDs from scan; image IDs from steps 3/4.
   const step5Body = {
     id: mutamerId,
-    firstName:  { en: firstEn  || scan.firstNameEn,  ar: firstAr  || scan.firstNameAr  || null },
+    firstName: { en: firstEn || scan.firstNameEn, ar: firstAr || scan.firstNameAr || null },
     secondName: { en: secondEn || scan.secondNameEn, ar: secondAr || scan.secondNameAr || null },
-    thirdName:  { en: thirdEn  || scan.thirdNameEn,  ar: thirdAr  || scan.thirdNameAr  || null },
+    thirdName: { en: thirdEn || scan.thirdNameEn, ar: thirdAr || scan.thirdNameAr || null },
     familyName: { en: familyEn || scan.familyNameEn, ar: familyAr || scan.familyNameAr || null },
     martialStatusId,  // age-based: ≤20 → 1 (Single), >20 → 2 (Married); "martial" is masar's typo
     birthDate: coreBirthDate || scan.birthDate,
@@ -2029,15 +2023,15 @@ async function submitToMasar(record, requestContext) {
   const step6Body = {
     muamerInformationId: mutamerId,
     answers: [
-      { questionId: 1,  answer: false, simpleReason: null, detailedAnswers: [] },
-      { questionId: 2,  answer: false, simpleReason: null, detailedAnswers: [] },
-      { questionId: 3,  answer: false, simpleReason: null, detailedAnswers: [] },
-      { questionId: 4,  answer: false, simpleReason: null, detailedAnswers: [] },
-      { questionId: 5,  answer: false, simpleReason: null, detailedAnswers: [] },
-      { questionId: 6,  answer: false, simpleReason: null, detailedAnswers: [] },
-      { questionId: 7,  answer: false, simpleReason: null, detailedAnswers: [] },
-      { questionId: 8,  answer: false, simpleReason: null, detailedAnswers: [] },
-      { questionId: 9,  answer: false, simpleReason: null, detailedAnswers: [] },
+      { questionId: 1, answer: false, simpleReason: null, detailedAnswers: [] },
+      { questionId: 2, answer: false, simpleReason: null, detailedAnswers: [] },
+      { questionId: 3, answer: false, simpleReason: null, detailedAnswers: [] },
+      { questionId: 4, answer: false, simpleReason: null, detailedAnswers: [] },
+      { questionId: 5, answer: false, simpleReason: null, detailedAnswers: [] },
+      { questionId: 6, answer: false, simpleReason: null, detailedAnswers: [] },
+      { questionId: 7, answer: false, simpleReason: null, detailedAnswers: [] },
+      { questionId: 8, answer: false, simpleReason: null, detailedAnswers: [] },
+      { questionId: 9, answer: false, simpleReason: null, detailedAnswers: [] },
       { questionId: 10, answer: false, simpleReason: null, detailedAnswers: [] },
       { questionId: 11, answer: false, simpleReason: null, detailedAnswers: [] },
       { questionId: 12, answer: false, simpleReason: null, detailedAnswers: [{ relativeName: null, relationId: null }] },
@@ -2258,19 +2252,12 @@ async function drainSubmissionBatch(
           ? ContextChange.SUBMISSION_STATES.QUEUED_MORE
           : ContextChange.SUBMISSION_STATES.IDLE,
     });
-    const recordsLookup = await buildRecordLookup(batch.discovered_ids || uniqueIds);
 
     let processedCount = 0;
     let terminalFailure = null;
     while (batch?.active_id) {
       const uploadId = batch.active_id;
-      if (!recordsLookup.has(uploadId)) {
-        const fetchedRecord = await fetchRecordById(uploadId);
-        if (fetchedRecord?.upload_id === uploadId) {
-          recordsLookup.set(uploadId, fetchedRecord);
-        }
-      }
-      const record = recordsLookup.get(uploadId) || null;
+      const record = await fetchRecordById(uploadId);
       if (!record || !shouldSubmitRecord(record)) {
         batch = advanceSubmissionBatch(batch, uploadId, { status: "failed" });
         await persistSubmissionBatch(batch);
@@ -2390,7 +2377,7 @@ async function handleMessage(msg, sender = null) {
     }
   }
 
-if (msg.type === "FETCH_RECORD_PAGE") {
+  if (msg.type === "FETCH_RECORD_PAGE") {
     return fetchRecordPage(msg.section || "pending", msg.limit || 50, msg.offset || 0);
   }
 
@@ -2442,9 +2429,14 @@ if (msg.type === "FETCH_RECORD_PAGE") {
         logError("SUBMIT_RECORD — failed to reset status to pending:", patchError.message);
       }
     }
-    serialiseSubmit(() =>
-      drainSubmissionBatch([record.upload_id], { notifyComplete: false }),
-    ).catch((error) => {
+    serialiseSubmit(async () => {
+      const freshRecord = await fetchRecordById(record.upload_id);
+      if (!freshRecord || !shouldSubmitRecord(freshRecord)) {
+        logError("SUBMIT_RECORD — record not eligible after refresh:", record.upload_id);
+        return;
+      }
+      await drainSubmissionBatch([record.upload_id], { notifyComplete: false });
+    }).catch((error) => {
       logError("SUBMIT_RECORD — unhandled submission failure:", error.message);
     });
     return { ok: true };
