@@ -2,6 +2,14 @@
 
 Agent-maintained log of significant changes. Each entry records what was done and who did it.
 
+## 2026-04-07 — extension failed record retry fix [kiro]
+
+- Fixed bug where failed passport card retry did not submit to Masar and the record was swallowed (not showing in any section)
+- Removed batch record pre-fetching in `buildRecordLookup` — now fetches only the currently processing record
+- Fixed retry flow: re-fetch record after patching to "pending" status to get updated state from server
+- Added "pending" to allowed `masar_status` values in `shouldSubmitRecord` so patched records are eligible for submission
+- Added test for pending status eligibility
+
 ## 2026-04-06 — extension submission hardening and contact defaults nudge [claude]
 
 - Fixed submission banner math: exposed `failed_ids` count in the progress detail line so all numbers add up (`done/total • N فشل`)
