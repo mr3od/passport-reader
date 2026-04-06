@@ -300,7 +300,6 @@ The popup has these screens:
 - `setup`
 - `activate`
 - `session-expired`
-- `group-select`
 - `main`
 - `settings`
 
@@ -331,9 +330,9 @@ Purpose:
 Purpose:
 
 - show context summary
+- show contact-defaults nudge when email and phone are both unset
 - show queue state
 - provide submit and retry actions
-- show context change banner
 
 ### Settings
 

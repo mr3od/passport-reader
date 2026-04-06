@@ -2,6 +2,23 @@
 
 Agent-maintained log of significant changes. Each entry records what was done and who did it.
 
+## 2026-04-06 — extension submission hardening and contact defaults nudge [claude]
+
+- Fixed submission banner math: exposed `failed_ids` count in the progress detail line so all numbers add up (`done/total • N فشل`)
+- Surfaced raw Masar `traceError` from all 6 submission steps and on the HTTP 200 + `Status: false` paths in steps 5 and 6
+- Simplified `buildFailureReason` to always store the raw trace text instead of silently discarding it for classified failure kinds
+- Capped `mapNameTokens` at 3 tokens to stop joining middle name tokens into `secondName`, which was causing Masar 400 errors when names exceeded 15 characters
+- Removed the context-change banner and its confirm/defer flow from popup and HTML; stale UI updates now handled by the storage listener
+- Patched `masar_status` back to `pending` before retrying a failed or missing record so retry reflects the correct submission state
+- Removed dead `fetchAllRecords`, `updateBadge`, `countFailedRecords` paths and their message handlers
+- Replaced per-fetch `session_expired` writes and per-success `session_expired: false` resets with a single 401 side-effect path in `apiFetch`; cleared `session_expired` atomically with new token writes to fix badge staying red after relink
+- Normalised all `chrome.storage` access through `localGet`/`localSet`/`localRemove` helpers; removed raw callback-based `chrome.storage.local.get` calls
+- Added `chrome.storage.session.onChanged` listener in the popup to re-render the submission banner and auto-advance to `main` when in-progress drains — replacing the stale open/close refresh cycle; guarded by `state.currentScreen` to prevent pulling the user away from settings
+- Replaced the `؟` help button with a Telegram contact link pointing to `t.me/mr3od`
+- Added `SETTINGS_CONTACT_HINT_*` explanation in the settings screen above the contact fields, explaining that missing email/phone causes Nusuk to mark submissions as "غير مكتمل"
+- Added a main-workspace nudge banner that appears when `agency_email` and `agency_phone` are both unset, with an "إعداد الآن" button that opens settings
+- Changed default country code from 966 to 967 (Yemen)
+
 ## 2026-03-31 — submission stability follow-up and record lookup optimization [codex]
 
 - Added `GET /records/{upload_id}` to `passport-api` so extension flows can fetch a specific record without reloading the full `/records?limit=200` list
