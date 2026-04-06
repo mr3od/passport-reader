@@ -22,14 +22,12 @@ from passport_telegram.messages import (
     extension_step3_caption,
     format_failure_text,
     format_success_text,
-    format_user_plan_text,
     format_user_usage_report,
     help_text,
     processing_busy_text,
     processing_error_text,
     quota_exceeded_text,
     temp_token_text,
-    usage_help_text,
     user_blocked_text,
     welcome_text,
 )
@@ -40,7 +38,7 @@ def test_format_failure_for_non_passport():
 
     text = format_failure_text(result, position=1, total=1)
 
-    assert "تعذر التحقق" in text
+    assert "لم أتمكن من التأكد" in text
 
 
 def test_format_success_includes_key_fields():
@@ -96,18 +94,26 @@ def test_user_blocked_text_mentions_account_stop():
 
 
 def test_help_and_welcome_texts_include_support_contacts():
-    assert "/account" in help_text()
-    assert "/usage" in help_text()
-    assert "/plan" in help_text()
+    assert "/me" in help_text()
     assert "/token" in help_text()
+    assert "/extension" in help_text()
     assert "/stats" not in help_text()
     assert "/setplan" not in help_text()
+    assert "/account" not in help_text()
+    assert "/usage" not in help_text()
+    assert "/plan" not in help_text()
+    assert "الطريقة الكاملة" in help_text()
+    assert "ضغط الصورة" in help_text()
     assert "@mr3od" in help_text()
     assert "@naaokun" in help_text()
-    assert "/account" in welcome_text()
-    assert "/usage" in welcome_text()
-    assert "/plan" in welcome_text()
+    assert "/me" in welcome_text()
     assert "/token" in welcome_text()
+    assert "/account" not in welcome_text()
+    assert "/usage" not in welcome_text()
+    assert "/plan" not in welcome_text()
+    assert "أرسل صورة الجواز" in welcome_text()
+    assert "الإضافة" in welcome_text()
+    assert "ضغط الصورة" in welcome_text()
     assert "@mr3od" in welcome_text()
 
 
@@ -121,13 +127,6 @@ def test_processing_error_text_includes_support_contacts():
 def test_processing_busy_text_is_arabic():
     text = processing_busy_text()
     assert "ضغط" in text
-
-
-def test_usage_help_text_is_self_service_only():
-    text = usage_help_text()
-
-    assert text == "الاستخدام: /usage"
-    assert "<telegram_user_id>" not in text
 
 
 def test_usage_message_includes_summary_fields():
@@ -166,24 +165,7 @@ def test_usage_message_includes_summary_fields():
 
     assert "Agency A" in usage_text
     assert "عدد الصور هذا الشهر: 2" in usage_text
-
-
-def test_format_user_plan_text_includes_plan_and_status():
-    user = User(
-        id=1,
-        external_provider=ExternalProvider.TELEGRAM,
-        external_user_id="12345",
-        display_name="Agency A",
-        plan=PlanName.PRO,
-        status=UserStatus.ACTIVE,
-        created_at=datetime(2026, 3, 13, 10, 0, tzinfo=UTC),
-    )
-
-    text = format_user_plan_text(user)
-
-    assert "Agency A" in text
-    assert "pro" in text
-    assert "active" in text
+    assert "الإضافة" in usage_text
 
 
 def test_temp_token_text_includes_token_and_expiry():
@@ -203,7 +185,7 @@ def test_temp_token_text_includes_token_and_expiry():
     )
 
     assert "abc123" in text
-    assert "الرمز:\nabc123" in text
+    assert "الرمز:\n`abc123`" in text
     assert "2026-03-13 12:00 UTC" in text
     assert "مرة واحدة" in text
 

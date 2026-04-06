@@ -16,34 +16,35 @@ SUPPORT_CONTACT_TEXT = "للاستفسارات أو طلب تغيير الخطة
 
 def welcome_text() -> str:
     return (
-        "أهلًا بك في بوت رفع وتدقيق الجوازات.\n\n"
-        "أرسل صورة جواز واحدة أو عدة صور، وسأقوم بالتحقق من الجواز "
-        "واستخراج البيانات لكل صورة بشكل مستقل.\n\n"
-        "أوامر المستخدم:\n"
-        "/account - عرض الخطة والاستخدام الحالي\n"
-        "/usage - عرض تفاصيل الاستخدام الشهري\n"
-        "/plan - عرض الخطة الحالية وحالة الحساب\n"
-        "/token - إصدار رمز مؤقت لتسجيل الدخول في الإضافة\n"
-        "/masar - عرض الجوازات المعلقة أو الفاشلة في مسار\n"
-        "/extension - تحميل إضافة Chrome وتعليمات التثبيت\n\n"
+        "أهلًا وسهلًا.\n\n"
+        "أرسل صورة الجواز الآن، وسيتم فحصها واستخراج البيانات مباشرة.\n\n"
+        "مهم: أحيانًا ضغط الصورة داخل تيليجرام يسبب ضعف في نتيجة المعالجة،\n"
+        "لذلك إذا كانت النتيجة غير دقيقة فأرسلها كملف أو بصورة أوضح.\n\n"
+        "إذا أردت الاستفادة الكاملة من الخدمة ومتابعة رفع الحالات إلى Nusuk،\n"
+        "فالإضافة هي الخيار الأفضل:\n"
+        "/extension - تحميل الإضافة وطريقة التثبيت\n\n"
+        "الأوامر المهمة:\n"
+        "/me - عرض حالة الحساب والاستخدام\n"
+        "/token - إصدار رمز الدخول للإضافة\n"
+        "/masar - متابعة الحالات المعلقة أو الفاشلة في Nusuk\n"
+        "/help - طريقة الاستخدام\n\n"
         f"{SUPPORT_CONTACT_TEXT}"
     )
 
 
 def help_text() -> str:
     return (
-        "طريقة الاستخدام:\n"
+        "طريقة الاستخدام باختصار:\n"
         "1. أرسل صورة الجواز كصورة أو كملف.\n"
-        "2. تأكد من أن الصورة واضحة وتُظهر كامل صفحة الجواز.\n"
+        "2. تأكد أن الصورة واضحة وتُظهر كامل الصفحة.\n"
         "3. يمكنك إرسال أكثر من صورة في دفعة واحدة.\n"
-        "4. ستصلك النتيجة لكل صورة بشكل مستقل، مع البيانات المستخرجة.\n\n"
-        "أوامر المستخدم:\n"
-        "/account - عرض الخطة والاستخدام الحالي\n"
-        "/usage - عرض تفاصيل الاستخدام الشهري\n"
-        "/plan - عرض الخطة الحالية وحالة الحساب\n"
-        "/token - إصدار رمز مؤقت لتسجيل الدخول في الإضافة\n"
-        "/masar - عرض الجوازات المعلقة أو الفاشلة في مسار\n"
-        "/extension - تحميل إضافة Chrome وتعليمات التثبيت\n\n"
+        "4. أحيانًا ضغط الصورة داخل تيليجرام يضعف المعالجة، فإذا أمكن أرسلها كملف أو بصورة أوضح.\n"
+        "5. إذا أردت الطريقة الكاملة ومتابعة الحالات إلى Nusuk، ثبّت الإضافة من /extension.\n\n"
+        "الأوامر:\n"
+        "/me - حالة الحساب والاستخدام\n"
+        "/token - رمز الدخول للإضافة\n"
+        "/masar - متابعة الحالات المعلقة أو الفاشلة في Nusuk\n"
+        "/extension - تحميل الإضافة\n\n"
         "الملفات المدعومة: JPG, JPEG, PNG, WEBP, TIF, TIFF\n\n"
         f"{SUPPORT_CONTACT_TEXT}"
     )
@@ -51,7 +52,7 @@ def help_text() -> str:
 
 def extension_installing_text() -> str:
     """Sent immediately while the ZIP is being fetched."""
-    return "⏳ جارٍ تجهيز الإضافة، لحظة من فضلك..."
+    return "⏳ جاري تجهيز الإضافة لك. انتظر قليلًا..."
 
 
 def extension_step1_caption() -> str:
@@ -82,8 +83,8 @@ def extension_fetch_error_text() -> str:
 
 def batch_started_text(total: int) -> str:
     if total == 1:
-        return "تم استلام الصورة، وجارٍ معالجتها الآن."
-    return f"تم استلام {total} صور، وجارٍ معالجتها الآن."
+        return "تم استلام الصورة، وجاري فحصها الآن."
+    return f"تم استلام {total} صور، وجاري فحصها الآن."
 
 
 def batch_limit_exceeded_text(*, total: int, limit: int) -> str:
@@ -98,11 +99,12 @@ def format_failure_text(result: TrackedProcessingResult, *, position: int, total
 
     if not result.is_passport:
         return (
-            prefix + "تعذر التحقق من أن الصورة تخص جوازًا صالحًا للمعالجة. "
-            "تأكد من وضوح الصورة وإظهار كامل صفحة الجواز."
+            prefix + "لم أتمكن من التأكد أن الصورة لجواز واضح وجاهز للمعالجة. "
+            "أعد الإرسال بصورة أوضح وتأكد أن كامل صفحة الجواز ظاهرة. "
+            "وإذا كانت الصورة مضغوطة من تيليجرام فالأفضل إرسالها كملف."
         )
 
-    return prefix + "تعذر إكمال معالجة الصورة الحالية. يُرجى إعادة المحاولة بصورة أوضح."
+    return prefix + "لم تكتمل معالجة الصورة الحالية. أعد المحاولة بصورة أوضح."
 
 
 def format_success_text(result: TrackedProcessingResult, *, position: int, total: int) -> str:
@@ -112,7 +114,7 @@ def format_success_text(result: TrackedProcessingResult, *, position: int, total
         return prefix + "تعذر استخراج البيانات من الصورة الحالية."
 
     lines = [
-        prefix + "تمت معالجة الجواز بنجاح.",
+        prefix + "تم فحص الجواز بنجاح.",
         f"حالة المراجعة: {_code(_review_status_label(result.review_status))}",
         f"مستوى الثقة: {_code(_confidence_label(result.confidence_overall))}",
         f"ملاحظات التحقق: {_code(_warnings_label(len(result.warnings)))}",
@@ -137,16 +139,16 @@ def unsupported_file_text() -> str:
 
 
 def processing_error_text() -> str:
-    return f"حدث خطأ أثناء المعالجة. حاول مرة أخرى بصورة أوضح. {SUPPORT_CONTACT_TEXT}"
+    return f"حدث خطأ أثناء المعالجة. أعد المحاولة بصورة أوضح. {SUPPORT_CONTACT_TEXT}"
 
 
 def processing_busy_text() -> str:
-    return "الخدمة تحت ضغط مرتفع الآن. حاول رفع الجوازات بعد قليل."
+    return "الخدمة عليها ضغط حاليًا. أعد المحاولة بعد قليل."
 
 
 def quota_exceeded_text(decision: QuotaDecision) -> str:
     return (
-        "تم استهلاك الحد المسموح لخطة الاستخدام الحالية.\n"
+        "وصلت للحد المسموح في الخطة الحالية.\n"
         f"المتبقي من رفع الصور هذا الشهر: {decision.remaining_uploads}\n"
         f"المتبقي من المعالجات الناجحة هذا الشهر: {decision.remaining_successes}\n\n"
         f"{SUPPORT_CONTACT_TEXT}"
@@ -154,19 +156,15 @@ def quota_exceeded_text(decision: QuotaDecision) -> str:
 
 
 def user_blocked_text() -> str:
-    return f"تم إيقاف هذا الحساب عن استخدام الخدمة مؤقتًا. {SUPPORT_CONTACT_TEXT}"
-
-
-def usage_help_text() -> str:
-    return "الاستخدام: /usage"
+    return f"تم إيقاف الحساب مؤقتًا عن استخدام الخدمة. {SUPPORT_CONTACT_TEXT}"
 
 
 def temp_token_text(issued: IssuedTempToken) -> str:
     expires_at = issued.expires_at.astimezone(UTC).strftime("%Y-%m-%d %H:%M UTC")
     return (
-        "تم إصدار رمز تسجيل دخول مؤقت للإضافة.\n"
+        "هذا رمز دخول مؤقت للإضافة.\n"
         "الرمز:\n"
-        f"{issued.token}\n"
+        f"`{issued.token}`\n"
         f"ينتهي في: {expires_at}\n"
         "هذا الرمز صالح للاستخدام مرة واحدة فقط.\n"
         "الصقه في شاشة تسجيل الدخول داخل الإضافة."
@@ -175,16 +173,16 @@ def temp_token_text(issued: IssuedTempToken) -> str:
 
 def format_masar_status_text(records: list[UserRecord]) -> str:
     if not records:
-        return "جميع الجوازات تم رفعها إلى مسار."
+        return "كل الحالات تم رفعها إلى Nusuk."
     pending = [r for r in records if r.masar_status is None]
     failed = [r for r in records if r.masar_status == "failed"]
     lines = []
     if pending:
-        lines.append(f"بانتظار الرفع إلى مسار ({len(pending)}):")
+        lines.append(f"بانتظار الرفع إلى Nusuk ({len(pending)}):")
         for r in pending:
             lines.append(f"  - {r.passport_number or str(r.upload_id)}")
     if failed:
-        lines.append(f"فشل الرفع ({len(failed)}) — افتح الإضافة وأعد المحاولة:")
+        lines.append(f"فشل الرفع إلى Nusuk ({len(failed)}) — افتح الإضافة وأكمل من هناك:")
         for r in failed:
             lines.append(f"  - {r.passport_number or str(r.upload_id)}")
     return "\n".join(lines)
@@ -201,17 +199,8 @@ def format_user_usage_report(report: UserUsageReport) -> str:
         f"المعالجات الناجحة: {report.success_count}\n"
         f"المعالجات الفاشلة: {report.failure_count}\n"
         f"المتبقي من رفع الصور: {report.quota_decision.remaining_uploads}\n"
-        f"المتبقي من المعالجات الناجحة: {report.quota_decision.remaining_successes}"
-    )
-
-
-def format_user_plan_text(user: User) -> str:
-    return (
-        f"المستخدم: {_user_label(user)}\n"
-        f"معرف تيليجرام: {user.external_user_id}\n"
-        f"الخطة الحالية: {user.plan.value}\n"
-        f"حالة الحساب: {user.status.value}\n\n"
-        f"{SUPPORT_CONTACT_TEXT}"
+        f"المتبقي من المعالجات الناجحة: {report.quota_decision.remaining_successes}\n\n"
+        "للاستخدام الكامل ومتابعة الحالات إلى Nusuk، ثبّت الإضافة من /extension"
     )
 
 

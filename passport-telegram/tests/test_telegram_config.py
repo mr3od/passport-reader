@@ -31,7 +31,8 @@ def test_github_token_loaded_from_env(monkeypatch):
     monkeypatch.setenv("PASSPORT_TELEGRAM_BOT_TOKEN", "dummy")
     monkeypatch.setenv("PASSPORT_GITHUB_RELEASE_READ_TOKEN", "ghp_test")
     monkeypatch.setenv("PASSPORT_GITHUB_REPO", "owner/repo")
-    s = TelegramSettings()
+    s = TelegramSettings(bot_token=SecretStr("dummy"))
+    assert s.github_release_read_token is not None
     assert s.github_release_read_token.get_secret_value() == "ghp_test"
     assert s.github_repo == "owner/repo"
 
@@ -40,7 +41,7 @@ def test_github_fields_default_to_none(monkeypatch):
     monkeypatch.setenv("PASSPORT_TELEGRAM_BOT_TOKEN", "dummy")
     monkeypatch.delenv("PASSPORT_GITHUB_RELEASE_READ_TOKEN", raising=False)
     monkeypatch.delenv("PASSPORT_GITHUB_REPO", raising=False)
-    s = TelegramSettings()
+    s = TelegramSettings(bot_token=SecretStr("dummy"))
     assert s.github_release_read_token is None
     assert s.github_repo is None
 
@@ -48,6 +49,7 @@ def test_github_fields_default_to_none(monkeypatch):
 def test_github_token_is_secret_str(monkeypatch):
     monkeypatch.setenv("PASSPORT_TELEGRAM_BOT_TOKEN", "dummy")
     monkeypatch.setenv("PASSPORT_GITHUB_RELEASE_READ_TOKEN", "ghp_secret")
-    s = TelegramSettings()
+    s = TelegramSettings(bot_token=SecretStr("dummy"))
     assert "ghp_secret" not in str(s)  # SecretStr hides value in repr
+    assert s.github_release_read_token is not None
     assert s.github_release_read_token.get_secret_value() == "ghp_secret"

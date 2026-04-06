@@ -107,6 +107,26 @@ class UsersRepository:
             ).fetchall()
         return [user for row in rows if (user := _row_to_user(row)) is not None]
 
+    def list_active_by_provider(self, external_provider: ExternalProvider) -> list[User]:
+        with self.db.connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT
+                    id,
+                    external_provider,
+                    external_user_id,
+                    display_name,
+                    plan,
+                    status,
+                    created_at
+                FROM users
+                WHERE external_provider = ? AND status = ?
+                ORDER BY created_at ASC, id ASC
+                """,
+                (external_provider.value, UserStatus.ACTIVE.value),
+            ).fetchall()
+        return [user for row in rows if (user := _row_to_user(row)) is not None]
+
     def update_plan(self, user_id: int, plan: PlanName) -> User:
         with self.db.transaction() as conn:
             conn.execute(

@@ -4,6 +4,17 @@
 
 It exposes operator-only commands for usage reporting, recent uploads, plan changes, and account blocking. It depends on `passport-platform` only and must not import `passport-core`.
 
+Commands:
+
+- `/stats`
+- `/recent [count]`
+- `/usage <telegram_user_id>`
+- `/setplan <telegram_user_id> <free|basic|pro>`
+- `/block <telegram_user_id>`
+- `/unblock <telegram_user_id>`
+- `/broadcast <message>`
+- reply to a photo with `/broadcast`
+
 ## Setup
 
 ```bash

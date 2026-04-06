@@ -8,12 +8,14 @@ from typing import Any, cast
 from passport_platform.config import PlatformSettings
 from passport_platform.db import Database
 from passport_platform.repositories.auth_tokens import AuthTokensRepository
+from passport_platform.repositories.broadcasts import BroadcastsRepository
 from passport_platform.repositories.records import RecordsRepository
 from passport_platform.repositories.reporting import ReportingRepository
 from passport_platform.repositories.uploads import UploadsRepository
 from passport_platform.repositories.usage import UsageRepository
 from passport_platform.repositories.users import UsersRepository
 from passport_platform.services.auth import AuthService
+from passport_platform.services.broadcasts import BroadcastService
 from passport_platform.services.processing import ProcessingService
 from passport_platform.services.quotas import QuotaService
 from passport_platform.services.records import RecordsService
@@ -33,6 +35,7 @@ class PlatformRuntime:
     db: Database
     artifacts: LocalArtifactStore
     users: UserService
+    broadcasts: BroadcastService
     auth: AuthService
     quotas: QuotaService
     uploads: UploadService
@@ -122,6 +125,11 @@ def _build_platform_runtime(*, settings: PlatformSettings, db: Database) -> Plat
         db=db,
         artifacts=LocalArtifactStore(settings.artifacts_dir),
         users=users,
+        broadcasts=BroadcastService(
+            broadcasts=BroadcastsRepository(db),
+            users=users,
+            artifacts=LocalArtifactStore(settings.artifacts_dir),
+        ),
         auth=AuthService(AuthTokensRepository(db), users),
         quotas=quotas,
         uploads=uploads,

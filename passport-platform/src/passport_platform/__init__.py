@@ -25,6 +25,7 @@ from passport_platform.factory import (
     build_processing_runtime,
     build_processing_service,
 )
+from passport_platform.models.broadcast import Broadcast, BroadcastContentType, BroadcastStatus
 from passport_platform.schemas import (
     AuthenticatedSession,
     IssuedExtensionSession,
@@ -39,6 +40,7 @@ from passport_platform.schemas import (
     UserUsageReport,
 )
 from passport_platform.services.auth import AuthService
+from passport_platform.services.broadcasts import BroadcastService
 from passport_platform.services.processing import ProcessingService
 from passport_platform.services.quotas import QuotaService
 from passport_platform.services.records import RecordsService
@@ -53,6 +55,10 @@ __all__ = [
     "ExternalProvider",
     "AuthenticatedSession",
     "AuthService",
+    "Broadcast",
+    "BroadcastContentType",
+    "BroadcastService",
+    "BroadcastStatus",
     "InvalidExtensionSessionError",
     "InvalidTempTokenError",
     "IssuedExtensionSession",

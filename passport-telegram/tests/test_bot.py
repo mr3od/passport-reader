@@ -7,17 +7,17 @@ from typing import cast
 from unittest.mock import patch
 
 import pytest
-from passport_platform import IssuedTempToken, PlanName, QuotaDecision
+from passport_platform import BroadcastContentType, IssuedTempToken, PlanName, QuotaDecision
 from passport_platform.enums import UserStatus
 from passport_platform.models.auth import TempToken
 from passport_telegram.bot import (
+    BotServices,
     InflightLimiter,
     TelegramImageUpload,
-    account_command,
-    plan_command,
+    deliver_pending_broadcast,
+    me_command,
     process_upload_batch,
     token_command,
-    usage_command,
 )
 from telegram import Update
 from telegram.ext import ContextTypes
@@ -42,12 +42,27 @@ class FakeBot:
         self.photos.append((chat_id, photo, caption, parse_mode))
 
 
+class BroadcastAwareBot(FakeBot):
+    async def send_photo(
+        self,
+        *,
+        chat_id: int,
+        photo,
+        caption: str | None = None,
+        parse_mode: str | None = None,
+    ) -> None:
+        payload = photo.read() if hasattr(photo, "read") else photo
+        self.photos.append((chat_id, payload, caption or "", parse_mode))
+
+
 class FakeReplyMessage:
     def __init__(self) -> None:
         self.replies: list[str] = []
+        self.parse_modes: list[str | None] = []
 
-    async def reply_text(self, text: str) -> None:
+    async def reply_text(self, text: str, parse_mode: str | None = None) -> None:
         self.replies.append(text)
+        self.parse_modes.append(parse_mode)
 
 
 def _agency_context(*, services: object, args: list[str] | None = None):
@@ -120,11 +135,12 @@ def test_token_command_issues_single_use_token_text():
     asyncio.run(token_command(update, context))
 
     assert len(reply.replies) == 1
-    assert "tmp-token" in reply.replies[0]
+    assert "`tmp-token`" in reply.replies[0]
     assert "مرة واحدة" in reply.replies[0]
+    assert reply.parse_modes == ["Markdown"]
 
 
-def test_account_command_returns_user_usage_summary():
+def test_me_command_returns_user_usage_summary():
     reply = FakeReplyMessage()
     report = SimpleNamespace(
         user=SimpleNamespace(
@@ -151,92 +167,12 @@ def test_account_command_returns_user_usage_summary():
     context = _agency_context(services=services)
     update = _agency_update(reply)
 
-    asyncio.run(account_command(update, context))
+    asyncio.run(me_command(update, context))
 
     assert len(reply.replies) == 1
     assert "Agency A" in reply.replies[0]
     assert "12345" in reply.replies[0]
     assert "18" in reply.replies[0]
-
-
-def test_usage_command_returns_self_usage_without_admin_args():
-    reply = FakeReplyMessage()
-    report = SimpleNamespace(
-        user=SimpleNamespace(
-            display_name="Agency A",
-            external_user_id="12345",
-            plan=SimpleNamespace(value="free"),
-            status=SimpleNamespace(value="active"),
-        ),
-        upload_count=2,
-        success_count=1,
-        failure_count=1,
-        quota_decision=SimpleNamespace(remaining_uploads=18, remaining_successes=19),
-    )
-    services = SimpleNamespace(
-        users=SimpleNamespace(
-            get_or_create_user=lambda command: SimpleNamespace(
-                id=1,
-                external_user_id="12345",
-                status=UserStatus.ACTIVE,
-            )
-        ),
-        reporting=SimpleNamespace(get_user_usage_report=lambda user_id: report),
-    )
-    context = _agency_context(services=services, args=[])
-    update = _agency_update(reply)
-
-    asyncio.run(usage_command(update, context))
-
-    assert len(reply.replies) == 1
-    assert "Agency A" in reply.replies[0]
-    assert "18" in reply.replies[0]
-
-
-def test_usage_command_with_args_returns_self_only_help_text():
-    reply = FakeReplyMessage()
-    services = SimpleNamespace(
-        users=SimpleNamespace(
-            get_or_create_user=lambda command: SimpleNamespace(
-                id=1,
-                external_user_id="12345",
-                status=UserStatus.ACTIVE,
-            )
-        ),
-        reporting=SimpleNamespace(get_user_usage_report=lambda user_id: None),
-    )
-    context = _agency_context(services=services, args=["999"])
-    update = _agency_update(reply)
-
-    asyncio.run(usage_command(update, context))
-
-    assert len(reply.replies) == 1
-    assert "/usage" in reply.replies[0]
-    assert "<telegram_user_id>" not in reply.replies[0]
-
-
-def test_plan_command_returns_short_user_plan_summary():
-    reply = FakeReplyMessage()
-    services = SimpleNamespace(
-        users=SimpleNamespace(
-            get_or_create_user=lambda command: SimpleNamespace(
-                id=1,
-                display_name="Agency A",
-                external_user_id="12345",
-                plan=SimpleNamespace(value="pro"),
-                status=SimpleNamespace(value="active"),
-            )
-        )
-    )
-    context = _agency_context(services=services)
-    update = _agency_update(reply)
-
-    asyncio.run(plan_command(update, context))
-
-    assert len(reply.replies) == 1
-    assert "Agency A" in reply.replies[0]
-    assert "pro" in reply.replies[0]
-    assert "active" in reply.replies[0]
 
 
 def test_process_upload_batch_splits_batches_above_plan_limit():
@@ -398,3 +334,60 @@ def test_inflight_limiter_allows_same_user_up_to_global_limit():
         second.release()
 
     asyncio.run(run())
+
+
+def test_deliver_pending_broadcast_sends_text_to_active_users(tmp_path) -> None:
+    bot = BroadcastAwareBot()
+    broadcast = SimpleNamespace(
+        id=7,
+        content_type=BroadcastContentType.TEXT,
+        text_body="Maintenance",
+        caption=None,
+        artifact_path=None,
+    )
+    services = SimpleNamespace(
+        broadcasts=SimpleNamespace(
+            claim_next_pending_broadcast=lambda: broadcast,
+            mark_completed=lambda broadcast_id, sent_count, failed_count: SimpleNamespace(),
+            mark_failed=lambda broadcast_id, error_message: SimpleNamespace(),
+        ),
+        users=SimpleNamespace(
+            list_active_users_by_provider=lambda provider: [
+                SimpleNamespace(external_user_id="100"),
+                SimpleNamespace(external_user_id="200"),
+            ]
+        ),
+    )
+
+    asyncio.run(deliver_pending_broadcast(bot=bot, services=cast(BotServices, services)))
+
+    assert bot.messages == [(100, "Maintenance"), (200, "Maintenance")]
+
+
+def test_deliver_pending_broadcast_reuploads_photo_bytes(tmp_path) -> None:
+    bot = BroadcastAwareBot()
+    artifact = tmp_path / "broadcast.jpg"
+    artifact.write_bytes(b"image")
+    broadcast = SimpleNamespace(
+        id=9,
+        content_type=BroadcastContentType.PHOTO,
+        text_body=None,
+        caption="Read this",
+        artifact_path=str(artifact),
+    )
+    services = SimpleNamespace(
+        broadcasts=SimpleNamespace(
+            claim_next_pending_broadcast=lambda: broadcast,
+            mark_completed=lambda broadcast_id, sent_count, failed_count: SimpleNamespace(),
+            mark_failed=lambda broadcast_id, error_message: SimpleNamespace(),
+        ),
+        users=SimpleNamespace(
+            list_active_users_by_provider=lambda provider: [SimpleNamespace(external_user_id="100")]
+        ),
+    )
+
+    asyncio.run(deliver_pending_broadcast(bot=bot, services=cast(BotServices, services)))
+
+    assert bot.photos[0][0] == 100
+    assert bot.photos[0][1] == b"image"
+    assert bot.photos[0][2] == "Read this"
