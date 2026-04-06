@@ -26,6 +26,32 @@ Agent-maintained log of significant changes. Each entry records what was done an
 - Added an agency-bot background worker that claims queued broadcasts and fans them out to active Telegram users
 - Added focused platform, admin bot, and agency bot tests covering queue creation, user targeting, and delivery behavior
 
+## 2026-04-05 — benchmark seed management command [mr3od]
+
+- Added `passport-platform/management/seed.py` — a repeatable seed command that loads benchmark passport cases into the platform DB for admin users; already-imported cases are skipped on re-runs so the command is safe to call repeatedly
+- Added `k8s/seed-job.yaml` so the seed can be run as a one-off Kubernetes Job in the production cluster; the Job mounts the benchmark-cases PVC and targets only existing Telegram admin users
+- Fixed the seed Job container entrypoint to use `python -m` invocation to avoid a broken shebang after non-editable installation
+- Renamed the k8s Job resource to `passport-platform-seed` for consistency with other k8s resource names
+- Added `feat(seed): reset masar submissions on each run` so benchmark seeding always starts from a clean submission state
+- Added seeder instructions to `passport-platform` README
+
+## 2026-04-03 — records counts/ids API, popup redesign, and CI unification [codex]
+
+- Added `UserRecordListItem` and section-partitioned platform queries to `passport-platform` (pending, in-progress, submitted, failed) including submission context fields and failure reason text
+- Added `GET /records/counts` and `GET /records/ids` to `passport-api` so the extension can fetch lightweight record metadata without pulling full record payloads; updated API schemas and tests
+- Added section-aware background fetchers in the extension that pull counts and id lists on demand and cache results in `chrome.storage.local`, reducing full-list API calls during popup rendering
+- Added a tabbed popup records cache layer so the popup reads from cached section data rather than making API calls on every open; updated `queue-filter.js` to partition from the cache
+- Redesigned passport cards in the popup: pending cards show passport thumbnail, name, and nationality; submitted/failed cards carry Masar status badges; added card-level strings to `strings.js`
+- Added optimistic batch-resume state so the popup shows a resuming batch immediately without waiting for a background confirmation round-trip
+- Unified extension CI: merged the separate extension CI workflow into the extension-release workflow and removed the now-redundant standalone CI workflow file
+
+## 2026-04-03 — Masar session workflow hardening [codex]
+
+- Removed the dead passive content-script capture path from `passport-masar-extension` and consolidated runtime policy around explicit session sync and resolver-driven context transitions
+- Hardened Masar token selection, contract resolution, details reopening, banner/dropdown behavior, and resume-batch error handling in the extension popup/background flow
+- Added extension architecture and package guidance updates in `docs/EXTENSION.md` and `passport-masar-extension/AGENTS.md`
+- Fixed `passport-platform` failed-section scoping so failed/missing records remain user-scoped and aligned the API docs/tests with the current record section semantics
+
 ## 2026-03-31 — submission stability follow-up and record lookup optimization [codex]
 
 - Added `GET /records/{upload_id}` to `passport-api` so extension flows can fetch a specific record without reloading the full `/records?limit=200` list
@@ -40,6 +66,20 @@ Agent-maintained log of significant changes. Each entry records what was done an
 - Rebuilt the extension popup into a tabbed workspace with Pending, In Progress, Submitted, and Failed sections, centralized Arabic strings, contract selection, and home summary counters
 - Added extension-side batch submission state in `chrome.storage.session`, context-change buffering, badge priority handling, and Chrome notifications for batch completion and pending context changes
 - Added focused extension tests for status mapping, queue partitioning, badge logic, contract selection, popup helpers, notification titles, and batch failure propagation
+
+## 2026-03-31 — telegram global inflight limiter and batch hardening [codex]
+
+- Changed Telegram upload throttling to global-only inflight control; removed per-user inflight limiter state and settings.
+- Kept chunked batch processing and overload handling with Arabic busy messaging for safer MVP behavior under load.
+- Added regression coverage for limiter cancellation safety and global-cap behavior.
+- Updated Telegram env templates, package README, and package AGENTS guidance to reflect current runtime knobs and removed stale Telegram per-user limiter env docs.
+
+## 2026-03-31 — final popup proposal consolidation [codex]
+
+- Added the final popup written proposal artifact that guided the redesign before implementation cleanup
+- Added the canonical final popup mock in `docs/final-design-proposal.html`
+- Archived exploratory and duplicate popup proposal artifacts under `docs/archive/design-exploration/`
+- Updated the final written proposal and final HTML mock to state which design artifacts are canonical versus archived
 
 ## 2026-03-30 — split extension relink and login UI [codex]
 
@@ -63,6 +103,29 @@ Agent-maintained log of significant changes. Each entry records what was done an
 - Added `PASSPORT_GITHUB_RELEASE_READ_TOKEN` and `PASSPORT_GITHUB_REPO` env vars to `TelegramSettings` for GitHub Releases access
 - Added a terser-based build script that minifies and obfuscates the Chrome extension before packaging it as a ZIP artifact
 - Added CI workflow to build and publish extension ZIPs to GitHub Releases on the `extension-latest` mutable channel
+
+## 2026-03-29 — extension token exchange fix [codex]
+
+- Fixed the extension login flow to exchange Telegram one-time tokens through `/auth/exchange` before storing the API session token
+- Added a session-expired fallback in the popup when the stored extension session is no longer valid
+- Put the Telegram bot login token on its own line so it is easier to copy into the extension
+- Clarified the Telegram extension install steps to tell users to unzip the downloaded file before choosing `Load unpacked`
+- Loaded the extension API config into the popup so the new token exchange flow can resolve the production API base URL
+
+## 2026-03-29 — manual extension workflow triggers [codex]
+
+- Added `workflow_dispatch` to the extension CI and extension release workflows so they can be run manually from GitHub Actions
+
+## 2026-03-29 — deploy image propagation and bot rollout fix [codex]
+
+- Passed the computed deploy image into the remote SSH shell so MicroK8s rollouts no longer fail on an unset `IMMUTABLE_IMAGE`
+- Switched the agency Telegram deployment to `Recreate` so rollout does not briefly run two polling bot pods against the same token
+- Switched the admin Telegram deployment to `Recreate` for the same single-poller rollout behavior
+
+## 2026-03-29 — nodeport registry deploy tunnel [codex]
+
+- Updated CI deploys to push images through an SSH tunnel to the private MicroK8s `localhost:32000` registry NodePort
+- Removed the external registry login/push path from the deploy workflow so production deploys no longer depend on the Cloudflare-fronted registry hostname
 
 ## 2026-03-28 — switch deploys to immutable registry images [codex]
 
@@ -151,36 +214,6 @@ Agent-maintained log of significant changes. Each entry records what was done an
 - Updated root and package docs to describe the workspace-first `uv` workflow, root `pyproject.toml`, root tooling (`ruff`, `pytest`, `ty`), and MicroK8s `k8s/` deployment path
 - Tightened test fixtures and workspace `ty` configuration so `uv run ty check` passes while excluding the experimental `browser-session` package
 
-## 2026-03-29 — extension token exchange fix [codex]
-
-- Fixed the extension login flow to exchange Telegram one-time tokens through `/auth/exchange` before storing the API session token
-- Added a session-expired fallback in the popup when the stored extension session is no longer valid
-- Put the Telegram bot login token on its own line so it is easier to copy into the extension
-- Clarified the Telegram extension install steps to tell users to unzip the downloaded file before choosing `Load unpacked`
-- Loaded the extension API config into the popup so the new token exchange flow can resolve the production API base URL
-
-## 2026-03-31 — telegram global inflight limiter and batch hardening [codex]
-
-- Changed Telegram upload throttling to global-only inflight control; removed per-user inflight limiter state and settings.
-- Kept chunked batch processing and overload handling with Arabic busy messaging for safer MVP behavior under load.
-- Added regression coverage for limiter cancellation safety and global-cap behavior.
-- Updated Telegram env templates, package README, and package AGENTS guidance to reflect current runtime knobs and removed stale Telegram per-user limiter env docs.
-
-## 2026-03-29 — manual extension workflow triggers [codex]
-
-- Added `workflow_dispatch` to the extension CI and extension release workflows so they can be run manually from GitHub Actions
-
-## 2026-03-29 — deploy image propagation and bot rollout fix [codex]
-
-- Passed the computed deploy image into the remote SSH shell so MicroK8s rollouts no longer fail on an unset `IMMUTABLE_IMAGE`
-- Switched the agency Telegram deployment to `Recreate` so rollout does not briefly run two polling bot pods against the same token
-- Switched the admin Telegram deployment to `Recreate` for the same single-poller rollout behavior
-
-## 2026-03-29 — nodeport registry deploy tunnel [codex]
-
-- Updated CI deploys to push images through an SSH tunnel to the private MicroK8s `localhost:32000` registry NodePort
-- Removed the external registry login/push path from the deploy workflow so production deploys no longer depend on the Cloudflare-fronted registry hostname
-
 ## 2026-03-24 — upstream runtime boundary cleanup [codex]
 
 - Added shared `passport-platform` runtime builders for adapters
@@ -219,17 +252,3 @@ Agent-maintained log of significant changes. Each entry records what was done an
 - v1 workflow: 94.9% accuracy
 - v2 extraction: 98.1% accuracy (+3.2pp)
 - Model: `google/gemini-3.1-flash-lite-preview`
-
-## 2026-03-31 — final popup proposal consolidation [codex]
-
-- Added the final popup written proposal artifact that guided the redesign before implementation cleanup
-- Added the canonical final popup mock in `docs/final-design-proposal.html`
-- Archived exploratory and duplicate popup proposal artifacts under `docs/archive/design-exploration/`
-- Updated the final written proposal and final HTML mock to state which design artifacts are canonical versus archived
-
-## 2026-04-03 — Masar session workflow hardening [codex]
-
-- Removed the dead passive content-script capture path from `passport-masar-extension` and consolidated runtime policy around explicit session sync and resolver-driven context transitions
-- Hardened Masar token selection, contract resolution, details reopening, banner/dropdown behavior, and resume-batch error handling in the extension popup/background flow
-- Added extension architecture and package guidance updates in `docs/EXTENSION.md` and `passport-masar-extension/AGENTS.md`
-- Fixed `passport-platform` failed-section scoping so failed/missing records remain user-scoped and aligned the API docs/tests with the current record section semantics
