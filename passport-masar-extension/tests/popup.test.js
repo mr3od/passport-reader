@@ -8,7 +8,6 @@ const {
   ensureActionContextState,
   getRecordNote,
   getScreenTheme,
-  mergeTabPageState,
   renderHomeSummary,
   handleCardClick,
   handleSubmitResponse,
@@ -248,33 +247,6 @@ test("buildRenderableServerSections replays the last submit result into cached s
   assert.equal(sections.submitted[0].upload_id, 21);
   assert.equal(sections.submitted[0].masar_status, "submitted");
   assert.equal(sections.submitted[0].masar_detail_id, "detail-21");
-});
-
-test("mergeTabPageState appends later pages without losing earlier rows", () => {
-  const merged = mergeTabPageState(
-    {
-      items: [{ upload_id: 1 }, { upload_id: 2 }],
-      total: 240,
-      offset: 0,
-      hasMore: true,
-      loaded: true,
-      loading: false,
-      error: null,
-      lastLoadedAt: 1,
-    },
-    {
-      items: [{ upload_id: 3 }, { upload_id: 4 }],
-      total: 240,
-      offset: 2,
-      has_more: true,
-    },
-    { append: true, loadedAt: 2 },
-  );
-
-  assert.deepEqual(merged.items.map((record) => record.upload_id), [1, 2, 3, 4]);
-  assert.equal(merged.offset, 4);
-  assert.equal(merged.hasMore, true);
-  assert.equal(merged.lastLoadedAt, 2);
 });
 
 test("handleCardClick delegates mutamer details opening to the background worker", async () => {

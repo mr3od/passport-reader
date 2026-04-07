@@ -28,16 +28,12 @@
   Strings,
   apiBaseUrl,
 }) {
-  function createTabCacheState(loaded = false) {
+  function createTabCacheState() {
     return {
       items: [],
-      total: 0,
-      offset: 0,
-      hasMore: false,
-      loaded,
-      loading: false,
+      status: "idle",
+      dirty: true,
       error: null,
-      lastLoadedAt: 0,
     };
   }
 
@@ -49,14 +45,13 @@
     sectionData: null,
     tabCache: {
       pending: createTabCacheState(),
-      inProgress: createTabCacheState(true),
+      inProgress: createTabCacheState(),
       submitted: createTabCacheState(),
       failed: createTabCacheState(),
     },
     lastLocalData: null,
     lastSessionData: null,
-    isWorkspaceLoading: false,
-    hasQueuedWorkspaceReload: false,
+    workspaceAbortController: null,
     contractsCache: null,
     contractsCacheAt: 0,
     toastTimer: null,
@@ -699,15 +694,7 @@
     });
     setSectionVisibility(tabName, doc);
     const cache = state.tabCache[tabName];
-    if (tabName !== "inProgress" && cache && !cache.loaded) {
-      void loadTabPage(tabName, { silent: true }).then(() => {
-        if (state.lastLocalData && state.lastSessionData) {
-          renderWorkspaceFromCache(state.lastLocalData, state.lastSessionData);
-        }
-      });
-      return;
-    }
-    if (tabName !== "inProgress" && cache && cache.loaded && (Date.now() - cache.lastLoadedAt) > 15000) {
+    if (tabName !== "inProgress" && cache && cache.dirty) {
       void loadTabPage(tabName, { silent: true }).then(() => {
         if (state.lastLocalData && state.lastSessionData) {
           renderWorkspaceFromCache(state.lastLocalData, state.lastSessionData);
@@ -759,22 +746,6 @@
     $("tab-count-in-progress", doc).textContent = String(sections.inProgress.length);
     $("tab-count-submitted", doc).textContent = String(sections.submitted.length);
     $("tab-count-failed", doc).textContent = String(sections.failed.length);
-  }
-
-  function mergeTabPageState(cache, responseData, { append = false, loadedAt = Date.now() } = {}) {
-    const incomingItems = Array.isArray(responseData?.items) ? responseData.items : [];
-    const mergedItems = append ? [...(cache.items || []), ...incomingItems] : incomingItems;
-    return {
-      ...cache,
-      items: mergedItems,
-      total: responseData?.total || 0,
-      offset: (responseData?.offset || 0) + incomingItems.length,
-      hasMore: Boolean(responseData?.has_more),
-      loaded: true,
-      loading: false,
-      error: null,
-      lastLoadedAt: loadedAt,
-    };
   }
 
   function buildRenderableServerSections(caches, lastSubmitResult = null) {
@@ -863,37 +834,37 @@
   }
 
 
-  async function loadTabPage(tabName, { append = false, silent = false } = {}) {
+  async function loadTabPage(tabName, { silent = false } = {}) {
     if (tabName === "inProgress") {
-      return { ok: true, data: state.tabCache.inProgress };
+      return { ok: true, data: { items: [] } };
     }
     const cache = state.tabCache[tabName];
     if (!cache) {
       return { ok: false, error: Strings.ERR_UNEXPECTED };
     }
-    cache.loading = true;
+    cache.status = "loading";
     cache.error = null;
     const response = await sendMsg(
       {
         type: "FETCH_RECORD_PAGE",
         section: mapTabToSection(tabName),
         limit: 50,
-        offset: append ? cache.offset : 0,
+        offset: 0,
       },
       { timeoutMs: 10000 },
     );
-    cache.loading = false;
     if (!response?.ok) {
+      cache.status = "error";
       cache.error = response?.error || Strings.ERR_UNEXPECTED;
       if (!silent) {
         showToast(Strings.LIST_REFRESH_FAILED || Strings.ERR_UNEXPECTED, { tone: "error" });
       }
       return response;
     }
-    state.tabCache[tabName] = mergeTabPageState(cache, response.data, {
-      append,
-      loadedAt: Date.now(),
-    });
+    cache.items = Array.isArray(response.data?.items) ? response.data.items : [];
+    cache.status = "idle";
+    cache.dirty = false;
+    cache.error = null;
     return response;
   }
 
@@ -980,27 +951,12 @@
   }
 
   function renderLoadMoreControls(doc = document) {
-    const mappings = [
-      ["pending", "pending-load-more"],
-      ["submitted", "submitted-load-more"],
-      ["failed", "failed-load-more"],
-    ];
-    for (const [tabName, buttonId] of mappings) {
-      const button = $(buttonId, doc);
-      const cache = state.tabCache[tabName];
-      if (!button || !cache) {
-        continue;
+    ["pending-load-more", "submitted-load-more", "failed-load-more"].forEach((id) => {
+      const button = $(id, doc);
+      if (button) {
+        button.classList.add("hidden");
       }
-      button.classList.toggle("hidden", !cache.hasMore);
-      button.disabled = cache.loading;
-      button.onclick = cache.hasMore
-        ? () => void loadTabPage(tabName, { append: true }).then(() => {
-          if (state.lastLocalData && state.lastSessionData) {
-            renderWorkspaceFromCache(state.lastLocalData, state.lastSessionData);
-          }
-        })
-        : null;
-    }
+    });
   }
 
   async function getContractsForUi({ forceRefresh = false } = {}) {
@@ -1253,11 +1209,11 @@
   }
 
   async function loadMainWorkspace({ showLoading = true, fetchRecords = true, refreshContracts = false } = {}) {
-    if (state.isWorkspaceLoading) {
-      state.hasQueuedWorkspaceReload = true;
-      return;
+    if (state.workspaceAbortController) {
+      state.workspaceAbortController.abort();
     }
-    state.isWorkspaceLoading = true;
+    state.workspaceAbortController = new AbortController();
+    
     if (showLoading) {
       showScreen("loading");
     }
@@ -1283,7 +1239,7 @@
       const contracts = await getContractsForUi({ forceRefresh: refreshContracts });
       localData = await resolveContextAfterContracts(localData, contracts);
 
-      if (!pageResponse?.ok && !state.tabCache[state.activeTab]?.loaded) {
+      if (!pageResponse?.ok && state.tabCache[state.activeTab]?.status === "idle") {
         const failure = Failure.classifyFailure(pageResponse);
         if (failure.type === "relink") {
           await showRelinkRequired();
@@ -1306,11 +1262,7 @@
       showScreen("main");
       activateTab(state.activeTab);
     } finally {
-      state.isWorkspaceLoading = false;
-      if (state.hasQueuedWorkspaceReload) {
-        state.hasQueuedWorkspaceReload = false;
-        void loadMainWorkspace({ showLoading: false, fetchRecords: true, refreshContracts: false });
-      }
+      state.workspaceAbortController = null;
     }
   }
 
@@ -1391,7 +1343,10 @@
           sessionData?.active_submit_id || null,
         ).inProgressIds.size;
         renderWorkspaceFromCache(state.lastLocalData, sessionData);
-        if (prevInProgress > 0 && nextInProgress === 0 && !state.isWorkspaceLoading) {
+        if (prevInProgress > 0 && nextInProgress === 0) {
+          state.tabCache.pending.dirty = true;
+          state.tabCache.submitted.dirty = true;
+          state.tabCache.failed.dirty = true;
           void loadMainWorkspace({ showLoading: false, fetchRecords: true, refreshContracts: false });
         }
       });
@@ -1582,7 +1537,6 @@
     getSubmissionContextMismatchToast,
     handleResumeBatchResponse,
     handleSubmitResponse,
-    mergeTabPageState,
     renderHomeSummary,
     renderPendingCard,
     buildContractPickerState,
