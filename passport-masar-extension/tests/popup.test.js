@@ -4,7 +4,6 @@ const assert = require("node:assert/strict");
 const {
   buildBatchBannerState,
   buildDisplayName,
-  buildOptimisticCounts,
   buildRenderableServerSections,
   ensureActionContextState,
   getRecordNote,
@@ -227,44 +226,6 @@ test("renderHomeSummary updates pending and failed counters", () => {
   assert.equal(pending.textContent, "5");
   assert.equal(failed.textContent, "2");
   assert.equal(failed.dataset.tone, "danger");
-});
-
-test("buildOptimisticCounts moves queued records from pending into in-progress", () => {
-  assert.deepEqual(
-    buildOptimisticCounts(
-      { pending: 5, submitted: 2, failed: 1 },
-      [10, 11],
-      12,
-    ),
-    { pending: 2, inProgress: 3, submitted: 2, failed: 1 },
-  );
-});
-
-test("buildOptimisticCounts supports the richer batch object shape", () => {
-  assert.deepEqual(
-    buildOptimisticCounts(
-      { pending: 4, submitted: 2, failed: 1 },
-      { queued_ids: [10, 11], active_id: 12 },
-      null,
-    ),
-    { pending: 1, inProgress: 3, submitted: 2, failed: 1 },
-  );
-});
-
-test("buildOptimisticCounts applies local submitted and failed transitions", () => {
-  assert.deepEqual(
-    buildOptimisticCounts(
-      { pending: 6, submitted: 2, failed: 1 },
-      {
-        queued_ids: [10],
-        active_id: 11,
-        submitted_ids: [12, 13],
-        failed_ids: [14],
-      },
-      null,
-    ),
-    { pending: 1, inProgress: 2, submitted: 4, failed: 2 },
-  );
 });
 
 test("buildRenderableServerSections replays the last submit result into cached sections", () => {

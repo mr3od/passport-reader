@@ -2,6 +2,15 @@
 
 Agent-maintained log of significant changes. Each entry records what was done and who did it.
 
+## 2026-04-07 - removed all optimistic count logic and server count caching [mr3od]
+
+1. Counts are always derived from tab cache sections - no more complex merging logic
+2. Removed buildOptimisticCounts - eliminated the double-counting bug source
+3. Removed countsState - no more stale/loading state tracking
+4. Removed loadCounts API call - one less network request
+5. Simplified renderWorkspaceFromCache - counts = section lengths, period
+
+
 ## 2026-04-07 — extension submission flow simplified [kiro]
 
 - Removed step 4 (Attachment/Upload) from Masar submission flow

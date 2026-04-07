@@ -53,11 +53,6 @@
       submitted: createTabCacheState(),
       failed: createTabCacheState(),
     },
-    countsState: {
-      server: null,
-      stale: false,
-      loading: false,
-    },
     lastLocalData: null,
     lastSessionData: null,
     isWorkspaceLoading: false,
@@ -766,19 +761,6 @@
     $("tab-count-failed", doc).textContent = String(sections.failed.length);
   }
 
-  function buildOptimisticCounts(serverCounts, batchState, activeSubmitId = null) {
-    const normalized = QueueFilter.normalizeBatchState(batchState, activeSubmitId);
-    const inProgressCount = normalized.inProgressIds.size;
-    const submittedCount = normalized.submittedIds.size;
-    const failedCount = normalized.failedIds.size;
-    return {
-      pending: Math.max((serverCounts?.pending || 0) - inProgressCount - submittedCount - failedCount, 0),
-      inProgress: inProgressCount,
-      submitted: (serverCounts?.submitted || 0) + submittedCount,
-      failed: (serverCounts?.failed || 0) + failedCount,
-    };
-  }
-
   function mergeTabPageState(cache, responseData, { append = false, loadedAt = Date.now() } = {}) {
     const incomingItems = Array.isArray(responseData?.items) ? responseData.items : [];
     const mergedItems = append ? [...(cache.items || []), ...incomingItems] : incomingItems;
@@ -880,21 +862,6 @@
     return tabName === "inProgress" ? "pending" : tabName;
   }
 
-  async function loadCounts({ silent = false } = {}) {
-    state.countsState.loading = true;
-    const response = await sendMsg({ type: "FETCH_RECORD_COUNTS" }, { timeoutMs: 10000 });
-    state.countsState.loading = false;
-    if (!response?.ok) {
-      state.countsState.stale = true;
-      if (!silent && state.countsState.server) {
-        showToast(Strings.ERR_UNEXPECTED, { tone: "error" });
-      }
-      return response;
-    }
-    state.countsState.server = response.data;
-    state.countsState.stale = false;
-    return response;
-  }
 
   async function loadTabPage(tabName, { append = false, silent = false } = {}) {
     if (tabName === "inProgress") {
@@ -950,32 +917,12 @@
       && Boolean(localData.masar_contract_id)
       && localData.masar_contract_state !== "expired"
       && localData.masar_contract_state !== "inactive";
-    const hasActiveBatch = sections.inProgress.length > 0;
-    const counts = state.countsState.server && !hasActiveBatch
-      ? buildOptimisticCounts(state.countsState.server, sessionData.submission_batch || [], activeSubmitId)
-      : hasActiveBatch
-      ? (() => {
-          const normalized = QueueFilter.normalizeBatchState(
-            sessionData.submission_batch || [],
-            activeSubmitId,
-          );
-          const batch = sessionData?.submission_batch;
-          const submittedCount = Array.isArray(batch?.submitted_ids) ? batch.submitted_ids.length : 0;
-          const failedCount = Array.isArray(batch?.failed_ids) ? batch.failed_ids.length : 0;
-          const total = typeof batch?.source_total === "number" ? batch.source_total : 0;
-          return {
-            pending: Math.max(total - normalized.inProgressIds.size - submittedCount - failedCount, 0),
-            inProgress: normalized.inProgressIds.size,
-            submitted: submittedCount,
-            failed: failedCount,
-          };
-        })()
-      : {
-        pending: pendingVisible.length,
-        inProgress: sections.inProgress.length,
-        submitted: sections.submitted.length,
-        failed: sections.failed.length,
-      };
+    const counts = {
+      pending: pendingVisible.length,
+      inProgress: sections.inProgress.length,
+      submitted: sections.submitted.length,
+      failed: sections.failed.length,
+    };
 
     state.sectionData = sections;
     applySummaryContext(localData);
@@ -1315,7 +1262,7 @@
       showScreen("loading");
     }
     try {
-      let [localData, sessionData, countsResponse, pageResponse] = await Promise.all([
+      let [localData, sessionData, pageResponse] = await Promise.all([
         localGet([
           "masar_entity_id",
           "masar_user_name",
@@ -1331,7 +1278,6 @@
           "agency_phone",
         ]),
         sessionGet(["submission_batch", "active_submit_id", "last_submit_result"]),
-        fetchRecords ? loadCounts({ silent: true }) : Promise.resolve({ ok: true, data: state.countsState.server }),
         fetchRecords ? loadTabPage(state.activeTab, { silent: true }) : Promise.resolve({ ok: true }),
       ]);
       const contracts = await getContractsForUi({ forceRefresh: refreshContracts });
@@ -1354,10 +1300,6 @@
       if (localData.submit_auth_required === "backend-auth") {
         await showRelinkRequired();
         return;
-      }
-
-      if (!countsResponse?.ok) {
-        state.countsState.stale = true;
       }
       renderWorkspaceFromCache(localData, sessionData);
       await populateContractDropdown(localData.masar_contract_id, document, { forceRefresh: refreshContracts });
@@ -1630,7 +1572,6 @@
     bootstrap,
     buildDisplayName,
     buildBatchBannerState,
-    buildOptimisticCounts,
     buildRenderableServerSections,
     ensureActionContextState,
     getRecordNote,
