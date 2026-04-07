@@ -953,6 +953,23 @@
     const hasActiveBatch = sections.inProgress.length > 0;
     const counts = state.countsState.server && !hasActiveBatch
       ? buildOptimisticCounts(state.countsState.server, sessionData.submission_batch || [], activeSubmitId)
+      : hasActiveBatch
+      ? (() => {
+          const normalized = QueueFilter.normalizeBatchState(
+            sessionData.submission_batch || [],
+            activeSubmitId,
+          );
+          const batch = sessionData?.submission_batch;
+          const submittedCount = Array.isArray(batch?.submitted_ids) ? batch.submitted_ids.length : 0;
+          const failedCount = Array.isArray(batch?.failed_ids) ? batch.failed_ids.length : 0;
+          const total = typeof batch?.source_total === "number" ? batch.source_total : 0;
+          return {
+            pending: Math.max(total - normalized.inProgressIds.size - submittedCount - failedCount, 0),
+            inProgress: normalized.inProgressIds.size,
+            submitted: submittedCount,
+            failed: failedCount,
+          };
+        })()
       : {
         pending: pendingVisible.length,
         inProgress: sections.inProgress.length,
