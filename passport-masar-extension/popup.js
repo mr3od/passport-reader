@@ -41,6 +41,7 @@
   const state = {
     currentScreen: null,
     activeTab: "pending",
+    selectedUploadIds: new Set(),
     sectionData: null,
     tabCache: {
       pending: createTabCacheState(),
@@ -205,9 +206,6 @@
     setText("submission-progress-title", Strings.PROGRESS_BANNER_TITLE);
     setText("submission-refresh-btn", Strings.ACTION_REFRESH);
     setText("submission-resume-btn", Strings.ACTION_RESUME);
-    setText("pending-load-more", Strings.ACTION_LOAD_MORE);
-    setText("submitted-load-more", Strings.ACTION_LOAD_MORE);
-    setText("failed-load-more", Strings.ACTION_LOAD_MORE);
     setText("workspace-empty-note", Strings.SECTION_EMPTY_PENDING);
     setText("settings-kicker", Strings.SETTINGS_KICKER);
     setText("settings-title", Strings.SETTINGS_TITLE);
@@ -269,6 +267,30 @@
       parts.push(`#${record.passport_number}`);
     }
     return parts.join(" · ");
+  }
+
+  function reconcileSelectedUploadIds(selectedIds, selectableIds) {
+    const next = new Set();
+    for (const uploadId of selectedIds || []) {
+      if (selectableIds?.has(uploadId)) {
+        next.add(uploadId);
+      }
+    }
+    return next;
+  }
+
+  function buildSubmitSelectionActionState({
+    selectedCount,
+    canSubmit,
+    isBatchRunning,
+    baseLabel,
+  }) {
+    const label = selectedCount > 0 ? `${baseLabel} (${selectedCount})` : baseLabel;
+    return {
+      hidden: false,
+      disabled: !canSubmit || isBatchRunning || selectedCount === 0,
+      label,
+    };
   }
 
   function getClickUrl(record) {
@@ -523,31 +545,6 @@
     delete link.dataset.loading;
   }
 
-  function createActionButton(doc, label, handler, options = {}) {
-    const button = doc.createElement("button");
-    button.type = "button";
-    button.textContent = label;
-    if (options.className) {
-      button.className = options.className;
-    }
-    if (options.disabled) {
-      button.disabled = true;
-    }
-    button.addEventListener("click", async () => {
-      if (button.disabled) {
-        return;
-      }
-      button.disabled = true;
-      try {
-        await handler();
-      } catch (error) {
-        console.error("[popup] action button handler failed:", error);
-        button.disabled = false;
-      }
-    });
-    return button;
-  }
-
   function renderPendingCard(doc, record) {
     const article = doc.createElement("article");
     article.className = `record rich ${getRecordVisualState(record)}`;
@@ -577,18 +574,35 @@
     const actions = doc.createElement("div");
     actions.className = "record-actions";
 
-    if (record._section === "pending") {
-      actions.append(
-        createActionButton(doc, Strings.ACTION_SUBMIT, record._onSubmit, {
-          disabled: Boolean(record._submitDisabled),
-        }),
-      );
-    } else if (record._section === "failed") {
-      actions.append(
-        createActionButton(doc, Strings.ACTION_RETRY, record._onRetry, {
-          disabled: Boolean(record._submitDisabled),
-        }),
-      );
+    if (record._section === "pending" || record._section === "failed") {
+      const selector = doc.createElement("label");
+      selector.className = "record-select";
+      const checkbox = doc.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = Boolean(record._selected);
+      checkbox.disabled = Boolean(record._submitDisabled);
+      const label = doc.createElement("span");
+      label.textContent = Strings.ACTION_SELECT;
+      checkbox.addEventListener("change", () => {
+        const next = new Set(state.selectedUploadIds);
+        if (checkbox.checked) {
+          next.add(record.upload_id);
+        } else {
+          next.delete(record.upload_id);
+        }
+        state.selectedUploadIds = next;
+        const activeSubmitId = state.lastSessionData?.active_submit_id || null;
+        const isBatchRunning = QueueFilter.normalizeBatchState(
+          state.lastSessionData?.submission_batch || [],
+          activeSubmitId,
+        ).inProgressIds.size > 0;
+        updateSubmitSelectionAction({
+          canSubmit: !record._submitDisabled,
+          isBatchRunning,
+        });
+      });
+      selector.append(checkbox, label);
+      actions.append(selector);
     } else if (record._section === "submitted") {
       const link = doc.createElement("a");
       link.className = `detail-link${record._clickUrl ? "" : " muted"}`;
@@ -690,7 +704,7 @@
       title.textContent = titleMap[sectionName] || Strings.SECTION_PENDING;
     }
     if (submitAll) {
-      submitAll.classList.toggle("hidden", sectionName !== "pending");
+      submitAll.classList.remove("hidden");
     }
     if (!emptyHint) {
       return;
@@ -792,13 +806,16 @@
       sessionData?.active_submit_id || null,
     );
     const batch = sessionData?.submission_batch;
-    const submittedCount = Array.isArray(batch?.submitted_ids) ? batch.submitted_ids.length : 0;
-    const failedCount = Array.isArray(batch?.failed_ids) ? batch.failed_ids.length : 0;
+    const results = batch && typeof batch.results === "object" && !Array.isArray(batch.results)
+      ? batch.results
+      : {};
+    const statuses = Object.values(results);
+    const submittedCount = statuses.filter((status) => status === "submitted").length;
+    const failedCount = statuses.filter((status) => status === "failed" || status === "missing").length;
     const activeCount = normalized.activeId ? 1 : 0;
-    const queuedCount = Math.max(normalized.inProgressIds.size - activeCount, 0);
-    const total = typeof batch?.source_total === "number"
-      ? batch.source_total
-      : submittedCount + failedCount + normalized.inProgressIds.size;
+    const queueSize = Array.isArray(batch?.queue) ? batch.queue.length : 0;
+    const queuedCount = Math.max(queueSize - submittedCount - failedCount - activeCount, 0);
+    const total = queueSize || submittedCount + failedCount + normalized.inProgressIds.size;
     const blockedReason = batch && typeof batch === "object" && !Array.isArray(batch)
       ? batch.blocked_reason || null
       : null;
@@ -900,6 +917,15 @@
       && Boolean(localData.masar_contract_id)
       && localData.masar_contract_state !== "expired"
       && localData.masar_contract_state !== "inactive";
+    const selectableIds = new Set([
+      ...(sections.pending || []).map((record) => record.upload_id).filter(Boolean),
+      ...(sections.failed || []).map((record) => record.upload_id).filter(Boolean),
+    ]);
+    state.selectedUploadIds = reconcileSelectedUploadIds(state.selectedUploadIds, selectableIds);
+    const isBatchRunning = QueueFilter.normalizeBatchState(
+      sessionData.submission_batch || [],
+      activeSubmitId,
+    ).inProgressIds.size > 0;
 
     state.sectionData = sections;
     applySummaryContext(localData);
@@ -909,7 +935,7 @@
     const pendingRecords = sections.pending.map((record) => ({
       ...record,
       _submitDisabled: !canSubmit,
-      _onSubmit: () => submitSingle(record),
+      _selected: state.selectedUploadIds.has(record.upload_id),
     }));
     const inProgressRecords = sections.inProgress.map((record) => ({
       ...record,
@@ -922,7 +948,7 @@
     const failedRecords = sections.failed.map((record) => ({
       ...record,
       _submitDisabled: !canSubmit,
-      _onRetry: () => submitSingle(record),
+      _selected: state.selectedUploadIds.has(record.upload_id),
     }));
 
     renderSection("pending-list", pendingRecords, "pending", Strings.SECTION_EMPTY_PENDING);
@@ -939,18 +965,24 @@
       Strings.SECTION_EMPTY_SUBMITTED,
     );
     renderSection("failed-list", failedRecords, "failed", Strings.SECTION_EMPTY_FAILED);
-    renderLoadMoreControls();
-    $("submit-all-btn").disabled = !canSubmit || pendingRecords.length === 0;
-    $("submit-all-btn").onclick = () => void submitBatch(pendingRecords.map((record) => record.upload_id));
+    updateSubmitSelectionAction({ canSubmit, isBatchRunning });
+    $("submit-all-btn").onclick = () => void submitBatch([...state.selectedUploadIds]);
   }
 
-  function renderLoadMoreControls(doc = document) {
-    ["pending-load-more", "submitted-load-more", "failed-load-more"].forEach((id) => {
-      const button = $(id, doc);
-      if (button) {
-        button.classList.add("hidden");
-      }
+  function updateSubmitSelectionAction({ canSubmit, isBatchRunning }, doc = document) {
+    const submitButton = $("submit-all-btn", doc);
+    if (!submitButton) {
+      return;
+    }
+    const actionState = buildSubmitSelectionActionState({
+      selectedCount: state.selectedUploadIds.size,
+      canSubmit,
+      isBatchRunning,
+      baseLabel: Strings.ACTION_SUBMIT_ALL,
     });
+    submitButton.classList.toggle("hidden", actionState.hidden);
+    submitButton.disabled = actionState.disabled;
+    submitButton.textContent = actionState.label;
   }
 
   async function getContractsForUi() {
@@ -1111,27 +1143,6 @@
     });
   }
 
-  async function submitSingle(record) {
-    if (!(await ensureActionContext())) {
-      return;
-    }
-    const response = await sendMsg({ type: "SUBMIT_RECORD", record }, { timeoutMs: 60000 });
-    await handleSubmitResponse({
-      response,
-      uploadIds: [record.upload_id],
-      classifyFailure: Failure.classifyFailure,
-      onRelinkRequired: showRelinkRequired,
-      onMasarLoginRequired: async () => {
-        showMasarLoginRequired();
-        return "login";
-      },
-      onReload: async () => {
-        await loadMainWorkspace({ showLoading: false, fetchRecords: true });
-        return "reload";
-      },
-    });
-  }
-
   async function submitBatch(uploadIds) {
     if (!(await ensureActionContext())) {
       return;
@@ -1140,17 +1151,18 @@
     if (!selectedIds.length) {
       return;
     }
-    const sourceTotal = selectedIds.length;
-    const confirmed = window.confirm(Strings.SUBMIT_ALL_CONFIRM(sourceTotal));
+    const selectedTotal = selectedIds.length;
+    const confirmed = window.confirm(Strings.SUBMIT_ALL_CONFIRM(selectedTotal));
     if (!confirmed) {
       return;
     }
     const response = await sendMsg({
       type: "SUBMIT_BATCH",
       uploadIds: selectedIds,
-      sourceTotal,
-      nextOffset: selectedIds.length,
     }, { timeoutMs: 30000 });
+    if (response?.ok === true && response?.queued === true) {
+      state.selectedUploadIds = new Set();
+    }
     await handleSubmitResponse({
       response,
       uploadIds: selectedIds,
@@ -1358,15 +1370,26 @@
   }) {
     if (response?.ok && response?.queued) {
       if (Array.isArray(uploadIds) && state.lastLocalData) {
+        const currentBatch = state.lastSessionData?.submission_batch;
+        const currentQueue = Array.isArray(currentBatch?.queue) ? currentBatch.queue : [];
+        const mergedQueue = [...new Set([...currentQueue, ...uploadIds])];
+        const currentResults = currentBatch && typeof currentBatch.results === "object" && !Array.isArray(currentBatch.results)
+          ? currentBatch.results
+          : {};
+        const nextActiveId = currentBatch?.active_id
+          || mergedQueue.find((uploadId) => !Object.prototype.hasOwnProperty.call(currentResults, String(uploadId)))
+          || null;
         const optimisticSession = {
           ...state.lastSessionData,
           submission_batch: {
-            ...(state.lastSessionData?.submission_batch || {}),
-            queued_ids: [
-              ...(state.lastSessionData?.submission_batch?.queued_ids || []),
-              ...uploadIds,
-            ],
+            queue: mergedQueue,
+            active_id: nextActiveId,
+            results: currentResults,
+            blocked_reason: currentBatch?.blocked_reason || null,
+            started_at: currentBatch?.started_at || new Date().toISOString(),
+            updated_at: new Date().toISOString(),
           },
+          active_submit_id: nextActiveId,
         };
         renderWorkspaceFromCache(state.lastLocalData, optimisticSession);
       }
@@ -1528,6 +1551,7 @@
   return {
     PRE_RELEASE_SHOW_RAW_FAILURES,
     bootstrap,
+    buildSubmitSelectionActionState,
     buildDisplayName,
     buildBatchBannerState,
     buildRenderableServerSections,
@@ -1542,6 +1566,7 @@
     handleResumeBatchResponse,
     handleSubmitResponse,
     renderPendingCard,
+    reconcileSelectedUploadIds,
     buildContractPickerState,
     setDetailLinkLoadingState,
     getSubmissionContextMismatch,

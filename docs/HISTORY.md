@@ -2,6 +2,50 @@
 
 Agent-maintained log of significant changes. Each entry records what was done and who did it.
 
+## 2026-04-09 — extension deterministic queue phase, selection-first submit flow, and stale-code cleanup [codex]
+
+- Migrated extension batch execution to a deterministic queue model in `passport-masar-extension/background.js`:
+  - canonical batch shape is now `queue`, `active_id`, `results`, `blocked_reason`, `started_at`, `updated_at`
+  - removed legacy discovery/state helpers (`appendDiscoveredIds`, `advanceSubmissionBatch`, `isRichSubmissionBatch`, `ensureSubmissionSessionConsistency`)
+  - removed `SUBMIT_RECORD` runtime entrypoint; `SUBMIT_BATCH` is the only submission path
+  - kept resume semantics strict (`SUBMIT_BATCH([])` resumes only when persisted batch has `active_id`)
+  - hardened invalid batch-shape cleanup to clear only batch pointers (`submission_batch`, `active_submit_id`) without destructive full-state reset
+  - normalized submission queue IDs to numeric form and removed mixed-ID writes in `results`
+
+- Migrated optimistic queue derivation in `passport-masar-extension/queue-filter.js` to deterministic batch semantics only:
+  - derive `submittedIds`, `failedIds`, `inProgressIds`, `activeId` from `queue + results`
+  - keep precedence behavior that prefers fresher submitted/failed cache over stale pending cache
+  - normalized queue/active IDs to numeric form for consistent `Set` membership
+
+- Refactored popup submission UX in `passport-masar-extension/popup.js` and related UI files:
+  - selection-driven submit flow (`selectedUploadIds`) across pending + failed records
+  - single visible action button (`submit-all-btn` label now “رفع المحدد (N)”) with strict clear-on-success (`ok === true && queued === true`)
+  - `submitBatch` no longer sends dead payload fields (`sourceTotal`, `nextOffset`)
+  - kept reconciliation guard (`selected ∩ selectable`) to prevent ghost selections
+  - kept optimistic merge/resume behavior aligned with background deterministic queue state
+
+- Updated extension copy and styling:
+  - reworded submit CTA/confirm text in `passport-masar-extension/strings.js` for selection-driven behavior
+  - added selection checkbox styling in `passport-masar-extension/popup.css`
+  - removed stale, unused action strings tied to deleted per-card flows (`ACTION_SUBMIT`, `ACTION_RETRY`)
+
+- Removed stale runtime UI artifacts that were no longer functional:
+  - removed dead load-more controls from `passport-masar-extension/popup.html`
+  - removed dead load-more rendering/wiring from `passport-masar-extension/popup.js`
+  - removed dead load-more style block from `passport-masar-extension/popup.css`
+  - removed unused `notifyComplete` parameter from `drainSubmissionBatch` signature in `background.js`
+  - intentionally kept `passport-masar-extension/reviewer-agent-prompt.md` unchanged
+
+- Updated extension tests to match the deterministic model and current runtime contracts:
+  - `passport-masar-extension/tests/background.test.js`
+  - `passport-masar-extension/tests/popup.test.js`
+  - `passport-masar-extension/tests/queue-filter.test.js`
+  - coverage now asserts deterministic batch shape, unsupported `SUBMIT_RECORD`, queue/results-based banner behavior, and updated optimistic section normalization
+
+- Verification:
+  - Ran `node --test passport-masar-extension/tests/*.test.js`
+  - Result: all extension tests passing (`117 passed, 0 failed`)
+
 ## 2026-04-09 — truthful submit-all scope and `/records/ids` deprecation [codex]
 
 - Removed extension runtime usage of `FETCH_SUBMIT_ELIGIBLE_IDS` and `/records/ids` so batch submission now uses only the IDs already selected/visible to the user

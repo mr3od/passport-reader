@@ -2,7 +2,6 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
-  appendDiscoveredIds,
   buildPassportImageUpload,
   buildSubmissionBatchState,
   buildContractSnapshotUpdate,
@@ -28,37 +27,35 @@ const {
   shouldPersistContractSnapshot,
 } = require("../background.js");
 
-test("buildSubmissionBatchState seeds active and queued ids from the first discovery page", () => {
-  const batch = buildSubmissionBatchState({
-    discoveredIds: [10, 11, 12],
-    sourceTotal: 240,
-    nextOffset: 100,
-  });
+test("buildSubmissionBatchState uses the deterministic queue shape only", () => {
+  const batch = buildSubmissionBatchState([10, 11, 12]);
 
+  assert.deepEqual(Object.keys(batch).sort(), [
+    "active_id",
+    "blocked_reason",
+    "queue",
+    "results",
+    "started_at",
+    "updated_at",
+  ]);
+  assert.deepEqual(batch.queue, [10, 11, 12]);
   assert.equal(batch.active_id, 10);
-  assert.deepEqual(batch.queued_ids, [11, 12]);
-  assert.equal(batch.source_total, 240);
-  assert.equal(batch.next_offset, 100);
-  assert.equal(batch.exhausted_source, false);
+  assert.deepEqual(batch.results, {});
+  assert.equal(batch.blocked_reason, null);
 });
 
-test("appendDiscoveredIds appends later discovery pages without duplicating queued ids", () => {
-  const batch = buildSubmissionBatchState({
-    discoveredIds: [10, 11, 12],
-    sourceTotal: 240,
-    nextOffset: 100,
+test("buildSubmissionBatchState keeps queue immutable and supports resume-friendly initialization", () => {
+  const batch = buildSubmissionBatchState([10, 11, 12], {
+    activeId: 11,
+    results: { 10: "submitted" },
+    blockedReason: null,
+    startedAt: "2026-04-09T00:00:00.000Z",
   });
 
-  const updated = appendDiscoveredIds(
-    batch,
-    [{ upload_id: 12 }, { upload_id: 13 }, { upload_id: 14 }],
-    240,
-    200,
-  );
-
-  assert.deepEqual(updated.discovered_ids, [10, 11, 12, 13, 14]);
-  assert.deepEqual(updated.queued_ids, [11, 12, 13, 14]);
-  assert.equal(updated.next_offset, 200);
+  assert.deepEqual(batch.queue, [10, 11, 12]);
+  assert.equal(batch.active_id, 11);
+  assert.deepEqual(batch.results, { 10: "submitted" });
+  assert.equal(batch.started_at, "2026-04-09T00:00:00.000Z");
 });
 
 test("buildPassportImageUpload preserves stored mime type and filename", async () => {
@@ -1042,6 +1039,27 @@ test("handleMessage rejects batch resume when no persisted batch exists", async 
   });
 
   assert.deepEqual(response, { ok: false, errorCode: "submission-batch-missing" });
+  delete global.chrome;
+});
+
+test("handleMessage no longer accepts SUBMIT_RECORD direct entrypoint", async () => {
+  global.chrome = {
+    storage: {
+      local: {
+        get: (_keys, callback) => callback({}),
+      },
+      session: {
+        get: (_keys, callback) => callback({}),
+      },
+    },
+  };
+
+  const response = await handleMessage({
+    type: "SUBMIT_RECORD",
+    record: { upload_id: 10 },
+  });
+
+  assert.deepEqual(response, { ok: false, error: "unsupported-message" });
   delete global.chrome;
 });
 

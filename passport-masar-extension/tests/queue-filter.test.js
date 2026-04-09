@@ -26,7 +26,12 @@ test("mergeOptimisticSections moves queued pending rows into in-progress", () =>
       submitted: [{ upload_id: 3 }],
       failed: [{ upload_id: 4 }],
     },
-    batchState: [2],
+    batchState: {
+      queue: [2],
+      active_id: 2,
+      results: {},
+      blocked_reason: null,
+    },
     activeSubmitId: null,
   });
 
@@ -43,7 +48,12 @@ test("mergeOptimisticSections shows retried failed rows in progress while queued
       submitted: [],
       failed: [{ upload_id: 9 }],
     },
-    batchState: [9],
+    batchState: {
+      queue: [9],
+      active_id: 9,
+      results: {},
+      blocked_reason: null,
+    },
     activeSubmitId: null,
   });
 
@@ -59,10 +69,13 @@ test("mergeOptimisticSections moves completed optimistic rows into submitted and
       failed: [{ upload_id: 5 }],
     },
     batchState: {
-      queued_ids: [3],
-      active_id: null,
-      submitted_ids: [1],
-      failed_ids: [2],
+      queue: [1, 2, 3],
+      active_id: 3,
+      results: {
+        1: "submitted",
+        2: "failed",
+      },
+      blocked_reason: null,
     },
     activeSubmitId: null,
   });
@@ -80,7 +93,12 @@ test("mergeOptimisticSections prefers fresher submitted data over stale pending 
       submitted: [{ upload_id: 12, masar_status: "submitted" }],
       failed: [],
     },
-    batchState: [],
+    batchState: {
+      queue: [],
+      active_id: null,
+      results: {},
+      blocked_reason: null,
+    },
     activeSubmitId: null,
   });
 
@@ -88,9 +106,22 @@ test("mergeOptimisticSections prefers fresher submitted data over stale pending 
   assert.deepEqual(sections.submitted.map((record) => record.upload_id), [12]);
 });
 
-test("normalizeBatchState supports the current array batch shape and active submit id", () => {
-  const normalized = normalizeBatchState([1, 2], 3);
+test("normalizeBatchState derives in-progress ids from deterministic queue and results", () => {
+  const normalized = normalizeBatchState(
+    {
+      queue: [1, 2, 3],
+      active_id: 3,
+      results: {
+        1: "submitted",
+        2: "missing",
+      },
+      blocked_reason: null,
+    },
+    null,
+  );
 
   assert.equal(normalized.activeId, 3);
-  assert.deepEqual([...normalized.inProgressIds], [1, 2, 3]);
+  assert.deepEqual([...normalized.inProgressIds], [3]);
+  assert.deepEqual([...normalized.submittedIds], [1]);
+  assert.deepEqual([...normalized.failedIds], [2]);
 });

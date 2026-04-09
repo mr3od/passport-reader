@@ -699,11 +699,6 @@ button:disabled {
   gap: 10px;
 }
 
-.load-more-row {
-  display: flex;
-  justify-content: center;
-}
-
 .record {
   padding: 14px;
   display: grid;
@@ -731,6 +726,14 @@ button:disabled {
 .record.rich .record-actions {
   grid-column: 1 / -1;
   justify-content: space-between;
+}
+
+.record-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-soft);
 }
 
 .record.review::before {

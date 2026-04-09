@@ -93,8 +93,8 @@ function selectMasarAuthToken(tokens, { entityId = "", entityTypeId = "" } = {})
 }
 
 // ─── Submission serializer ────────────────────────────────────────────────────
-// Only one SUBMIT_RECORD runs at a time. Concurrent calls queue behind the
-// current one — prevents race conditions and ensures no orphaned partial
+// Only one submission drain runs at a time. Concurrent batch calls queue behind
+// the current one — prevents race conditions and ensures no orphaned partial
 // mutamers are left in Masar.
 let _submitChain = Promise.resolve();
 let _isDrainingSubmissions = false;
@@ -1326,69 +1326,39 @@ function buildSubmissionBatchContext(submissionContext) {
   };
 }
 
-function isRichSubmissionBatch(batch) {
+function isDeterministicSubmissionBatch(batch) {
   return Boolean(
     batch
     && typeof batch === "object"
     && !Array.isArray(batch)
-    && (
-      Array.isArray(batch.discovered_ids)
-      || Array.isArray(batch.queued_ids)
-      || batch.active_id
-    ),
+    && Array.isArray(batch.queue)
+    && typeof batch.results === "object"
+    && batch.results !== null
+    && !Array.isArray(batch.results),
   );
 }
 
-function buildSubmissionBatchState({
-  discoveredIds,
-  sourceTotal,
-  nextOffset,
-  activeId = null,
-  startedAt = null,
-}) {
-  const uniqueIds = [...new Set(Array.isArray(discoveredIds) ? discoveredIds : [])];
-  const resolvedActiveId = activeId || uniqueIds[0] || null;
-  return {
-    batch_id: `${Date.now()}-${resolvedActiveId || "batch"}`,
-    discovered_ids: uniqueIds,
-    queued_ids: uniqueIds.filter((uploadId) => uploadId !== resolvedActiveId),
-    active_id: resolvedActiveId,
-    submitted_ids: [],
-    failed_ids: [],
-    blocked_ids: [],
-    blocked_reason: null,
-    discovery_error: false,
-    exhausted_source: nextOffset >= sourceTotal,
-    next_offset: nextOffset,
-    source_total: sourceTotal,
-    started_at: startedAt || new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  };
+function normalizeUploadIdList(uploadIds) {
+  const normalized = Array.isArray(uploadIds)
+    ? uploadIds
+      .map((uploadId) => Number(uploadId))
+      .filter((uploadId) => Number.isFinite(uploadId) && uploadId > 0)
+    : [];
+  return [...new Set(normalized)];
 }
 
-function appendDiscoveredIds(batch, items, sourceTotal, nextOffset) {
-  const discoveredIds = [...new Set([
-    ...(Array.isArray(batch?.discovered_ids) ? batch.discovered_ids : []),
-    ...((Array.isArray(items) ? items : []).map((item) => item.upload_id).filter(Boolean)),
-  ])];
-  const queuedIds = [...new Set([
-    ...(Array.isArray(batch?.queued_ids) ? batch.queued_ids : []),
-    ...((Array.isArray(items) ? items : []).map((item) => item.upload_id).filter((uploadId) => (
-      uploadId
-      && uploadId !== batch.active_id
-      && !(batch.submitted_ids || []).includes(uploadId)
-      && !(batch.failed_ids || []).includes(uploadId)
-      && !(batch.blocked_ids || []).includes(uploadId)
-    ))),
-  ])];
+function buildSubmissionBatchState(uploadIds, { activeId = null, results = {}, blockedReason = null, startedAt = null } = {}) {
+  const queue = normalizeUploadIdList(uploadIds);
+  const normalizedActiveId = Number(activeId);
+  const nextActiveId = Number.isFinite(normalizedActiveId) && queue.includes(normalizedActiveId)
+    ? normalizedActiveId
+    : (queue[0] || null);
   return {
-    ...batch,
-    discovered_ids: discoveredIds,
-    queued_ids: queuedIds,
-    discovery_error: false,
-    exhausted_source: nextOffset >= sourceTotal,
-    next_offset: nextOffset,
-    source_total: sourceTotal,
+    queue,
+    active_id: nextActiveId,
+    results: results && typeof results === "object" && !Array.isArray(results) ? results : {},
+    blocked_reason: blockedReason || null,
+    started_at: startedAt || new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
 }
@@ -1402,19 +1372,16 @@ async function persistSubmissionBatch(batch) {
 
 async function getSubmissionBatchState() {
   const session = await sessionGet(["submission_batch", "active_submit_id"]);
-  if (isRichSubmissionBatch(session.submission_batch)) {
+  if (isDeterministicSubmissionBatch(session.submission_batch)) {
     return session.submission_batch;
   }
-  const legacyBatch = Array.isArray(session.submission_batch) ? session.submission_batch : [];
-  if (legacyBatch.length === 0 && !session.active_submit_id) {
-    return null;
+  if (session.submission_batch || session.active_submit_id) {
+    await sessionSet({
+      submission_batch: null,
+      active_submit_id: null,
+    });
   }
-  return buildSubmissionBatchState({
-    discoveredIds: legacyBatch,
-    sourceTotal: legacyBatch.length,
-    nextOffset: legacyBatch.length,
-    activeId: session.active_submit_id || null,
-  });
+  return null;
 }
 
 async function clearSubmissionBatch() {
@@ -1425,38 +1392,6 @@ async function clearSubmissionBatch() {
     submission_state: ContextChange.SUBMISSION_STATES.IDLE,
   });
   await ContextChange.clearSubmissionBatchContext();
-}
-
-async function ensureSubmissionSessionConsistency() {
-  if (_isDrainingSubmissions) {
-    return;
-  }
-  const session = await sessionGet(["submission_batch", "active_submit_id"]);
-  if (isRichSubmissionBatch(session.submission_batch)) {
-    return;
-  }
-  const batch = Array.isArray(session.submission_batch) ? session.submission_batch : [];
-  if (batch.length > 0 || session.active_submit_id) {
-    await clearSubmissionBatch();
-  }
-}
-
-function advanceSubmissionBatch(batch, uploadId, result) {
-  const remainingQueuedIds = [uploadId, ...(batch.queued_ids || [])].filter((id) => id !== uploadId);
-  const nextActiveId = remainingQueuedIds[0] || null;
-  return {
-    ...batch,
-    queued_ids: nextActiveId ? remainingQueuedIds.slice(1) : [],
-    active_id: nextActiveId,
-    submitted_ids: result?.status === "submitted"
-      ? [...(batch.submitted_ids || []), uploadId]
-      : (batch.submitted_ids || []),
-    failed_ids: result?.status === "failed"
-      ? [...(batch.failed_ids || []), uploadId]
-      : (batch.failed_ids || []),
-    blocked_reason: null,
-    updated_at: new Date().toISOString(),
-  };
 }
 
 // ─── Submission workflow ──────────────────────────────────────────────────────
@@ -2073,12 +2008,9 @@ function shouldStopBatchAfterResult(result) {
   );
 }
 
-async function drainSubmissionBatch(
-  uploadIds,
-  { notifyComplete = true, sourceTotal = null, nextOffset = null } = {},
-) {
+async function drainSubmissionBatch(uploadIds) {
   _isDrainingSubmissions = true;
-  const uniqueIds = [...new Set(uploadIds)];
+  const uniqueIds = normalizeUploadIdList(uploadIds);
   try {
     await localSet({ submit_auth_required: null });
     const submissionContext = await getCurrentSubmissionContext();
@@ -2086,27 +2018,58 @@ async function drainSubmissionBatch(
     await ContextChange.setSubmissionBatchContext(batchRequestContext);
     let batch = await getSubmissionBatchState();
     if (!batch) {
-      batch = buildSubmissionBatchState({
-        discoveredIds: uniqueIds,
-        sourceTotal: sourceTotal || uniqueIds.length,
-        nextOffset: nextOffset || uniqueIds.length,
-      });
+      if (uniqueIds.length === 0) {
+        return { ok: false, errorCode: "submission-batch-missing" };
+      }
+      batch = buildSubmissionBatchState(uniqueIds);
     }
     await persistSubmissionBatch(batch);
     await sessionSet({
-      submission_state:
-        ((batch.queued_ids || []).length > 0)
-          ? ContextChange.SUBMISSION_STATES.QUEUED_MORE
-          : ContextChange.SUBMISSION_STATES.IDLE,
+      submission_state: batch.active_id
+        ? ContextChange.SUBMISSION_STATES.QUEUED_MORE
+        : ContextChange.SUBMISSION_STATES.IDLE,
     });
 
-    let processedCount = 0;
+    const queue = Array.isArray(batch.queue) ? batch.queue : [];
+    let currentIndex = queue.findIndex((uploadId) => uploadId === batch.active_id);
+    if (batch.active_id && currentIndex < 0) {
+      await clearSubmissionBatch();
+      await ContextChange.clearSubmissionBatchContext();
+      return { ok: false, errorCode: "submission-batch-corrupt" };
+    }
+    if (!batch.active_id && queue.length > 0) {
+      currentIndex = 0;
+      batch = { ...batch, active_id: queue[0], updated_at: new Date().toISOString() };
+      await persistSubmissionBatch(batch);
+    }
+
     let terminalFailure = null;
     while (batch?.active_id) {
       const uploadId = batch.active_id;
+      const results = batch.results || {};
+      if (Object.prototype.hasOwnProperty.call(results, uploadId)) {
+        currentIndex += 1;
+        batch = {
+          ...batch,
+          active_id: queue[currentIndex] || null,
+          updated_at: new Date().toISOString(),
+        };
+        await persistSubmissionBatch(batch);
+        continue;
+      }
+
       const record = await fetchRecordById(uploadId);
       if (!record || !shouldSubmitRecord(record)) {
-        batch = advanceSubmissionBatch(batch, uploadId, { status: "failed" });
+        batch = {
+          ...batch,
+          results: {
+            ...results,
+            [uploadId]: "failed",
+          },
+          active_id: queue[currentIndex + 1] || null,
+          updated_at: new Date().toISOString(),
+        };
+        currentIndex += 1;
         await persistSubmissionBatch(batch);
         continue;
       }
@@ -2114,11 +2077,13 @@ async function drainSubmissionBatch(
       await persistSubmissionBatch(batch);
       await ContextChange.setSubmissionState(ContextChange.SUBMISSION_STATES.SUBMITTING_CURRENT);
       const result = await processRecordSubmission(record, submissionContext, batchRequestContext);
-      processedCount += 1;
+      const normalizedStatus = (result?.status === "submitted" || result?.status === "failed" || result?.status === "missing")
+        ? result.status
+        : (result?.ok ? "submitted" : "failed");
       await sessionSet({
         last_submit_result: {
           upload_id: uploadId,
-          status: result?.status || (result?.ok ? "submitted" : "failed"),
+          status: normalizedStatus,
           masar_detail_id: result?.masarDetailId ? String(result.masarDetailId) : null,
           submission_entity_id: result?.submission_entity_id || null,
           submission_entity_type_id: result?.submission_entity_type_id || null,
@@ -2141,20 +2106,29 @@ async function drainSubmissionBatch(
           at: Date.now(),
         },
       });
-      batch = advanceSubmissionBatch(batch, uploadId, result);
+      batch = {
+        ...batch,
+        results: {
+          ...(batch.results || {}),
+          [uploadId]: normalizedStatus,
+        },
+        blocked_reason: null,
+        active_id: queue[currentIndex + 1] || null,
+        updated_at: new Date().toISOString(),
+      };
+      currentIndex += 1;
       await persistSubmissionBatch(batch);
       if (shouldStopBatchAfterResult(result)) {
         batch = {
           ...batch,
           blocked_reason: result.failureKind || null,
-          blocked_ids: [...(batch.blocked_ids || []), uploadId],
           updated_at: new Date().toISOString(),
         };
         await persistSubmissionBatch(batch);
         terminalFailure = result;
         break;
       }
-      if ((batch.queued_ids || []).length > 0 || batch.active_id) {
+      if (batch.active_id) {
         await ContextChange.setSubmissionState(ContextChange.SUBMISSION_STATES.QUEUED_MORE);
       }
     }
@@ -2166,7 +2140,6 @@ async function drainSubmissionBatch(
       await ContextChange.clearSubmissionBatchContext();
       await clearSubmissionBatch();
     }
-    const counts = await fetchRecordCounts();
     if (terminalFailure) {
       return terminalFailure;
     }
@@ -2185,8 +2158,6 @@ async function handleMessage(msg, sender = null) {
   if (msg.type === "OPEN_MUTAMER_DETAILS_EXPERIMENT") {
     return openMutamerDetailsExperiment(msg.clickUrl, msg.uploadId || null, msg.detailsContext || null);
   }
-  await ensureSubmissionSessionConsistency();
-
   if (msg.type === "SYNC_SESSION") {
     return syncSession();
   }
@@ -2213,37 +2184,13 @@ async function handleMessage(msg, sender = null) {
     const uploadIds = Array.isArray(msg.uploadIds) ? msg.uploadIds : [];
     if (uploadIds.length === 0) {
       const existingBatch = await getSubmissionBatchState();
-      const canResume = Boolean(
-        existingBatch?.active_id
-        || (Array.isArray(existingBatch?.queued_ids) && existingBatch.queued_ids.length > 0),
-      );
+      const canResume = Boolean(existingBatch?.active_id);
       if (!canResume) {
         return { ok: false, errorCode: "submission-batch-missing" };
       }
     }
-    serialiseSubmit(() => drainSubmissionBatch(uploadIds, {
-      sourceTotal: msg.sourceTotal || null,
-      nextOffset: msg.nextOffset || null,
-    })).catch((error) => {
+    serialiseSubmit(() => drainSubmissionBatch(uploadIds)).catch((error) => {
       logError("SUBMIT_BATCH — unhandled submission failure:", error.message);
-    });
-    return { ok: true, queued: true };
-  }
-
-  if (msg.type === "SUBMIT_RECORD") {
-    const record = msg.record;
-    if (!record?.upload_id) {
-      return { ok: false, error: S.ERR_UNEXPECTED };
-    }
-    serialiseSubmit(async () => {
-      const freshRecord = await fetchRecordById(record.upload_id);
-      if (!freshRecord || !shouldSubmitRecord(freshRecord)) {
-        logError("SUBMIT_RECORD — record not eligible after refresh:", record.upload_id);
-        return;
-      }
-      await drainSubmissionBatch([record.upload_id], { notifyComplete: false });
-    }).catch((error) => {
-      logError("SUBMIT_RECORD — unhandled submission failure:", error.message);
     });
     return { ok: true, queued: true };
   }
@@ -2306,7 +2253,6 @@ if (typeof module === "object" && module.exports) {
     buildSubmissionBatchContext,
     buildStoredCurrentContractValue,
     buildStoredDetailsContextOverride,
-    appendDiscoveredIds,
     buildContractSnapshotUpdate,
     buildStoredSubmissionContext,
     classifyMutamerDetailsOutcome,

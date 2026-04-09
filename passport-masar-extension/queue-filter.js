@@ -6,20 +6,45 @@
   root.MasarQueueFilter = api;
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   function normalizeBatchState(batchState, activeSubmitId = null) {
-    const batchIds = Array.isArray(batchState)
-      ? batchState
-      : Array.isArray(batchState?.queued_ids)
-        ? batchState.queued_ids
-        : [];
-    const activeId = Array.isArray(batchState) ? activeSubmitId : batchState?.active_id || activeSubmitId || null;
-    const submittedIds = new Set(
-      Array.isArray(batchState?.submitted_ids) ? batchState.submitted_ids : [],
-    );
-    const failedIds = new Set(
-      Array.isArray(batchState?.failed_ids) ? batchState.failed_ids : [],
-    );
-    const inProgressIds = new Set(batchIds);
-    if (activeId) {
+    const queue = Array.isArray(batchState?.queue)
+      ? batchState.queue
+        .map((uploadId) => Number(uploadId))
+        .filter((uploadId) => Number.isFinite(uploadId) && uploadId > 0)
+      : [];
+    const candidateActiveId = batchState?.active_id ?? activeSubmitId ?? null;
+    const parsedActiveId = Number(candidateActiveId);
+    const activeId = Number.isFinite(parsedActiveId) && parsedActiveId > 0 ? parsedActiveId : null;
+    const results = batchState && typeof batchState.results === "object" && !Array.isArray(batchState.results)
+      ? batchState.results
+      : {};
+
+    const submittedIds = new Set();
+    const failedIds = new Set();
+    const processedIds = new Set();
+
+    for (const [key, status] of Object.entries(results)) {
+      const uploadId = Number(key);
+      if (!Number.isFinite(uploadId)) {
+        continue;
+      }
+      if (status === "submitted") {
+        submittedIds.add(uploadId);
+        processedIds.add(uploadId);
+        continue;
+      }
+      if (status === "failed" || status === "missing") {
+        failedIds.add(uploadId);
+        processedIds.add(uploadId);
+      }
+    }
+
+    const inProgressIds = new Set();
+    for (const uploadId of queue) {
+      if (!processedIds.has(uploadId)) {
+        inProgressIds.add(uploadId);
+      }
+    }
+    if (activeId && !processedIds.has(activeId)) {
       inProgressIds.add(activeId);
     }
     return {

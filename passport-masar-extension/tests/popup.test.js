@@ -7,6 +7,7 @@ const {
   buildBatchBannerState,
   buildDisplayName,
   buildRenderableServerSections,
+  buildSubmitSelectionActionState,
   ensureActionContextState,
   getRecordNote,
   getScreenTheme,
@@ -18,6 +19,7 @@ const {
   getSubmissionContextMismatch,
   getSubmissionContextMismatchToast,
   handleResumeBatchResponse,
+  reconcileSelectedUploadIds,
   setDetailLinkLoadingState,
   showToast,
 } = require("../popup.js");
@@ -26,10 +28,18 @@ test("buildBatchBannerState summarizes the richer batch object", () => {
   assert.deepEqual(
     buildBatchBannerState({
       submission_batch: {
-        source_total: 23,
-        queued_ids: [11, 12, 13],
+        queue: [10, 11, 12, 13, 1, 2, 3, 4, 5, 6, 7, 8],
         active_id: 10,
-        submitted_ids: [1, 2, 3, 4, 5, 6, 7, 8],
+        results: {
+          1: "submitted",
+          2: "submitted",
+          3: "submitted",
+          4: "submitted",
+          5: "submitted",
+          6: "submitted",
+          7: "submitted",
+          8: "submitted",
+        },
         blocked_reason: null,
       },
       active_submit_id: 10,
@@ -37,7 +47,7 @@ test("buildBatchBannerState summarizes the richer batch object", () => {
     {
       visible: true,
       title: "جارٍ رفع الجوازات",
-      summary: "تم رفع 8 من 23",
+      summary: "تم رفع 8 من 12",
       detail: "جواز واحد جارٍ رفعه و3 في الانتظار",
       blockedReason: null,
     },
@@ -45,14 +55,19 @@ test("buildBatchBannerState summarizes the richer batch object", () => {
 });
 
 test("buildBatchBannerState includes failed count in detail when failures exist", () => {
+  const results = {};
+  for (let index = 24; index <= 79; index += 1) {
+    results[index] = "submitted";
+  }
+  [80, 81, 82, 83, 84, 85].forEach((uploadId) => {
+    results[uploadId] = "failed";
+  });
   assert.deepEqual(
     buildBatchBannerState({
       submission_batch: {
-        source_total: 66,
-        queued_ids: [21, 22, 23],
+        queue: [20, 21, 22, 23, ...Array.from({ length: 62 }, (_v, i) => i + 24)],
         active_id: 20,
-        submitted_ids: Array.from({ length: 56 }, (_, i) => i + 1),
-        failed_ids: [57, 58, 59, 60, 61, 62],
+        results,
         blocked_reason: null,
       },
       active_submit_id: 20,
@@ -664,4 +679,46 @@ test("failed page fetch with no cached data should show error screen", () => {
   const hasUsableData = activeCache && activeCache.items.length > 0;
   
   assert.equal(hasUsableData, false);
+});
+
+test("reconcileSelectedUploadIds drops ghost ids and keeps only selectable ids", () => {
+  const selected = new Set([10, 11, 12]);
+  const selectable = new Set([11, 13]);
+
+  const next = reconcileSelectedUploadIds(selected, selectable);
+
+  assert.deepEqual([...next], [11]);
+});
+
+test("buildSubmitSelectionActionState keeps button visible and disables when selection is empty", () => {
+  const empty = buildSubmitSelectionActionState({
+    selectedCount: 0,
+    canSubmit: true,
+    isBatchRunning: false,
+    baseLabel: "رفع المحدد",
+  });
+  const withSelection = buildSubmitSelectionActionState({
+    selectedCount: 3,
+    canSubmit: true,
+    isBatchRunning: false,
+    baseLabel: "رفع المحدد",
+  });
+
+  assert.equal(empty.hidden, false);
+  assert.equal(empty.disabled, true);
+  assert.equal(empty.label, "رفع المحدد");
+  assert.equal(withSelection.hidden, false);
+  assert.equal(withSelection.disabled, false);
+  assert.equal(withSelection.label, "رفع المحدد (3)");
+});
+
+test("buildSubmitSelectionActionState disables while batch is running", () => {
+  const state = buildSubmitSelectionActionState({
+    selectedCount: 2,
+    canSubmit: true,
+    isBatchRunning: true,
+    baseLabel: "رفع المحدد",
+  });
+
+  assert.equal(state.disabled, true);
 });
