@@ -2,6 +2,12 @@
 
 Agent-maintained log of significant changes. Each entry records what was done and who did it.
 
+## 2026-04-09 — extension tab empty-note visibility fix [codex]
+
+- Fixed the shared workspace empty-note subtitle so populated tabs no longer show empty-state Arabic copy above real records
+- Added a popup helper that derives the empty subtitle from the active section data instead of the tab name alone
+- Added regression coverage for both populated and empty tab subtitle behavior
+
 ## 2026-04-09 — extension pre-release raw failure note gate [codex]
 
 - Added an explicit `PRE_RELEASE_SHOW_RAW_FAILURES` path in the popup instead of leaving raw failed-note rendering as an implicit permanent behavior

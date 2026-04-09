@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
+  getSectionEmptyNote,
   PRE_RELEASE_SHOW_RAW_FAILURES,
   buildBatchBannerState,
   buildDisplayName,
@@ -207,6 +208,24 @@ test("handleResumeBatchResponse surfaces a missing batch instead of silently pre
 
   assert.equal(result, false);
   assert.deepEqual(calls, ["unavailable"]);
+});
+
+test("getSectionEmptyNote hides the shared empty hint when the active tab has records", () => {
+  assert.equal(
+    getSectionEmptyNote("submitted", {
+      submitted: [{ upload_id: 21 }],
+    }),
+    "",
+  );
+});
+
+test("getSectionEmptyNote returns the tab-specific empty message when the tab is empty", () => {
+  assert.equal(
+    getSectionEmptyNote("failed", {
+      failed: [],
+    }),
+    "لا توجد محاولات فاشلة",
+  );
 });
 
 test("buildRenderableServerSections replays the last submit result into cached sections", () => {

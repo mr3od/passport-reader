@@ -663,6 +663,19 @@
     container.appendChild(empty);
   }
 
+  function getSectionEmptyNote(sectionName, sectionData = null) {
+    const records = Array.isArray(sectionData?.[sectionName]) ? sectionData[sectionName] : [];
+    if (records.length > 0) {
+      return "";
+    }
+    return {
+      pending: Strings.SECTION_EMPTY_PENDING,
+      inProgress: Strings.SECTION_EMPTY_IN_PROGRESS,
+      submitted: Strings.SECTION_EMPTY_SUBMITTED,
+      failed: Strings.SECTION_EMPTY_FAILED,
+    }[sectionName] || Strings.SECTION_EMPTY_PENDING;
+  }
+
   function setSectionVisibility(sectionName, doc = document) {
     const emptyHint = $("workspace-empty-note", doc);
     const title = $("pending-title", doc);
@@ -682,13 +695,7 @@
     if (!emptyHint) {
       return;
     }
-    emptyHint.textContent =
-      {
-        pending: Strings.SECTION_EMPTY_PENDING,
-        inProgress: Strings.SECTION_EMPTY_IN_PROGRESS,
-        submitted: Strings.SECTION_EMPTY_SUBMITTED,
-        failed: Strings.SECTION_EMPTY_FAILED,
-      }[sectionName] || Strings.SECTION_EMPTY_PENDING;
+    emptyHint.textContent = getSectionEmptyNote(sectionName, state.sectionData);
   }
 
   function activateTab(tabName, doc = document) {
@@ -1534,6 +1541,7 @@
     buildDisplayName,
     buildBatchBannerState,
     buildRenderableServerSections,
+    getSectionEmptyNote,
     ensureActionContextState,
     getRecordNote,
     getScreenTheme,
