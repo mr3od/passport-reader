@@ -40,14 +40,12 @@ test("classifyObservedContextChange ignores observed contract drift within the s
   assert.equal(change, null);
 });
 
-test("buildObservedEntityChangeContext clears stale selections and keeps only active contracts", () => {
+test("buildObservedEntityChangeContext clears stale contract selection and keeps only active contracts", () => {
   const next = buildObservedEntityChangeContext(
     {
       entity_id: "823397",
       contract_id: "224925",
-      group_id: "group-1",
       requires_contract_confirmation: false,
-      requires_group_confirmation: false,
       available_contracts: [],
     },
     {
@@ -65,19 +63,15 @@ test("buildObservedEntityChangeContext clears stale selections and keeps only ac
   assert.equal(next.entity_id, "820456");
   assert.equal(next.entity_type_id, "58");
   assert.equal(next.contract_id, null);
-  assert.equal(next.group_id, null);
   assert.equal(next.requires_contract_confirmation, true);
-  assert.equal(next.requires_group_confirmation, false);
   assert.equal(next.drift_reason, "entity_changed_observed");
   assert.deepEqual(next.available_contracts.map((contract) => String(contract.contractId)), ["223664"]);
 });
 
-test("buildExplicitContractSelectionContext clears group and only keeps valid groups", () => {
+test("buildExplicitContractSelectionContext keeps the selected contract display", () => {
   const next = buildExplicitContractSelectionContext(
     {
       entity_id: "820456",
-      group_id: "old-group",
-      available_groups: [],
     },
     {
       contractId: 223664,
@@ -85,19 +79,12 @@ test("buildExplicitContractSelectionContext clears group and only keeps valid gr
       contractStatus: { id: 0, name: "Active" },
       contractEndDate: "2099-01-01T00:00:00",
     },
-    [
-      { id: "group-1", groupName: "جاهزة", isDeleted: false, isArchived: false, state: { id: 0 } },
-      { id: "group-2", groupName: "مكتملة", isDeleted: false, isArchived: false, state: { id: 107 } },
-    ],
   );
 
   assert.equal(next.contract_id, "223664");
   assert.equal(next.contract_name, "العقد الحالي");
   assert.equal(next.contract_state, "active");
-  assert.equal(next.group_id, null);
   assert.equal(next.requires_contract_confirmation, false);
-  assert.equal(next.requires_group_confirmation, true);
-  assert.deepEqual(next.available_groups.map((group) => group.id), ["group-1"]);
 });
 
 test("resolveContractContext auto-selects the only selectable contract and clears confirmation", () => {
@@ -206,7 +193,6 @@ test("activeUiContextsEqual treats identical normalized contexts as unchanged", 
         contract_id: "223664",
         contract_state: "active",
         available_contracts: [{ contractId: 223664 }],
-        available_groups: [],
       },
     ),
     true,

@@ -363,8 +363,7 @@
       return Strings.REVIEW_SUMMARY;
     }
     if (typeof record.failure_reason_text === "string" && record.failure_reason_text.trim()) {
-      const normalized = record.failure_reason_text.trim().toLowerCase();
-      return normalized;
+      return record._section === "failed" ? Strings.STATUS_FAILED : Strings.ERR_UNEXPECTED;
     }
     if (record.masar_status === "missing") {
       return Strings.DETAILS_RECORD_MISSING;

@@ -215,16 +215,13 @@ test("resolveMasarRequestContext prefers the frozen batch context over mutable l
   });
 });
 
-test("buildStoredSubmissionContext includes persisted group fields", () => {
+test("buildStoredSubmissionContext keeps the persisted contract-only context", () => {
   const context = buildStoredSubmissionContext({
     submission_entity_id: "819868",
     submission_entity_type_id: "58",
     submission_entity_name: "Agency Entity",
     submission_contract_id: "222452",
     submission_contract_name: "Contract A",
-    submission_group_id: "group-22",
-    submission_group_name: "Group 22",
-    submission_group_number: "901675540",
   });
 
   assert.deepEqual(context, {
@@ -238,9 +235,6 @@ test("buildStoredSubmissionContext includes persisted group fields", () => {
     submission_contract_number: null,
     submission_contract_status: null,
     submission_uo_subscription_status_id: null,
-    submission_group_id: "group-22",
-    submission_group_name: "Group 22",
-    submission_group_number: "901675540",
   });
 });
 
@@ -507,9 +501,6 @@ test("markRecordMissing patches the backend record with missing status", async (
       submission_contract_number: null,
       submission_contract_status: null,
       submission_uo_subscription_status_id: null,
-      submission_group_id: null,
-      submission_group_name: null,
-      submission_group_number: null,
     }),
   );
   delete global.API_BASE_URL;
@@ -1196,9 +1187,6 @@ test("handleMessage returns missing-record failure after cloned tab lands on not
       submission_contract_number: null,
       submission_contract_status: null,
       submission_uo_subscription_status_id: null,
-      submission_group_id: null,
-      submission_group_name: null,
-      submission_group_number: null,
     }),
   );
   delete global.API_BASE_URL;

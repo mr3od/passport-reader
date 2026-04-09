@@ -510,7 +510,7 @@ test("handleContractSelectionChange writes the selected contract without forcing
   assert.equal(reloaded, true);
 });
 
-test("getRecordNote maps stored failure reason text to Arabic when no code is present", () => {
+test("getRecordNote hides known raw failure text behind the generic failed label", () => {
   assert.equal(
     getRecordNote({
       upload_status: "processed",
@@ -520,7 +520,7 @@ test("getRecordNote maps stored failure reason text to Arabic when no code is pr
       failure_reason_text: "Passport image is not clear",
       _section: "failed",
     }),
-    "صورة الجواز غير واضحة",
+    "فشل",
   );
 });
 

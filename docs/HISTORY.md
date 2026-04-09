@@ -2,6 +2,13 @@
 
 Agent-maintained log of significant changes. Each entry records what was done and who did it.
 
+## 2026-04-09 — extension stale test cleanup and popup note simplification [codex]
+
+- Removed stale group-era extension test expectations that no longer match the contract-only workflow
+- Updated background and context-change tests to stop asserting deleted `submission_group_*` state
+- Simplified popup failure-note rendering so raw backend failure text no longer gets remapped in `popup.js`
+- Kept scan/image failure classification in the background flow as the single source of truth
+
 ## 2026-04-09 — extension contract-only cleanup, async hardening, and retry/auth fixes [codex]
 
 - Removed the remaining group-selection and group-fetching logic from the live extension flow, including popup state, background handlers, context fields, and related strings/tests
