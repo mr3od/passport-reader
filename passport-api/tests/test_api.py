@@ -259,6 +259,22 @@ def test_records_ids_returns_submit_eligible_rows_only():
     ]
 
 
+def test_records_ids_route_is_marked_deprecated_in_openapi():
+    app = create_app()
+    app.dependency_overrides[get_api_services] = lambda: ApiServices(
+        auth=cast(AuthService, FakeAuthService()),
+        records=cast(RecordsService, FakeRecordsService()),
+        users=cast(UserService, object()),
+    )
+    client = TestClient(app)
+
+    response = client.get("/openapi.json")
+
+    assert response.status_code == 200
+    operation = response.json()["paths"]["/records/ids"]["get"]
+    assert operation["deprecated"] is True
+
+
 def test_records_list_rejects_oversize_limit():
     app = create_app()
     app.dependency_overrides[get_api_services] = lambda: ApiServices(

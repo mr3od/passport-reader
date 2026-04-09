@@ -2,6 +2,13 @@
 
 Agent-maintained log of significant changes. Each entry records what was done and who did it.
 
+## 2026-04-09 — truthful submit-all scope and `/records/ids` deprecation [codex]
+
+- Removed extension runtime usage of `FETCH_SUBMIT_ELIGIBLE_IDS` and `/records/ids` so batch submission now uses only the IDs already selected/visible to the user
+- Stopped background batch auto-discovery of extra IDs during drain, preventing submitted count drift beyond user-confirmed scope
+- Updated Arabic user-facing copy from broad “submit all” wording to “submit shown records” language in the popup button and confirmation message
+- Marked `GET /records/ids` as deprecated in FastAPI route metadata and added an OpenAPI regression test that asserts the deprecated flag
+
 ## 2026-04-09 — extension tab empty-note visibility fix [codex]
 
 - Fixed the shared workspace empty-note subtitle so populated tabs no longer show empty-state Arabic copy above real records

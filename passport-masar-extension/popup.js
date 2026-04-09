@@ -1136,34 +1136,24 @@
     if (!(await ensureActionContext())) {
       return;
     }
-    const discovery = await sendMsg(
-      { type: "FETCH_SUBMIT_ELIGIBLE_IDS", section: "pending", limit: 100, offset: 0 },
-      { timeoutMs: 10000 },
-    );
-    if (!discovery?.ok) {
-      showToast(Strings.ERR_UNEXPECTED, { tone: "error" });
+    const selectedIds = [...new Set((Array.isArray(uploadIds) ? uploadIds : []).filter(Boolean))];
+    if (!selectedIds.length) {
       return;
     }
-    const discoveredIds = Array.isArray(discovery.data?.items)
-      ? discovery.data.items.map((item) => item.upload_id).filter(Boolean)
-      : [];
-    const sourceTotal = discovery.data?.total || discoveredIds.length;
-    if (!discoveredIds.length) {
-      return;
-    }
+    const sourceTotal = selectedIds.length;
     const confirmed = window.confirm(Strings.SUBMIT_ALL_CONFIRM(sourceTotal));
     if (!confirmed) {
       return;
     }
     const response = await sendMsg({
       type: "SUBMIT_BATCH",
-      uploadIds: discoveredIds,
+      uploadIds: selectedIds,
       sourceTotal,
-      nextOffset: discoveredIds.length,
+      nextOffset: selectedIds.length,
     }, { timeoutMs: 30000 });
     await handleSubmitResponse({
       response,
-      uploadIds: discoveredIds,
+      uploadIds: selectedIds,
       classifyFailure: Failure.classifyFailure,
       onRelinkRequired: showRelinkRequired,
       onMasarLoginRequired: async () => {

@@ -741,8 +741,7 @@ test("handleMessage fetches server counts for record sections", async () => {
   delete global.fetch;
 });
 
-test("handleMessage fetches submit-eligible ids only", async () => {
-  let requestedUrl = null;
+test("handleMessage no longer exposes submit-eligible id discovery", async () => {
   global.API_BASE_URL = "https://passport-api.mr3od.dev";
   global.chrome = {
     storage: {
@@ -755,19 +754,8 @@ test("handleMessage fetches submit-eligible ids only", async () => {
       },
     },
   };
-  global.fetch = async (url) => {
-    requestedUrl = url;
-    return {
-      ok: true,
-      status: 200,
-      json: async () => ({
-        items: [{ upload_id: 10, upload_status: "processed", review_status: "auto", masar_status: null }],
-        limit: 100,
-        offset: 0,
-        total: 1,
-        has_more: false,
-      }),
-    };
+  global.fetch = async () => {
+    throw new Error("unexpected fetch");
   };
 
   const response = await handleMessage({
@@ -777,17 +765,7 @@ test("handleMessage fetches submit-eligible ids only", async () => {
     offset: 0,
   });
 
-  assert.equal(requestedUrl.endsWith("/records/ids?section=pending&limit=100&offset=0"), true);
-  assert.deepEqual(response, {
-    ok: true,
-    data: {
-      items: [{ upload_id: 10, upload_status: "processed", review_status: "auto", masar_status: null }],
-      limit: 100,
-      offset: 0,
-      total: 1,
-      has_more: false,
-    },
-  });
+  assert.deepEqual(response, { ok: false, error: "unsupported-message" });
   delete global.API_BASE_URL;
   delete global.chrome;
   delete global.fetch;

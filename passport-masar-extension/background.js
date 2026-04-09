@@ -1203,20 +1203,6 @@ async function fetchRecordCounts() {
   return { ok: true, data: await response.json() };
 }
 
-async function fetchSubmitEligibleIds(limit, offset) {
-  const response = await apiFetch(
-    `/records/ids?section=pending&limit=${limit}&offset=${offset}`,
-  );
-  if (!response.ok) {
-    return {
-      ok: false,
-      status: response.status,
-      failureKind: response.status === 401 ? "backend-auth" : null,
-    };
-  }
-  return { ok: true, data: await response.json() };
-}
-
 async function fetchRecordById(uploadId) {
   const response = await apiFetch(`/records/${uploadId}`);
   if (!response.ok) {
@@ -1471,28 +1457,6 @@ function advanceSubmissionBatch(batch, uploadId, result) {
     blocked_reason: null,
     updated_at: new Date().toISOString(),
   };
-}
-
-async function continueBatchDiscovery(batch) {
-  if (batch.exhausted_source || batch.next_offset >= batch.source_total) {
-    return batch;
-  }
-  const response = await fetchSubmitEligibleIds(100, batch.next_offset);
-  if (!response.ok) {
-    return {
-      ...batch,
-      discovery_error: true,
-      updated_at: new Date().toISOString(),
-    };
-  }
-  const items = Array.isArray(response.data?.items) ? response.data.items : [];
-  const nextOffset = (response.data?.offset || batch.next_offset) + items.length;
-  return appendDiscoveredIds(
-    batch,
-    items,
-    response.data?.total || batch.source_total,
-    nextOffset,
-  );
 }
 
 // ─── Submission workflow ──────────────────────────────────────────────────────
@@ -2190,10 +2154,6 @@ async function drainSubmissionBatch(
         terminalFailure = result;
         break;
       }
-      if (!batch.exhausted_source && !batch.discovery_error) {
-        batch = await continueBatchDiscovery(batch);
-        await persistSubmissionBatch(batch);
-      }
       if ((batch.queued_ids || []).length > 0 || batch.active_id) {
         await ContextChange.setSubmissionState(ContextChange.SUBMISSION_STATES.QUEUED_MORE);
       }
@@ -2247,10 +2207,6 @@ async function handleMessage(msg, sender = null) {
 
   if (msg.type === "FETCH_RECORD_COUNTS") {
     return fetchRecordCounts();
-  }
-
-  if (msg.type === "FETCH_SUBMIT_ELIGIBLE_IDS") {
-    return fetchSubmitEligibleIds(msg.limit || 100, msg.offset || 0);
   }
 
   if (msg.type === "SUBMIT_BATCH") {
@@ -2358,7 +2314,6 @@ if (typeof module === "object" && module.exports) {
     extractMasarContextFromSnapshot,
     fetchRecordCounts,
     fetchRecordPage,
-    fetchSubmitEligibleIds,
     formatCookieDebugSummary,
     getCurrentSubmissionContext,
     handleMessage,

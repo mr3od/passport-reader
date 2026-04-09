@@ -87,7 +87,7 @@
     STATUS_FAILED: "فشل",
 
     ACTION_SUBMIT: "رفع",
-    ACTION_SUBMIT_ALL: "رفع الكل",
+    ACTION_SUBMIT_ALL: "رفع المعروض",
     ACTION_RETRY: "إعادة الرفع",
     ACTION_BACK: "رجوع",
     ACTION_SETTINGS: "الإعدادات",
@@ -108,7 +108,7 @@
     HOME_CONTRACT_LABEL: "العقد",
     HOME_CONTRACT_EXPIRED: "منتهي",
 
-    SUBMIT_ALL_CONFIRM: (count) => `هل تريد رفع ${count} جواز؟`,
+    SUBMIT_ALL_CONFIRM: (count) => `هل تريد رفع ${count} جواز من المعروض؟`,
     SUBMIT_SUCCESS: "تم الرفع بنجاح",
     SUBMIT_RESUME_UNAVAILABLE: "لا توجد دفعة جاهزة للاستئناف",
     LIST_REFRESH_FAILED: "تعذر تحديث القائمة",

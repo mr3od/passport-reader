@@ -101,7 +101,12 @@ def get_record_counts(
     )
 
 
-@router.get("/records/ids", response_model=RecordIdListResponse)
+@router.get(
+    "/records/ids",
+    response_model=RecordIdListResponse,
+    deprecated=True,
+    summary="Deprecated: list submit-eligible record ids",
+)
 def list_record_ids(
     authenticated: Annotated[AuthenticatedSession, Depends(get_authenticated_session)],
     services: Annotated[ApiServices, Depends(get_api_services)],
