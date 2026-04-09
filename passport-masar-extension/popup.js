@@ -318,6 +318,9 @@
   }
 
   function getStatusTone({ upload_status, masar_status, review_status, inProgress, contextMismatch }) {
+    if (inProgress) {
+      return "olive";
+    }
     if (upload_status === "failed" || masar_status === "failed") {
       return "red";
     }
@@ -330,9 +333,6 @@
     if (masar_status === "submitted") {
       return "green";
     }
-    if (inProgress) {
-      return "olive";
-    }
     if (review_status === "needs_review") {
       return "amber";
     }
@@ -340,14 +340,14 @@
   }
 
   function getRecordVisualState(record) {
+    if (record._inProgressState) {
+      return "processing";
+    }
     if (record.upload_status === "failed" || record.masar_status === "failed") {
       return "failed";
     }
     if (record.masar_status === "missing") {
       return "failed";
-    }
-    if (record._inProgressState) {
-      return "processing";
     }
     if (record.review_status === "needs_review") {
       return "review";
@@ -359,6 +359,14 @@
   }
 
   function getRecordNote(record) {
+    if (record._inProgressState) {
+      return Status.getStatusLabel({
+        upload_status: record.upload_status,
+        masar_status: record.masar_status,
+        review_status: record.review_status,
+        inProgress: record._inProgressState,
+      });
+    }
     if (record.review_status === "needs_review") {
       return Strings.REVIEW_SUMMARY;
     }
@@ -379,14 +387,6 @@
     }
     if (record._section === "failed") {
       return Strings.STATUS_FAILED;
-    }
-    if (record._inProgressState) {
-      return Status.getStatusLabel({
-        upload_status: record.upload_status,
-        masar_status: record.masar_status,
-        review_status: record.review_status,
-        inProgress: record._inProgressState,
-      });
     }
     return Strings.STATUS_READY;
   }

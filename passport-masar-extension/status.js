@@ -6,6 +6,12 @@
   root.MasarStatus = api;
 })(typeof globalThis !== "undefined" ? globalThis : this, function (strings) {
   function getStatusLabel({ upload_status, masar_status, review_status, inProgress }) {
+    if (inProgress === "active") {
+      return strings.STATUS_IN_PROGRESS;
+    }
+    if (inProgress === "queued" || inProgress === true) {
+      return strings.STATUS_QUEUED_IN_BATCH;
+    }
     if (upload_status === "failed" || masar_status === "failed") {
       return strings.STATUS_FAILED;
     }
@@ -18,12 +24,6 @@
     if (masar_status === "submitted") {
       return strings.STATUS_SUBMITTED;
     }
-    if (inProgress === "active") {
-      return strings.STATUS_IN_PROGRESS;
-    }
-    if (inProgress === "queued" || inProgress === true) {
-      return strings.STATUS_QUEUED_IN_BATCH;
-    }
     if (review_status === "needs_review") {
       return strings.STATUS_NEEDS_REVIEW;
     }
@@ -31,6 +31,9 @@
   }
 
   function getStatusColor({ upload_status, masar_status, review_status, inProgress }) {
+    if (inProgress) {
+      return "#5D6879";
+    }
     if (upload_status === "failed" || masar_status === "failed") {
       return "#C53B22";
     }
@@ -42,9 +45,6 @@
     }
     if (masar_status === "submitted") {
       return "#247A53";
-    }
-    if (inProgress) {
-      return "#5D6879";
     }
     if (review_status === "needs_review") {
       return "#B87912";

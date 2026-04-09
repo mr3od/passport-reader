@@ -538,6 +538,21 @@ test("getRecordNote hides unknown raw failure text behind the generic failed lab
   );
 });
 
+test("getRecordNote prefers the queued retry state over stale failed text", () => {
+  assert.equal(
+    getRecordNote({
+      upload_status: "processed",
+      masar_status: "failed",
+      review_status: "auto",
+      failure_reason_code: null,
+      failure_reason_text: "Unexpected remote failure",
+      _section: "inProgress",
+      _inProgressState: "queued",
+    }),
+    "في الانتظار",
+  );
+});
+
 
 test("older workspace load should not win", async () => {
   const MasarPopup = require("../popup.js");

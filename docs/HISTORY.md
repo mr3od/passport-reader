@@ -2,6 +2,12 @@
 
 Agent-maintained log of significant changes. Each entry records what was done and who did it.
 
+## 2026-04-09 — extension retry in-progress card state fix [codex]
+
+- Fixed retried failed records rendering as failed cards inside the in-progress tab
+- Changed popup/status precedence so optimistic queued or active retry state overrides stale persisted `failed` status while a retry is underway
+- Added regression coverage for queued retry labels, colors, and note text so in-progress cards no longer reuse stale failure styling
+
 ## 2026-04-09 — extension stale test cleanup and popup note simplification [codex]
 
 - Removed stale group-era extension test expectations that no longer match the contract-only workflow

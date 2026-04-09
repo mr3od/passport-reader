@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { getStatusLabel } = require("../status.js");
+const { getStatusColor, getStatusLabel } = require("../status.js");
 
 test("getStatusLabel returns amber submitted label for submitted records needing review", () => {
   assert.equal(
@@ -45,5 +45,26 @@ test("getStatusLabel returns missing label for records removed remotely", () => 
       inProgress: false,
     }),
     "غير موجود",
+  );
+});
+
+test("getStatusLabel and color prefer in-progress state over stale failed status during retry", () => {
+  assert.equal(
+    getStatusLabel({
+      upload_status: "processed",
+      masar_status: "failed",
+      review_status: "auto",
+      inProgress: "queued",
+    }),
+    "في الانتظار",
+  );
+  assert.equal(
+    getStatusColor({
+      upload_status: "processed",
+      masar_status: "failed",
+      review_status: "auto",
+      inProgress: "queued",
+    }),
+    "#5D6879",
   );
 });
