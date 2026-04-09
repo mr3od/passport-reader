@@ -9,11 +9,14 @@
     if (!response || response.ok) {
       return { type: "none" };
     }
-    if (response.failureKind === "backend-auth" || response.status === 401) {
+    if (response.failureKind === "backend-auth") {
       return { type: "relink" };
     }
     if (response.failureKind === "masar-auth") {
       return { type: "masar-login" };
+    }
+    if (response.status === 401) {
+      return { type: "relink" };
     }
     return { type: "generic" };
   }

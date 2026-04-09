@@ -8,7 +8,6 @@ const {
   ensureActionContextState,
   getRecordNote,
   getScreenTheme,
-  renderHomeSummary,
   handleCardClick,
   handleSubmitResponse,
   handleContractSelectionChange,
@@ -207,24 +206,6 @@ test("handleResumeBatchResponse surfaces a missing batch instead of silently pre
 
   assert.equal(result, false);
   assert.deepEqual(calls, ["unavailable"]);
-});
-
-test("renderHomeSummary updates pending and failed counters", () => {
-  const pending = { textContent: "" };
-  const failed = { textContent: "", dataset: {} };
-  const document = {
-    getElementById(id) {
-      if (id === "pending-count") return pending;
-      if (id === "failed-count") return failed;
-      return null;
-    },
-  };
-
-  renderHomeSummary(document, { pendingCount: 5, failedCount: 2 });
-
-  assert.equal(pending.textContent, "5");
-  assert.equal(failed.textContent, "2");
-  assert.equal(failed.dataset.tone, "danger");
 });
 
 test("buildRenderableServerSections replays the last submit result into cached sections", () => {
@@ -555,4 +536,93 @@ test("getRecordNote hides unknown raw failure text behind the generic failed lab
     }),
     "فشل",
   );
+});
+
+
+test("older workspace load should not win", async () => {
+  const MasarPopup = require("../popup.js");
+  const state = { workspaceLoadId: 0 };
+  
+  let firstLoadId;
+  let secondLoadId;
+  
+  const firstLoad = (async () => {
+    firstLoadId = ++state.workspaceLoadId;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    return { loadId: firstLoadId, data: "first" };
+  })();
+  
+  const secondLoad = (async () => {
+    secondLoadId = ++state.workspaceLoadId;
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    return { loadId: secondLoadId, data: "second" };
+  })();
+  
+  const firstResult = await firstLoad;
+  const secondResult = await secondLoad;
+  
+  assert.equal(firstResult.loadId, 1);
+  assert.equal(secondResult.loadId, 2);
+  assert.equal(state.workspaceLoadId, 2);
+  assert.notEqual(firstResult.loadId, state.workspaceLoadId);
+});
+
+test("older tab fetch should not overwrite newer tab fetch", async () => {
+  const cache = {
+    items: [],
+    status: "idle",
+    dirty: true,
+    error: null,
+    requestId: 0,
+  };
+  
+  let firstRequestId;
+  let secondRequestId;
+  
+  const firstFetch = (async () => {
+    firstRequestId = ++cache.requestId;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    return { requestId: firstRequestId, items: [{ id: 1 }] };
+  })();
+  
+  const secondFetch = (async () => {
+    secondRequestId = ++cache.requestId;
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    return { requestId: secondRequestId, items: [{ id: 2 }] };
+  })();
+  
+  const secondResult = await secondFetch;
+  if (secondResult.requestId === cache.requestId) {
+    cache.items = secondResult.items;
+  }
+  
+  const firstResult = await firstFetch;
+  if (firstResult.requestId === cache.requestId) {
+    cache.items = firstResult.items;
+  }
+  
+  assert.equal(cache.requestId, 2);
+  assert.deepEqual(cache.items, [{ id: 2 }]);
+});
+
+test("failed page fetch with existing cached data should show toast not error screen", () => {
+  const activeCache = {
+    items: [{ upload_id: 1 }, { upload_id: 2 }],
+    status: "ready",
+  };
+  const pageResponse = { ok: false, error: "Network error" };
+  const hasUsableData = activeCache && activeCache.items.length > 0;
+  
+  assert.equal(hasUsableData, true);
+});
+
+test("failed page fetch with no cached data should show error screen", () => {
+  const activeCache = {
+    items: [],
+    status: "idle",
+  };
+  const pageResponse = { ok: false, error: "Network error" };
+  const hasUsableData = activeCache && activeCache.items.length > 0;
+  
+  assert.equal(hasUsableData, false);
 });

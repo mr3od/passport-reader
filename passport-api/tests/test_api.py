@@ -567,3 +567,63 @@ def test_patch_masar_status_accepts_missing_status(tmp_path: Path, monkeypatch):
     assert submit.json()["submission_group_id"] == "group-22"
     assert submit.json()["failure_reason_code"] == "scan-image-unclear"
     assert submit.json()["failure_reason_text"] == "Passport image is not clear"
+
+
+def test_patch_masar_status_rejects_fake_pending_status(tmp_path: Path, monkeypatch):
+    db_path = tmp_path / "platform.sqlite3"
+    monkeypatch.setenv("PASSPORT_PLATFORM_DB_PATH", str(db_path))
+    monkeypatch.setenv("PASSPORT_PLATFORM_ARTIFACTS_DIR", str(tmp_path / "artifacts"))
+
+    services = build_services()
+    db = Database(db_path)
+    users = UserService(UsersRepository(db))
+    uploads = UploadService(UploadsRepository(db), UsageRepository(db))
+    user = users.get_or_create_user(
+        EnsureUserCommand(
+            external_provider=ExternalProvider.TELEGRAM,
+            external_user_id="12345",
+            display_name="Agency A",
+        )
+    )
+    upload = uploads.register_upload(
+        RegisterUploadCommand(
+            user_id=user.id,
+            channel=ChannelName.TELEGRAM,
+            filename="passport.jpg",
+            mime_type="image/jpeg",
+            source_ref="telegram://chat/1/message/2/file/abc",
+        )
+    )
+    uploads.record_processing_result(
+        user.id,
+        RecordProcessingResultCommand(
+            upload_id=upload.id,
+            is_passport=True,
+            is_complete=True,
+            review_status="auto",
+            passport_number="12345678",
+            passport_image_uri="/tmp/original.jpg",
+            confidence_overall=0.71,
+            extraction_result_json='{"data":{"PassportNumber":"12345678"}}',
+            completed_at=datetime(2026, 3, 13, 10, 1, tzinfo=UTC),
+        ),
+    )
+    temp = services.auth.issue_temp_token(user.id)
+
+    app = create_app()
+    app.dependency_overrides[get_api_services] = lambda: services
+    client = TestClient(app)
+
+    exchange = client.post("/auth/exchange", json={"token": temp.token})
+    assert exchange.status_code == 200
+    session_token = exchange.json()["session_token"]
+    headers = {"Authorization": f"Bearer {session_token}"}
+
+    response = client.patch(
+        f"/records/{upload.id}/masar-status",
+        headers=headers,
+        json={"status": "pending"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "status must be 'submitted', 'failed', or 'missing'"

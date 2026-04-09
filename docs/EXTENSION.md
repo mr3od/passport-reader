@@ -10,19 +10,15 @@ The production extension is a Chrome Manifest V3 extension that helps agencies f
 
 Current note about groups:
 
-- the extension no longer blocks entry into the main workspace when a group is missing
-- HAR analysis from `research/har/masar.nusuk.sa-assing-mutamer-to-group.har` indicates Masar can create mutamers without assigning them to a group first
-- group assignment appears to be a separate later flow, not a prerequisite of the mutamer creation flow in `background.js`
-- current mutamer submission can succeed without a group ID
-- skip-group behavior is intentional and correct for the current submission flow
-- the selected group is currently captured for UI context and tracking, not because the current submit flow requires it
-- the popup does not currently expose a visible group picker or group action button
-- group UI is intentionally hidden until the later group-assignment feature is implemented
+- the extension has been cleaned of all legacy group selection and assignment logic
+- group-related UI (labels, pickers, filters) has been removed from popups and headers
+- background submission flows are intentionally group-agnostic to support the primary mutamer creation workflow
+- group assignment is considered a separate post-process flow not currently automated by the extension
 
 Current note about context drift:
 
-- explicit session sync from a live Masar tab is used for readiness detection
-- entity drift clears stale contract and group selection and refreshes available contracts
+- explicit session sync from a live Masar tab is used for readiness detector
+- entity drift clears stale contract selection and refreshes available contracts
 - explicit extension selections remain authoritative
 - gated actions enforce context readiness:
   - new batch start
@@ -36,12 +32,12 @@ The extension has two runtime entry points plus helper modules:
 
 1. `background.js`
    - MV3 service worker
-   - Owns submission orchestration, Masar API calls, backend API calls, session sync, badge updates, notifications, and cross-screen state coordination
+   - Owns submission orchestration, Masar API calls, backend API calls, session sync, and cross-screen state coordination
 2. `popup.js`
    - Popup controller and UI state manager
    - Owns screen routing, setup flow, workspace rendering, and user-triggered actions
-3. helper modules such as `context-change.js`, `contract-select.js`, `queue-filter.js`, `status.js`, `badge.js`, and `notifications.js`
-   - Own contract resolution, queue shaping, badge behavior, notifications, and popup/background policy helpers
+3. helper modules such as `context-change.js`, `contract-select.js`, `queue-filter.js`, and `status.js`
+   - Own contract resolution, queue shaping, and popup/background policy helpers
 
 The manifest is defined in [`/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/manifest.json`](/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/manifest.json).
 
@@ -77,7 +73,7 @@ These are used for:
 - reading storage from open Masar tabs through injected scripts
 - performing backend API requests
 - performing direct Masar API requests from the background worker
-- showing badge and desktop notifications
+- keeping the existing manifest permission set compatible with the current packaged extension
 
 ## 2. Architecture Summary
 
@@ -109,7 +105,7 @@ Responsibilities:
 
 - synchronize session context from open Masar tabs
 - build entity-aware Masar request headers
-- fetch contracts and groups
+- fetch contracts
 - fetch records and images from backend
 - submit a record to Masar
 - patch backend record status
@@ -250,15 +246,11 @@ The popup merges this session state into tab counts and in-progress rendering so
 - submit all visible pending records
 - retry failed record
 
-Contract and group selection rules:
+Contract and retry rules:
 
 - contract selection is explicit in the extension UI
-- group selection is currently hidden from the popup UI
-- these groups are blocked for new workflow selection:
-  - deleted groups
-  - archived groups
-  - `Completed Groups`
-  - `Returned To Sub-External Agent`
+- retry does not patch records back to a fake `pending` Masar status
+- retry eligibility means the upload is still `processed` and the latest Masar row is `failed` or `missing`
 
 ### Future group assignment work
 
@@ -283,7 +275,7 @@ When implementing group assignment, the workflow should change in two distinct p
 Until that future feature exists:
 
 - group ID is not required for the current Masar submission flow
-- the current 5-step submission flow should remain group-optional
+- the current 6-step submission flow should remain group-optional
 - API and extension behavior should keep allowing submit without a selected group when no valid group is required by workflow
 
 Implementation:
@@ -494,12 +486,10 @@ Required workflow when entity changes in-session:
 1. update `masar_entity_id`
 2. update `masar_entity_type_id`
 3. clear previous `masar_contract_id`
-4. clear previous selected group
-5. fetch a fresh contract list for the new entity
-6. allow selection only from active contracts returned by that response
-7. forbid selecting deactivated contracts
-8. treat `currentContract` from the old entity as invalid
-9. treat the selected group from the old entity as invalid
+4. fetch a fresh contract list for the new entity
+5. allow selection only from active contracts returned by that response
+6. forbid selecting deactivated contracts
+7. treat `currentContract` from the old entity as invalid
 
 If the new entity has:
 
@@ -518,62 +508,14 @@ The popup also tracks contract state:
 
 The UI currently uses that state mainly to disable submissions when the contract is expired and to show an active/expired pill.
 
-## 8. Group Handling
+## 8. Group Handling (Deprecated)
 
-Groups are fetched from:
+Group handling has been removed from the active submission pipeline. The extension now focuses exclusively on mutamer creation.
 
-- `https://masar.nusuk.sa/umrah/groups_apis/api/Groups/GetGroupList`
-
-Implementation:
-
-- direct fetch: [`/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/background.js:341`](/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/background.js:341)
-
-The selected group is local extension state. It is not inferred from the page automatically.
-
-Based on HAR analysis, this selected group is not part of the current mutamer creation request sequence implemented by the extension. It is best understood as current popup workflow state plus preparation for later group-assignment actions.
-
-### Group list evidence and required workflow
-
-The `GetGroupList` response shape shows that groups are contract-context data, not stable account-global state.
-
-Important fields observed in the response:
-
-- `content`: the actual group entries the UI can render
-- `id`: encrypted Masar group identifier used by later actions
-- `groupNumber`
-- `groupName`
-- `state`
-- `isArchived`
-- `isDeleted`
-- `mutamerNumber`
-- `eaId`, `eaCode`, `eaName`
-
-Important implications from the sample response:
-
-- the useful list is `response.data.content`
-- metadata like `numberOfRecords`, `hasNextPage`, and `totalPages` should not be blindly trusted as the display source
-- groups have lifecycle/state fields and can be archived or otherwise unsuitable for active workflow
-- group membership is not implied by entity alone; it must be refreshed after contract changes
-
-Required workflow after selecting a contract:
-
-1. fetch a fresh group list for that contract
-2. clear any previously selected group from another entity or contract
-3. render choices only from the freshly returned list
-4. treat archived/deleted groups as invalid for new workflow selection
-5. if more than one valid group exists, let the user choose explicitly
-6. if no valid group exists in that contract, the user can skip the group step
-
-This means group selection should be understood as contract-scoped workflow state, not durable cross-context identity.
-
-This is important because a context change clears:
-
-- selected group id
-- selected group name
-- selected group number
-- cached groups payload
-
-That forces explicit re-selection after a contract or entity change.
+Historical context:
+- Groups were previously fetched from `https://masar.nusuk.sa/umrah/groups_apis/api/Groups/GetGroupList`.
+- Lifecycle states and EA assignments were tracked but found to be secondary to the mutamer creation flow.
+- Current Masar APIs allow for mutamer creation without an initial group link.
 
 ### Separate mutamer-to-group assignment flow
 
@@ -584,15 +526,6 @@ Observed related endpoints:
 - `POST /umrah/groups_apis/api/Mutamer/GetUnAssignedMutamerList`
 - `POST /umrah/groups_apis/api/Groups/GetGroupList`
 - `POST /umrah/groups_apis/api/Groups/AssignMutamers`
-
-Observed assignment request shape:
-
-```json
-{
-  "groupId": "<group id>",
-  "mutamerIds": ["<mutamer id>"]
-}
-```
 
 This supports a clearer distinction:
 
@@ -672,27 +605,33 @@ Implementation:
 - JSON headers: [`/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/background.js:122`](/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/background.js:122)
 - multipart headers: [`/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/background.js:161`](/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/background.js:161)
 
-### Contract and group endpoints
+### Contract endpoint used by the current extension
 
 - `POST /umrah/contracts_apis/api/ExternalAgent/GetContractList`
+
+This endpoint supports current context resolution and contract selection. It is not one of the steps that actually creates the mutamer record in Masar.
+
+### Group endpoints are separate follow-up workflow material
+
 - `POST /umrah/groups_apis/api/Groups/GetGroupList`
 
-In the current production extension, these endpoints support context and UI state. They are not the steps that actually create the mutamer record in Masar.
+These endpoints are documented here as research and future workflow inputs, not as part of the current production extension path.
 
 ### Submission sequence
 
-The production submission path is implemented in [`/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/background.js:567`](/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/background.js:567).
+The production submission path is implemented in `background.js`.
 
-Operationally, it is a 5-step submission flow followed by one detail lookup step:
+Operationally, it is a 6-step submission flow followed by one detail lookup step:
 
 1. `POST /umrah/groups_apis/api/Mutamer/ScanPassport`
 2. `POST /umrah/groups_apis/api/Mutamer/SubmitPassportInforamtionWithNationality`
 3. `POST /umrah/groups_apis/api/Mutamer/GetPersonalAndContactInfos?Id=...`
-4. `POST /umrah/groups_apis/api/Mutamer/SubmitPersonalAndContactInfos`
-5. `POST /umrah/groups_apis/api/Mutamer/SubmitDisclosureForm`
-6. `POST /umrah/groups_apis/api/Mutamer/GetMutamerList`
+4. `POST /umrah/common_apis/api/Attachment/Upload` (Vaccination image re-upload)
+5. `POST /umrah/groups_apis/api/Mutamer/SubmitPersonalAndContactInfos`
+6. `POST /umrah/groups_apis/api/Mutamer/SubmitDisclosureForm`
+7. `POST /umrah/groups_apis/api/Mutamer/GetMutamerList`
 
-This production submission sequence does not call `Groups/AssignMutamers` and does not pass a group ID during mutamer creation.
+This production submission sequence satisfies Nusuk's validation requirements for a "Complete" status by providing necessary attachment objects in step 5.
 
 ### Data sources used during submission
 
@@ -772,10 +711,6 @@ Durable state includes:
 - `masar_contract_status_name`
 - `masar_contract_state`
 - `masar_contract_manual_override`
-- `masar_group_id`
-- `masar_group_name`
-- `masar_group_number`
-- `masar_groups_cache`
 - `agency_email`
 - `agency_phone`
 - `agency_phone_country_code`
@@ -827,8 +762,6 @@ This avoids reacting to unstable or intermediate request sequences while Masar i
 ### What happens when a change is pending
 
 - popup shows a warning banner
-- badge shows orange `!`
-- background can send a desktop notification
 - queued submissions stop before starting the next record
 
 ### Applying a context change
@@ -836,23 +769,17 @@ This avoids reacting to unstable or intermediate request sequences while Masar i
 When the user confirms the change:
 
 - pending entity/contract/auth token values replace the current values
-- selected group is cleared
-- group cache is cleared
 - manual contract override is cleared
 - `currentContract` from the previous entity is treated as invalid
-- stale group selection from the previous entity or contract is treated as invalid
 
 The intended atomic refresh path is:
 
 1. apply the new entity values
 2. clear current contract selection
-3. clear selected group
-4. fetch contracts for the new entity
-5. select only an active contract from that fresh response
-6. fetch groups for that contract
-7. select only a valid group from that fresh response, or allow skip when none exist
+3. fetch contracts for the new entity
+4. select only an active contract from that fresh response
 
-This is why a new contract or entity requires the user to select the group again.
+This is why a new contract or entity requires the user to revalidate contract readiness.
 
 ## 14. Submission Serialization And Synchronization
 
@@ -890,32 +817,7 @@ The popup listens to `chrome.storage.onChanged` and schedules a workspace reload
 
 This is the extension’s replacement for a richer client-state library.
 
-## 15. Badge And Notifications
-
-### Badge
-
-Badge logic lives in [`/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/badge.js`](/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/badge.js).
-
-Priority order:
-
-1. session expired: red `!`
-2. pending context change: orange `!`
-3. failed records present: red numeric count
-4. otherwise empty badge
-
-### Notifications
-
-Notification logic lives in [`/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/notifications.js`](/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/notifications.js).
-
-Notification types:
-
-- context change
-- session expired
-- batch complete
-
-Notifications are deduplicated for 30 seconds per type.
-
-## 16. Error Handling
+## 15. Error Handling
 
 ### Backend auth failure
 
@@ -976,26 +878,21 @@ Session sync observes contract data from the page, but the extension does not si
 
 For entity switches, that principle needs one stricter rule: old contract state must be invalidated before any new request uses the new entity context.
 
-### Group selection is invalid after context change
+### Group assignment remains separate from current context validity
 
-The extension clears selected group and group cache when entity or contract changes. That forces the user to confirm a fresh group in the new context.
-
-That behavior matches the current popup workflow, but it should not be interpreted as evidence that Masar requires a group ID before mutamer creation. The HAR evidence shows group assignment can happen later through a separate endpoint.
-
-The stronger intended rule is:
+Group assignment is not part of the current submit/retry gating path. The important current rule is narrower:
 
 - contract selection is entity-scoped
-- group selection is contract-scoped
-- both must be invalidated on upstream context changes
-- old `currentContract` or old selected group must never leak into the next entity context
+- old `currentContract` must never leak into the next entity context
+- future group-assignment work must treat any cached group choice as contract-scoped and disposable
 
 ### Submission is deliberately serialized
 
 The worker avoids concurrent submissions to prevent race conditions and ensure no orphaned partial mutamers are left in Masar.
 
-### Page interception exists in addition to direct fetch
+### Direct fetch is the current source of truth for contract loading
 
-The extension captures contract/group responses from the real Masar page because those responses can reflect the user’s active browser session and current page state. Direct fetch still exists as fallback and explicit loader behavior.
+The extension now relies on explicit background fetches plus session-derived headers for current contract loading behavior. Historical group-response interception is not part of the active workflow.
 
 ### The popup is storage-reactive, not request-reactive
 
@@ -1021,15 +918,11 @@ The current popup does not expose group selection. The implemented submission fl
 
 The background distinguishes `expires-today`, but the popup mainly treats the contract as either expired or not expired.
 
-### 5. Group cache is opportunistic
-
-`masar_groups_cache` can be populated by intercepted page responses or by direct fetch. It is a convenience cache, not the source of truth.
-
-### 6. Submission detail URL depends on `masar_detail_id`
+### 5. Submission detail URL depends on `masar_detail_id`
 
 The popup can only open the Mutamer details page after the final lookup step resolves a detail ID.
 
-### 7. Submission patches backend status on both success and failure
+### 6. Submission patches backend status on both success and failure
 
 The extension attempts to keep backend status aligned with Masar outcome. Failures in patching the failed state are logged but do not prevent the popup from continuing.
 
@@ -1042,7 +935,7 @@ If you are new to this extension, the main operational model is:
 3. popup requires explicit contract readiness for submit/retry actions, but group UI is currently hidden
 4. popup fetches records from backend
 5. background submits records to Masar one at a time
-6. background patches backend with submitted or failed result
+6. background patches backend with submitted, failed, or missing result
 7. popup stays synchronized through storage changes
 8. if entity changes, the extension clears stale contract state and forces future submit/retry actions to revalidate context
 
@@ -1059,8 +952,6 @@ Core files for this production extension:
 - [`/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/contract-select.js`](/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/contract-select.js)
 - [`/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/queue-filter.js`](/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/queue-filter.js)
 - [`/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/status.js`](/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/status.js)
-- [`/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/badge.js`](/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/badge.js)
-- [`/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/notifications.js`](/Users/nexumind/Desktop/Github/passport-reader/passport-masar-extension/notifications.js)
 ## 22. Final Note
 
 This document reflects the production extension as analyzed from source code in `passport-masar-extension` at the repository root. It should be used as the reference architecture for the extension currently used by agencies unless and until production is moved to a different codepath.

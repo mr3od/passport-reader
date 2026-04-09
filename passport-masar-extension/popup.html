@@ -137,20 +137,21 @@
                 <div id="home-contract-label" class="key"></div>
                 <div id="ctx-contract" class="value"></div>
               </div>
-              <div class="summary-cell hidden">
-                <div id="home-group-label" class="key"></div>
-                <div id="ctx-group" class="value"></div>
-              </div>
               <div class="summary-cell metrics-cell">
                 <div class="metric-grid">
                   <div class="metric-box">
                     <div id="home-pending-label" class="key"></div>
-                    <div id="pending-count" class="metric-value"></div>
+                    <div id="metric-pending" class="metric-value"></div>
                   </div>
                   <div class="metric-box">
                     <div id="home-failed-label" class="key"></div>
-                    <div id="failed-count" class="metric-value"></div>
+                    <div id="metric-failed" class="metric-value"></div>
                   </div>
+                  <div class="metric-box">
+                    <div id="home-submitted-label" class="key"></div>
+                    <div id="metric-submitted" class="metric-value"></div>
+                  </div>
+
                 </div>
               </div>
             </div>
@@ -176,19 +177,15 @@
           <div class="tabs" role="tablist">
             <button class="tab active" data-tab="pending" type="button">
               <span class="tab-label" id="tab-label-pending"></span>
-              <span class="tab-count" id="tab-count-pending"></span>
             </button>
             <button class="tab" data-tab="inProgress" type="button">
               <span class="tab-label" id="tab-label-in-progress"></span>
-              <span class="tab-count" id="tab-count-in-progress"></span>
             </button>
             <button class="tab" data-tab="submitted" type="button">
               <span class="tab-label" id="tab-label-submitted"></span>
-              <span class="tab-count" id="tab-count-submitted"></span>
             </button>
             <button class="tab" data-tab="failed" type="button">
               <span class="tab-label" id="tab-label-failed"></span>
-              <span class="tab-count" id="tab-count-failed"></span>
             </button>
           </div>
 

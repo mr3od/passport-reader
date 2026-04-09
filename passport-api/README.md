@@ -33,6 +33,8 @@ It currently exposes:
   - `pending`
   - `submitted`
   - `failed`
+- `in_progress` is intentionally not a persisted API count.
+  - the extension derives that lane from `chrome.storage.session` batch state
 - `pending` list/count semantics are extension-workspace semantics:
   - includes processed records that can still be submitted from the main lane
   - `review_status` does not block pending visibility
@@ -61,6 +63,8 @@ It currently exposes:
   - `submitted`
   - `failed`
   - `missing`
+- it does not accept `pending`.
+  - `pending` is a derived workspace concept, not a stored Masar submission state
 - record responses expose the latest stored Masar submission context, including:
   - submission entity fields
   - submission contract fields

@@ -49,7 +49,12 @@
     const appendedSubmitted = new Set();
     const appendedFailed = new Set();
 
+    const processedIds = new Set();
     const placeRecord = (record, sourceSection) => {
+      if (processedIds.has(record.upload_id)) {
+        return;
+      }
+      processedIds.add(record.upload_id);
       if (normalized.inProgressIds.has(record.upload_id)) {
         sections.inProgress.push(record);
         return;
@@ -84,14 +89,20 @@
       sections.pending.push(record);
     };
 
-    for (const record of Array.isArray(serverSections?.pending) ? serverSections.pending : []) {
-      placeRecord(record, "pending");
-    }
-    for (const record of Array.isArray(serverSections?.submitted) ? serverSections.submitted : []) {
+    // Precedence: submitted server cache > failed server cache > pending server cache.
+    // This prevents stale pending data from hiding fresher status in other tabs.
+    const submittedItems = Array.isArray(serverSections?.submitted) ? serverSections.submitted : [];
+    const failedItems = Array.isArray(serverSections?.failed) ? serverSections.failed : [];
+    const pendingItems = Array.isArray(serverSections?.pending) ? serverSections.pending : [];
+
+    for (const record of submittedItems) {
       placeRecord(record, "submitted");
     }
-    for (const record of Array.isArray(serverSections?.failed) ? serverSections.failed : []) {
+    for (const record of failedItems) {
       placeRecord(record, "failed");
+    }
+    for (const record of pendingItems) {
+      placeRecord(record, "pending");
     }
 
     return sections;

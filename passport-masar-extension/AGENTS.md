@@ -82,6 +82,15 @@
 - If there is no persisted `active_id` or queued batch state, return an explicit error.
 - The popup must surface that state to the user instead of silently pretending that resume succeeded.
 
+## Retry state rule
+
+- `pending` is not a persisted Masar submission status in this codebase.
+- Retry eligibility means:
+  - `uploads.status = processed`
+  - latest `masar_status` is `failed` or `missing`, or there is no Masar row yet
+- Do not patch failed or missing rows back to `pending` before retrying.
+- A retry is a new submission attempt, not a history rewrite.
+
 ## Known failure pattern
 
 If `GetContractList` returns `520`:

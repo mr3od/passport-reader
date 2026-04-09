@@ -8,7 +8,6 @@ const {
   buildExplicitContractSelectionContext,
   resolveContractContext,
   isContractSelectable,
-  isGroupSelectable,
 } = require("../context-change.js");
 
 test("classifyObservedContextChange prefers entity drift over contract drift", () => {
@@ -228,12 +227,4 @@ test("isContractSelectable rejects expired contracts even when status is active"
     }),
     false,
   );
-});
-
-test("isGroupSelectable blocks deleted, archived, completed, and returned groups", () => {
-  assert.equal(isGroupSelectable({ isDeleted: false, isArchived: false, state: { id: 0 } }), true);
-  assert.equal(isGroupSelectable({ isDeleted: true, isArchived: false, state: { id: 0 } }), false);
-  assert.equal(isGroupSelectable({ isDeleted: false, isArchived: true, state: { id: 0 } }), false);
-  assert.equal(isGroupSelectable({ isDeleted: false, isArchived: false, state: { id: 107 } }), false);
-  assert.equal(isGroupSelectable({ isDeleted: false, isArchived: false, state: { id: 9 } }), false);
 });

@@ -2,6 +2,17 @@
 
 Agent-maintained log of significant changes. Each entry records what was done and who did it.
 
+## 2026-04-09 — extension contract-only cleanup, async hardening, and retry/auth fixes [codex]
+
+- Removed the remaining group-selection and group-fetching logic from the live extension flow, including popup state, background handlers, context fields, and related strings/tests
+- Deleted dead badge/notification modules and their tests; cleaned extension docs so they describe the current runtime instead of removed codepaths
+- Hardened popup async behavior with request/load IDs, debounced session re-renders, queued submit semantics, and stale-cache precedence so fresher submitted/failed data wins over stale pending data
+- Updated background/popup submit handling to treat `SUBMIT_RECORD` and `SUBMIT_BATCH` as queued operations, not synchronous completion
+- Restored the Masar attachment upload step in the submission flow and kept the disclosure-form `Status === false` failure check
+- Removed the fake `pending` Masar submission status from the API validation path and extension retry eligibility checks; retries now start from the real latest persisted `failed` or `missing` state
+- Preserved structured contract-fetch failure metadata through `contract-select.js` and popup failure routing so `GetContractList` auth failures can render the Masar login UI instead of a raw `contracts 401` error
+- Updated extension/API/platform docs and extension AGENTS guidance to reflect the real `pending`, `failed`, and `missing` state model, and added focused regression coverage for retry/auth propagation and stale pending-vs-submitted cache precedence
+
 ## 2026-04-07 - removed all optimistic count logic and server count caching [mr3od]
 
 1. Counts are always derived from tab cache sections - no more complex merging logic
@@ -35,9 +46,9 @@ Agent-maintained log of significant changes. Each entry records what was done an
 
 - Fixed bug where failed passport card retry did not submit to Masar and the record was swallowed (not showing in any section)
 - Removed batch record pre-fetching in `buildRecordLookup` — now fetches only the currently processing record
-- Fixed retry flow: re-fetch record after patching to "pending" status to get updated state from server
-- Added "pending" to allowed `masar_status` values in `shouldSubmitRecord` so patched records are eligible for submission
-- Added test for pending status eligibility
+- Fixed retry flow so failed and missing records are retried from their real persisted state
+- Kept `pending` as a derived workspace lane (`uploads.status = processed` plus no Masar row), not a persisted Masar submission status
+- Added regression coverage that rejects fake `pending` retry state
 
 ## 2026-04-06 — extension submission hardening and contact defaults nudge [claude]
 
@@ -46,7 +57,6 @@ Agent-maintained log of significant changes. Each entry records what was done an
 - Simplified `buildFailureReason` to always store the raw trace text instead of silently discarding it for classified failure kinds
 - Capped `mapNameTokens` at 3 tokens to stop joining middle name tokens into `secondName`, which was causing Masar 400 errors when names exceeded 15 characters
 - Removed the context-change banner and its confirm/defer flow from popup and HTML; stale UI updates now handled by the storage listener
-- Patched `masar_status` back to `pending` before retrying a failed or missing record so retry reflects the correct submission state
 - Removed dead `fetchAllRecords`, `updateBadge`, `countFailedRecords` paths and their message handlers
 - Replaced per-fetch `session_expired` writes and per-success `session_expired: false` resets with a single 401 side-effect path in `apiFetch`; cleared `session_expired` atomically with new token writes to fix badge staying red after relink
 - Normalised all `chrome.storage` access through `localGet`/`localSet`/`localRemove` helpers; removed raw callback-based `chrome.storage.local.get` calls

@@ -106,14 +106,14 @@ test("shouldSubmitRecord allows retries for failed Masar submissions", () => {
   );
 });
 
-test("shouldSubmitRecord allows retries for pending Masar records", () => {
+test("shouldSubmitRecord rejects the fake pending Masar status", () => {
   assert.equal(
     shouldSubmitRecord({
       upload_status: "processed",
       masar_status: "pending",
       review_status: "auto",
     }),
-    true,
+    false,
   );
 });
 

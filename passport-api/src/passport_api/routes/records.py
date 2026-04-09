@@ -169,10 +169,10 @@ def update_masar_status(
     authenticated: Annotated[AuthenticatedSession, Depends(get_authenticated_session)],
     services: Annotated[ApiServices, Depends(get_api_services)],
 ) -> RecordResponse:
-    if body.status not in ("submitted", "failed", "missing", "pending"):
+    if body.status not in ("submitted", "failed", "missing"):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="status must be 'submitted', 'failed', 'pending', or 'missing'",
+            detail="status must be 'submitted', 'failed', or 'missing'",
         )
     if body.status == "submitted":
         try:

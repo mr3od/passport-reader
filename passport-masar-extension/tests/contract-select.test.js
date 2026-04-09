@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
+  fetchContracts,
   getSelectableContracts,
   resolveContractSelection,
 } = require("../contract-select.js");
@@ -36,4 +37,27 @@ test("resolveContractSelection auto-selects a single selectable contract and hid
   assert.equal(resolution.selectedContract.contractId, 7);
   assert.equal(resolution.showDropdown, false);
   assert.equal(resolution.autoSelected, true);
+});
+
+test("fetchContracts preserves masar auth failure metadata for popup routing", async () => {
+  global.chrome = {
+    runtime: {
+      lastError: null,
+      sendMessage(_message, callback) {
+        callback({ ok: false, error: "contracts 401", failureKind: "masar-auth", status: 401 });
+      },
+    },
+  };
+
+  await assert.rejects(
+    fetchContracts(),
+    (error) => {
+      assert.equal(error.message, "contracts 401");
+      assert.equal(error.failureKind, "masar-auth");
+      assert.equal(error.status, 401);
+      return true;
+    },
+  );
+
+  delete global.chrome;
 });

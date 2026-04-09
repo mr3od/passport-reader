@@ -53,6 +53,12 @@ These fields are returned through the platform record schemas and can be preserv
   - `failed`
 - submit-eligible ID discovery for optimistic bulk submit
 
+Current section semantics:
+
+- `pending` means `uploads.status = processed` and the latest Masar submission row is `NULL`
+- `failed` includes latest Masar rows with `failed` or `missing`
+- retryable failed records stay in their latest real state until a new submission attempt writes a new row
+
 These lightweight queries are intentionally separate from the heavy `UserRecord` detail projection. They may read extraction JSON internally to derive flattened names, but they do not expose OCR blobs through the lightweight DTOs.
 
 ## Setup

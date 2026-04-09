@@ -11,6 +11,10 @@
   function sendMessage(message) {
     return new Promise((resolve) => {
       chrome.runtime.sendMessage(message, (response) => {
+        if (chrome.runtime.lastError) {
+          resolve({ ok: false, error: chrome.runtime.lastError.message });
+          return;
+        }
         resolve(response);
       });
     });
@@ -19,7 +23,11 @@
   async function fetchContracts() {
     const response = await sendMessage({ type: "FETCH_CONTRACTS" });
     if (!response || !response.ok) {
-      throw new Error(response?.error || "contracts-unavailable");
+      const error = new Error(response?.error || "contracts-unavailable");
+      if (response && typeof response === "object") {
+        Object.assign(error, response);
+      }
+      throw error;
     }
     return Array.isArray(response.contracts) ? response.contracts : [];
   }

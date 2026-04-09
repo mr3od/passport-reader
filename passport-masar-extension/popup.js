@@ -34,14 +34,13 @@
       status: "idle",
       dirty: true,
       error: null,
+      requestId: 0,
     };
   }
 
   const state = {
     currentScreen: null,
     activeTab: "pending",
-    pendingRecords: [],
-    skippedIds: new Set(),
     sectionData: null,
     tabCache: {
       pending: createTabCacheState(),
@@ -51,12 +50,11 @@
     },
     lastLocalData: null,
     lastSessionData: null,
-    workspaceAbortController: null,
+    workspaceLoadId: 0,
     contractsCache: null,
-    contractsCacheAt: 0,
     toastTimer: null,
+    renderTimer: null,
   };
-  const CONTRACT_CACHE_TTL_MS = 30000;
 
   function $(id, doc = document) {
     return doc.getElementById(id);
@@ -188,8 +186,9 @@
     setText("workspace-summary-subtitle", Strings.MAIN_SUMMARY_SUBTITLE);
     setText("home-office-label", Strings.HOME_OFFICE_LABEL);
     setText("home-contract-label", Strings.HOME_CONTRACT_LABEL);
-    setText("home-group-label", Strings.HOME_GROUP_LABEL);
     setText("home-pending-label", Strings.HOME_PENDING_LABEL);
+
+    setText("home-submitted-label", Strings.HOME_SUBMITTED_LABEL);
     setText("home-failed-label", Strings.HOME_FAILED_LABEL);
     setText("contract-select-label", Strings.CONTRACT_SELECT_LABEL);
     setText("btn-refresh-context", Strings.ACTION_REFRESH);
@@ -422,12 +421,23 @@
     return thumb;
   }
 
-  function renderHomeSummary(doc, { pendingCount, failedCount }) {
-    const pending = $("pending-count", doc);
-    const failed = $("failed-count", doc);
-    pending.textContent = Strings.HOME_COUNT_VALUE(pendingCount);
-    failed.textContent = Strings.HOME_COUNT_VALUE(failedCount);
-    failed.dataset.tone = failedCount > 0 ? "danger" : "normal";
+  async function loadServerCounts() {
+    const response = await sendMsg({ type: "FETCH_RECORD_COUNTS" }, { timeoutMs: 5000 });
+    if (!response?.ok) {
+      return null;
+    }
+    return response.data;
+  }
+
+  function renderMetrics(counts, doc = document) {
+    if (!counts) return;
+    $("metric-pending", doc).textContent = String(counts.pending || 0);
+
+    $("metric-submitted", doc).textContent = String(counts.submitted || 0);
+    const failedValue = counts.failed || 0;
+    const failedEl = $("metric-failed", doc);
+    failedEl.textContent = String(failedValue);
+    failedEl.dataset.tone = failedValue > 0 ? "danger" : "normal";
   }
 
   function showToast(message, { tone = "neutral", durationMs = 2200 } = {}) {
@@ -527,8 +537,9 @@
       button.disabled = true;
       try {
         await handler();
-      } catch {
-        // Ignore to preserve previous popup behavior.
+      } catch (error) {
+        console.error("[popup] action button handler failed:", error);
+        button.disabled = false;
       }
     });
     return button;
@@ -568,7 +579,6 @@
         createActionButton(doc, Strings.ACTION_SUBMIT, record._onSubmit, {
           disabled: Boolean(record._submitDisabled),
         }),
-        createActionButton(doc, Strings.ACTION_SKIP, record._onSkip, { className: "ghost-btn" }),
       );
     } else if (record._section === "failed") {
       actions.append(
@@ -711,10 +721,6 @@
       localData.masar_contract_name_en ||
       localData.masar_contract_id ||
       "—";
-    const groupValue = $("ctx-group", doc);
-    if (groupValue) {
-      groupValue.textContent = localData.masar_group_name || localData.masar_group_id || "—";
-    }
     const pill = $("contract-state-pill", doc);
     if (!localData.masar_contract_id && !localData.masar_contract_name_ar && !localData.masar_contract_name_en) {
       pill.classList.add("hidden");
@@ -739,13 +745,6 @@
       pill.dataset.tone = "green";
       pill.classList.remove("hidden");
     }
-  }
-
-  function populateTabCounts(sections, doc = document) {
-    $("tab-count-pending", doc).textContent = String(sections.pending.length);
-    $("tab-count-in-progress", doc).textContent = String(sections.inProgress.length);
-    $("tab-count-submitted", doc).textContent = String(sections.submitted.length);
-    $("tab-count-failed", doc).textContent = String(sections.failed.length);
   }
 
   function buildRenderableServerSections(caches, lastSubmitResult = null) {
@@ -842,6 +841,7 @@
     if (!cache) {
       return { ok: false, error: Strings.ERR_UNEXPECTED };
     }
+    const requestId = ++cache.requestId;
     cache.status = "loading";
     cache.error = null;
     const response = await sendMsg(
@@ -853,6 +853,9 @@
       },
       { timeoutMs: 10000 },
     );
+    if (requestId !== cache.requestId) {
+      return { ok: false, ignored: true };
+    }
     if (!response?.ok) {
       cache.status = "error";
       cache.error = response?.error || Strings.ERR_UNEXPECTED;
@@ -862,7 +865,7 @@
       return response;
     }
     cache.items = Array.isArray(response.data?.items) ? response.data.items : [];
-    cache.status = "idle";
+    cache.status = "ready";
     cache.dirty = false;
     cache.error = null;
     return response;
@@ -882,40 +885,21 @@
       batchState: sessionData.submission_batch || [],
       activeSubmitId,
     });
-    const pendingVisible = sections.pending.filter((record) => !state.skippedIds.has(record.upload_id));
     const canSubmit =
       Boolean(localData.masar_entity_id)
       && Boolean(localData.masar_contract_id)
       && localData.masar_contract_state !== "expired"
       && localData.masar_contract_state !== "inactive";
-    const counts = {
-      pending: pendingVisible.length,
-      inProgress: sections.inProgress.length,
-      submitted: sections.submitted.length,
-      failed: sections.failed.length,
-    };
 
     state.sectionData = sections;
     applySummaryContext(localData);
     renderContactDefaultsNudge(localData);
     renderSubmissionBanner(sessionData);
-    renderHomeSummary(document, {
-      pendingCount: counts.pending,
-      failedCount: counts.failed,
-    });
-    $("tab-count-pending").textContent = String(counts.pending);
-    $("tab-count-in-progress").textContent = String(counts.inProgress);
-    $("tab-count-submitted").textContent = String(counts.submitted);
-    $("tab-count-failed").textContent = String(counts.failed);
 
-    const pendingRecords = pendingVisible.map((record) => ({
+    const pendingRecords = sections.pending.map((record) => ({
       ...record,
       _submitDisabled: !canSubmit,
       _onSubmit: () => submitSingle(record),
-      _onSkip: () => {
-        state.skippedIds.add(record.upload_id);
-        renderWorkspaceFromCache(localData, sessionData);
-      },
     }));
     const inProgressRecords = sections.inProgress.map((record) => ({
       ...record,
@@ -959,18 +943,8 @@
     });
   }
 
-  async function getContractsForUi({ forceRefresh = false } = {}) {
-    const now = Date.now();
-    const shouldUseCache =
-      !forceRefresh
-      && Array.isArray(state.contractsCache)
-      && (now - state.contractsCacheAt) < CONTRACT_CACHE_TTL_MS;
-    const contracts = shouldUseCache ? state.contractsCache : await ContractSelect.fetchContracts();
-    if (!shouldUseCache) {
-      state.contractsCache = contracts;
-      state.contractsCacheAt = now;
-    }
-    return contracts;
+  async function getContractsForUi() {
+    return ContractSelect.fetchContracts();
   }
 
   async function resolveContextAfterContracts(localData, contracts) {
@@ -982,17 +956,6 @@
 
     let nextContext = resolution.nextContext;
     if (resolution.mode === "selected" && resolution.selectedContract) {
-      const selectedContractId = String(resolution.selectedContract.contractId);
-      const groupResponse = await sendMsg({ type: "FETCH_GROUPS", contractId: selectedContractId });
-      const validGroups = ContextChange.filterSelectableGroups(groupResponse?.data?.response?.data?.content || []);
-      nextContext = ContextChange.buildExplicitContractSelectionContext(
-        {
-          ...nextContext,
-          available_contracts: resolution.selectableContracts,
-        },
-        resolution.selectedContract,
-        validGroups,
-      );
       nextContext = {
         ...nextContext,
         available_contracts: resolution.selectableContracts,
@@ -1007,9 +970,6 @@
       masar_contract_name_ar: nextContext.contract_name_ar,
       masar_contract_name_en: nextContext.contract_name_en,
       masar_contract_state: nextContext.contract_state,
-      masar_group_id: nextContext.group_id,
-      masar_group_name: nextContext.group_name,
-      masar_group_number: nextContext.group_number,
       active_ui_context: nextContext,
     };
   }
@@ -1121,9 +1081,6 @@
             typeof result.submission_uo_subscription_status_id === "number"
               ? result.submission_uo_subscription_status_id
               : record.submission_uo_subscription_status_id ?? null,
-          submission_group_id: result.submission_group_id || record.submission_group_id || null,
-          submission_group_name: result.submission_group_name || record.submission_group_name || null,
-          submission_group_number: result.submission_group_number || record.submission_group_number || null,
         };
       }
       if (result.status === "missing") {
@@ -1145,12 +1102,13 @@
   }
 
   async function submitSingle(record) {
-    if (!(await ensureActionContext("submit"))) {
+    if (!(await ensureActionContext())) {
       return;
     }
     const response = await sendMsg({ type: "SUBMIT_RECORD", record }, { timeoutMs: 60000 });
     await handleSubmitResponse({
       response,
+      uploadIds: [record.upload_id],
       classifyFailure: Failure.classifyFailure,
       onRelinkRequired: showRelinkRequired,
       onMasarLoginRequired: async () => {
@@ -1165,7 +1123,7 @@
   }
 
   async function submitBatch(uploadIds) {
-    if (!(await ensureActionContext("batch"))) {
+    if (!(await ensureActionContext())) {
       return;
     }
     const discovery = await sendMsg(
@@ -1195,6 +1153,7 @@
     }, { timeoutMs: 30000 });
     await handleSubmitResponse({
       response,
+      uploadIds: discoveredIds,
       classifyFailure: Failure.classifyFailure,
       onRelinkRequired: showRelinkRequired,
       onMasarLoginRequired: async () => {
@@ -1209,11 +1168,8 @@
   }
 
   async function loadMainWorkspace({ showLoading = true, fetchRecords = true, refreshContracts = false } = {}) {
-    if (state.workspaceAbortController) {
-      state.workspaceAbortController.abort();
-    }
-    state.workspaceAbortController = new AbortController();
-    
+    const loadId = ++state.workspaceLoadId;
+
     if (showLoading) {
       showScreen("loading");
     }
@@ -1227,8 +1183,6 @@
           "masar_contract_name_ar",
           "masar_contract_name_en",
           "masar_contract_state",
-          "masar_group_id",
-          "masar_group_name",
           "active_ui_context",
           "agency_email",
           "agency_phone",
@@ -1236,17 +1190,28 @@
         sessionGet(["submission_batch", "active_submit_id", "last_submit_result"]),
         fetchRecords ? loadTabPage(state.activeTab, { silent: true }) : Promise.resolve({ ok: true }),
       ]);
-      const contracts = await getContractsForUi({ forceRefresh: refreshContracts });
-      localData = await resolveContextAfterContracts(localData, contracts);
 
-      if (!pageResponse?.ok && state.tabCache[state.activeTab]?.status === "idle") {
+      if (loadId !== state.workspaceLoadId) return;
+
+      const contracts = await getContractsForUi({ forceRefresh: refreshContracts });
+      if (loadId !== state.workspaceLoadId) return;
+
+      localData = await resolveContextAfterContracts(localData, contracts);
+      if (loadId !== state.workspaceLoadId) return;
+
+      if (!pageResponse?.ok && !pageResponse?.ignored) {
         const failure = Failure.classifyFailure(pageResponse);
         if (failure.type === "relink") {
           await showRelinkRequired();
           return;
         }
-        showError(pageResponse?.error || Strings.ERR_UNEXPECTED);
-        return;
+        const activeCache = state.tabCache[state.activeTab];
+        const hasUsableData = state.activeTab === "inProgress" || (activeCache && activeCache.items.length > 0);
+        if (!hasUsableData) {
+          showError(pageResponse?.error || Strings.ERR_UNEXPECTED);
+          return;
+        }
+        showToast(Strings.LIST_REFRESH_FAILED || Strings.ERR_UNEXPECTED, { tone: "error" });
       }
 
       if (localData.submit_auth_required === "masar-auth") {
@@ -1257,12 +1222,30 @@
         await showRelinkRequired();
         return;
       }
+
       renderWorkspaceFromCache(localData, sessionData);
+      const counts = await loadServerCounts();
+      if (loadId !== state.workspaceLoadId) return;
+
+      renderMetrics(counts);
       await populateContractDropdown(localData.masar_contract_id, document, { forceRefresh: refreshContracts });
+      if (loadId !== state.workspaceLoadId) return;
+
       showScreen("main");
       activateTab(state.activeTab);
-    } finally {
-      state.workspaceAbortController = null;
+    } catch (error) {
+      if (loadId === state.workspaceLoadId) {
+        const failure = Failure.classifyFailure(error);
+        if (failure.type === "masar-login") {
+          showMasarLoginRequired();
+          return;
+        }
+        if (failure.type === "relink") {
+          await showRelinkRequired();
+          return;
+        }
+        showError(error?.message || Strings.ERR_UNEXPECTED);
+      }
     }
   }
 
@@ -1333,23 +1316,28 @@
     chrome.storage.session.onChanged.addListener((changes) => {
       if (!changes.submission_batch && !changes.active_submit_id) return;
       if (state.currentScreen !== "main") return;
-      sessionGet(["submission_batch", "active_submit_id", "last_submit_result"]).then((sessionData) => {
-        const prevInProgress = QueueFilter.normalizeBatchState(
-          state.lastSessionData?.submission_batch || [],
-          state.lastSessionData?.active_submit_id || null,
-        ).inProgressIds.size;
-        const nextInProgress = QueueFilter.normalizeBatchState(
-          sessionData?.submission_batch || [],
-          sessionData?.active_submit_id || null,
-        ).inProgressIds.size;
-        renderWorkspaceFromCache(state.lastLocalData, sessionData);
-        if (prevInProgress > 0 && nextInProgress === 0) {
-          state.tabCache.pending.dirty = true;
-          state.tabCache.submitted.dirty = true;
-          state.tabCache.failed.dirty = true;
-          void loadMainWorkspace({ showLoading: false, fetchRecords: true, refreshContracts: false });
-        }
-      });
+      if (state.renderTimer) clearTimeout(state.renderTimer);
+      state.renderTimer = setTimeout(() => {
+        state.renderTimer = null;
+        sessionGet(["submission_batch", "active_submit_id", "last_submit_result"]).then((sessionData) => {
+          if (!state.lastLocalData) return;
+          const prevInProgress = QueueFilter.normalizeBatchState(
+            state.lastSessionData?.submission_batch || [],
+            state.lastSessionData?.active_submit_id || null,
+          ).inProgressIds.size;
+          const nextInProgress = QueueFilter.normalizeBatchState(
+            sessionData?.submission_batch || [],
+            sessionData?.active_submit_id || null,
+          ).inProgressIds.size;
+          renderWorkspaceFromCache(state.lastLocalData, sessionData);
+          if (prevInProgress > 0 && nextInProgress === 0) {
+            state.tabCache.pending.dirty = true;
+            state.tabCache.submitted.dirty = true;
+            state.tabCache.failed.dirty = true;
+            void loadMainWorkspace({ showLoading: false, fetchRecords: true, refreshContracts: false });
+          }
+        });
+      }, 50);
     });
   }
 
@@ -1362,11 +1350,28 @@
 
   async function handleSubmitResponse({
     response,
+    uploadIds,
     classifyFailure,
     onRelinkRequired,
     onMasarLoginRequired,
     onReload,
   }) {
+    if (response?.ok && response?.queued) {
+      if (Array.isArray(uploadIds) && state.lastLocalData) {
+        const optimisticSession = {
+          ...state.lastSessionData,
+          submission_batch: {
+            ...(state.lastSessionData?.submission_batch || {}),
+            queued_ids: [
+              ...(state.lastSessionData?.submission_batch?.queued_ids || []),
+              ...uploadIds,
+            ],
+          },
+        };
+        renderWorkspaceFromCache(state.lastLocalData, optimisticSession);
+      }
+      return;
+    }
     if (response?.ok) {
       return onReload();
     }
@@ -1398,8 +1403,8 @@
     await reloadWorkspace();
   }
 
-  async function ensureActionContext(actionType) {
-    const localData = await localGet(["active_ui_context", "masar_contract_id", "masar_group_id"]);
+  async function ensureActionContext() {
+    const localData = await localGet(["active_ui_context", "masar_contract_id"]);
     const requirement = ensureActionContextState({
       activeUiContext: localData.active_ui_context,
       selectedContractId: localData.masar_contract_id || null,
@@ -1474,7 +1479,7 @@
       await init();
     });
     $("btn-reset-token").addEventListener("click", async () => {
-      await localRemove(["api_token", "masar_group_id"]);
+      await localRemove(["api_token"]);
       showScreen("setup");
     });
     $("btn-refresh-context").addEventListener("click", async () => {
@@ -1503,12 +1508,9 @@
       const selectedContract = contracts.find(
         (contract) => String(contract.contractId) === String(event.target.value),
       );
-      await localSet({ masar_contract_id: event.target.value });
-      const groupResponse = await sendMsg({ type: "FETCH_GROUPS", contractId: event.target.value });
-      const validGroups = ContextChange.filterSelectableGroups(groupResponse?.data?.response?.data?.content || []);
       const activeUiContext = await ContextChange.getActiveUiContext();
       await ContextChange.setActiveUiContext(
-        ContextChange.buildExplicitContractSelectionContext(activeUiContext, selectedContract, validGroups),
+        ContextChange.buildExplicitContractSelectionContext(activeUiContext, selectedContract, []),
       );
       await handleContractSelectionChange({
         value: event.target.value,
@@ -1537,7 +1539,6 @@
     getSubmissionContextMismatchToast,
     handleResumeBatchResponse,
     handleSubmitResponse,
-    renderHomeSummary,
     renderPendingCard,
     buildContractPickerState,
     setDetailLinkLoadingState,

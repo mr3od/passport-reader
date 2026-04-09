@@ -69,8 +69,23 @@ test("mergeOptimisticSections moves completed optimistic rows into submitted and
 
   assert.deepEqual(sections.pending.map((record) => record.upload_id), []);
   assert.deepEqual(sections.inProgress.map((record) => record.upload_id), [3]);
-  assert.deepEqual(sections.submitted.map((record) => record.upload_id), [1, 4]);
-  assert.deepEqual(sections.failed.map((record) => record.upload_id), [2, 5]);
+  assert.deepEqual(sections.submitted.map((record) => record.upload_id), [4, 1]);
+  assert.deepEqual(sections.failed.map((record) => record.upload_id), [5, 2]);
+});
+
+test("mergeOptimisticSections prefers fresher submitted data over stale pending duplicates", () => {
+  const sections = mergeOptimisticSections({
+    serverSections: {
+      pending: [{ upload_id: 12, masar_status: null }],
+      submitted: [{ upload_id: 12, masar_status: "submitted" }],
+      failed: [],
+    },
+    batchState: [],
+    activeSubmitId: null,
+  });
+
+  assert.deepEqual(sections.pending.map((record) => record.upload_id), []);
+  assert.deepEqual(sections.submitted.map((record) => record.upload_id), [12]);
 });
 
 test("normalizeBatchState supports the current array batch shape and active submit id", () => {
