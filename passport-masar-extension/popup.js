@@ -958,11 +958,14 @@
     const pending = TabDataStore.getTab(state.tabDisplay, "pending");
     const submitted = TabDataStore.getTab(state.tabDisplay, "submitted");
     const failed = TabDataStore.getTab(state.tabDisplay, "failed");
-    const serverSections = {
-      pending: pending.items,
-      submitted: submitted.items,
-      failed: failed.items,
-    };
+    const serverSections = buildRenderableServerSections(
+      {
+        pending: pending.items,
+        submitted: submitted.items,
+        failed: failed.items,
+      },
+      sessionData.last_submit_result || null,
+    );
     const sections = QueueFilter.mergeOptimisticSections({
       serverSections,
       batchState: sessionData.submission_batch || [],

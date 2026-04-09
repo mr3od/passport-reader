@@ -2,6 +2,14 @@
 
 Agent-maintained log of significant changes. Each entry records what was done and who did it.
 
+## 2026-04-09 — extension last-submit optimistic overlay restored [codex]
+
+- Fixed `passport-masar-extension/popup.js` so `renderWorkspaceFromCache` routes server tab items through `buildRenderableServerSections(...)` again instead of bypassing the `last_submit_result` optimistic overlay
+- Restored immediate section movement after submit without waiting for the next tab fetch
+- Verification:
+  - Ran `node --test passport-masar-extension/tests/popup.test.js`
+  - Ran grep checks confirming the inline `serverSections = { ... }` block is gone and `buildRenderableServerSections(...)` is called from `renderWorkspaceFromCache`
+
 ## 2026-04-09 — extension tab display/coordinator split and load-more restoration [codex]
 
 - Replaced popup tab cache state with two pure modules in `passport-masar-extension`: `tab-data-store.js` for per-tab display data and `tab-fetch-coordinator.js` for per-tab fetch status, dirty flags, and request IDs
