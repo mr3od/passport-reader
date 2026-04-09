@@ -92,6 +92,7 @@
     ACTION_SETTINGS: "الإعدادات",
     ACTION_REFRESH: "تحديث",
     ACTION_RESUME: "استئناف",
+    ACTION_LOAD_MORE: "تحميل المزيد",
 
     MAIN_KICKER: "جاهز للعمل",
     MAIN_TITLE: "لوحة الجوازات",

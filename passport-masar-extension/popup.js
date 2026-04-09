@@ -7,6 +7,8 @@
     QueueFilter: root.MasarQueueFilter || require("./queue-filter.js"),
     Status: root.MasarStatus || require("./status.js"),
     Strings: root.MasarStrings || require("./strings.js"),
+    TabDataStore: root.MasarTabDataStore || require("./tab-data-store.js"),
+    TabFetchCoordinator: root.MasarTabFetchCoordinator || require("./tab-fetch-coordinator.js"),
     apiBaseUrl: root.API_BASE_URL || "",
   });
   if (typeof module === "object" && module.exports) {
@@ -26,29 +28,19 @@
   QueueFilter,
   Status,
   Strings,
+  TabDataStore,
+  TabFetchCoordinator,
   apiBaseUrl,
 }) {
-  function createTabCacheState() {
-    return {
-      items: [],
-      status: "idle",
-      dirty: true,
-      error: null,
-      requestId: 0,
-    };
-  }
+  const SERVER_TABS = ["pending", "submitted", "failed"];
 
   const state = {
     currentScreen: null,
     activeTab: "pending",
     selectedUploadIds: new Set(),
     sectionData: null,
-    tabCache: {
-      pending: createTabCacheState(),
-      inProgress: createTabCacheState(),
-      submitted: createTabCacheState(),
-      failed: createTabCacheState(),
-    },
+    tabDisplay: TabDataStore.create(),
+    tabCoordinator: TabFetchCoordinator.create(),
     lastLocalData: null,
     lastSessionData: null,
     workspaceLoadId: 0,
@@ -206,6 +198,9 @@
     setText("submission-progress-title", Strings.PROGRESS_BANNER_TITLE);
     setText("submission-refresh-btn", Strings.ACTION_REFRESH);
     setText("submission-resume-btn", Strings.ACTION_RESUME);
+    setText("pending-load-more", Strings.ACTION_LOAD_MORE);
+    setText("submitted-load-more", Strings.ACTION_LOAD_MORE);
+    setText("failed-load-more", Strings.ACTION_LOAD_MORE);
     setText("workspace-empty-note", Strings.SECTION_EMPTY_PENDING);
     setText("settings-kicker", Strings.SETTINGS_KICKER);
     setText("settings-title", Strings.SETTINGS_TITLE);
@@ -727,8 +722,7 @@
       $(id, doc).classList.toggle("hidden", name !== tabName);
     });
     setSectionVisibility(tabName, doc);
-    const cache = state.tabCache[tabName];
-    if (tabName !== "inProgress" && cache && cache.dirty) {
+    if (tabName !== "inProgress" && TabFetchCoordinator.isDirty(state.tabCoordinator, tabName)) {
       void loadTabPage(tabName, { silent: true }).then(() => {
         if (state.lastLocalData && state.lastSessionData) {
           renderWorkspaceFromCache(state.lastLocalData, state.lastSessionData);
@@ -862,39 +856,98 @@
 
   async function loadTabPage(tabName, { silent = false } = {}) {
     if (tabName === "inProgress") {
-      return { ok: true, data: { items: [] } };
+      return { ok: true };
     }
-    const cache = state.tabCache[tabName];
-    if (!cache) {
-      return { ok: false, error: Strings.ERR_UNEXPECTED };
-    }
-    const requestId = ++cache.requestId;
-    cache.status = "loading";
-    cache.error = null;
+    const { nextCoordinator, requestId } = TabFetchCoordinator.beginFetch(state.tabCoordinator, tabName);
+    state.tabCoordinator = nextCoordinator;
     const response = await sendMsg(
       {
         type: "FETCH_RECORD_PAGE",
         section: mapTabToSection(tabName),
-        limit: 50,
+        limit: TabFetchCoordinator.getPageSize(),
         offset: 0,
       },
       { timeoutMs: 10000 },
     );
-    if (requestId !== cache.requestId) {
+    const commit = response?.ok
+      ? TabFetchCoordinator.commitSuccess(state.tabCoordinator, tabName, requestId)
+      : TabFetchCoordinator.commitError(state.tabCoordinator, tabName, requestId);
+    state.tabCoordinator = commit.coordinator;
+    if (!commit.accepted) {
+      renderLoadMoreControls();
       return { ok: false, ignored: true };
     }
     if (!response?.ok) {
-      cache.status = "error";
-      cache.error = response?.error || Strings.ERR_UNEXPECTED;
+      state.tabDisplay = TabDataStore.setError(
+        state.tabDisplay,
+        tabName,
+        response?.error || Strings.ERR_UNEXPECTED,
+      );
+      renderLoadMoreControls();
       if (!silent) {
         showToast(Strings.LIST_REFRESH_FAILED || Strings.ERR_UNEXPECTED, { tone: "error" });
       }
       return response;
     }
-    cache.items = Array.isArray(response.data?.items) ? response.data.items : [];
-    cache.status = "ready";
-    cache.dirty = false;
-    cache.error = null;
+    const items = Array.isArray(response.data?.items) ? response.data.items : [];
+    const pageSize = TabFetchCoordinator.getPageSize();
+    state.tabDisplay = TabDataStore.setPage(state.tabDisplay, tabName, {
+      items,
+      hasMore: items.length >= pageSize,
+      total: Number.isFinite(response.data?.total) ? response.data.total : 0,
+      offset: 0,
+    });
+    renderLoadMoreControls();
+    return response;
+  }
+
+  async function loadTabPageMore(tabName) {
+    if (tabName === "inProgress") {
+      return { ok: true };
+    }
+    const tabData = TabDataStore.getTab(state.tabDisplay, tabName);
+    if (!tabData.hasMore || TabFetchCoordinator.isLoading(state.tabCoordinator, tabName)) {
+      return { ok: true, skipped: true };
+    }
+    const nextOffset = tabData.offset + TabFetchCoordinator.getPageSize();
+    const { nextCoordinator, requestId } = TabFetchCoordinator.beginFetch(state.tabCoordinator, tabName);
+    state.tabCoordinator = nextCoordinator;
+
+    const response = await sendMsg(
+      {
+        type: "FETCH_RECORD_PAGE",
+        section: mapTabToSection(tabName),
+        limit: TabFetchCoordinator.getPageSize(),
+        offset: nextOffset,
+      },
+      { timeoutMs: 10000 },
+    );
+    const commit = response?.ok
+      ? TabFetchCoordinator.commitSuccess(state.tabCoordinator, tabName, requestId)
+      : TabFetchCoordinator.commitError(state.tabCoordinator, tabName, requestId);
+    state.tabCoordinator = commit.coordinator;
+    if (!commit.accepted) {
+      renderLoadMoreControls();
+      return { ok: false, ignored: true };
+    }
+    if (!response?.ok) {
+      renderLoadMoreControls();
+      showToast(Strings.LIST_REFRESH_FAILED || Strings.ERR_UNEXPECTED, { tone: "error" });
+      return response;
+    }
+
+    const items = Array.isArray(response.data?.items) ? response.data.items : [];
+    const pageSize = TabFetchCoordinator.getPageSize();
+    state.tabDisplay = TabDataStore.appendPage(state.tabDisplay, tabName, {
+      items,
+      hasMore: items.length >= pageSize,
+      total: Number.isFinite(response.data?.total) ? response.data.total : 0,
+      offset: nextOffset,
+    });
+    renderLoadMoreControls();
+    if (state.lastLocalData && state.lastSessionData) {
+      renderWorkspaceFromCache(state.lastLocalData, state.lastSessionData);
+    }
     return response;
   }
 
@@ -902,11 +955,14 @@
     state.lastLocalData = localData;
     state.lastSessionData = sessionData;
     const activeSubmitId = sessionData.active_submit_id || null;
-    const serverSections = buildRenderableServerSections({
-      pending: state.tabCache.pending.items,
-      submitted: state.tabCache.submitted.items,
-      failed: state.tabCache.failed.items,
-    }, sessionData.last_submit_result || null);
+    const pending = TabDataStore.getTab(state.tabDisplay, "pending");
+    const submitted = TabDataStore.getTab(state.tabDisplay, "submitted");
+    const failed = TabDataStore.getTab(state.tabDisplay, "failed");
+    const serverSections = {
+      pending: pending.items,
+      submitted: submitted.items,
+      failed: failed.items,
+    };
     const sections = QueueFilter.mergeOptimisticSections({
       serverSections,
       batchState: sessionData.submission_batch || [],
@@ -965,6 +1021,7 @@
       Strings.SECTION_EMPTY_SUBMITTED,
     );
     renderSection("failed-list", failedRecords, "failed", Strings.SECTION_EMPTY_FAILED);
+    renderLoadMoreControls();
     updateSubmitSelectionAction({ canSubmit, isBatchRunning });
     $("submit-all-btn").onclick = () => void submitBatch([...state.selectedUploadIds]);
   }
@@ -1088,6 +1145,20 @@
     for (const record of records) {
       const sectionRecord = { ...record, _section: sectionName };
       container.appendChild(renderPendingCard(doc, sectionRecord));
+    }
+  }
+
+  function renderLoadMoreControls(doc = document) {
+    for (const tabName of SERVER_TABS) {
+      const button = $(`${tabName}-load-more`, doc);
+      if (!button) {
+        continue;
+      }
+      const tabData = TabDataStore.getTab(state.tabDisplay, tabName);
+      const loading = TabFetchCoordinator.isLoading(state.tabCoordinator, tabName);
+      button.classList.toggle("hidden", !tabData.hasMore);
+      button.disabled = loading;
+      button.textContent = loading ? Strings.LOADING : Strings.ACTION_LOAD_MORE;
     }
   }
 
@@ -1217,8 +1288,10 @@
           await showRelinkRequired();
           return;
         }
-        const activeCache = state.tabCache[state.activeTab];
-        const hasUsableData = state.activeTab === "inProgress" || (activeCache && activeCache.items.length > 0);
+        const activeTabData = state.activeTab === "inProgress"
+          ? null
+          : TabDataStore.getTab(state.tabDisplay, state.activeTab);
+        const hasUsableData = state.activeTab === "inProgress" || (activeTabData && activeTabData.items.length > 0);
         if (!hasUsableData) {
           showError(pageResponse?.error || Strings.ERR_UNEXPECTED);
           return;
@@ -1343,9 +1416,7 @@
           ).inProgressIds.size;
           renderWorkspaceFromCache(state.lastLocalData, sessionData);
           if (prevInProgress > 0 && nextInProgress === 0) {
-            state.tabCache.pending.dirty = true;
-            state.tabCache.submitted.dirty = true;
-            state.tabCache.failed.dirty = true;
+            state.tabCoordinator = TabFetchCoordinator.markAllDirty(state.tabCoordinator);
             void loadMainWorkspace({ showLoading: false, fetchRecords: true, refreshContracts: false });
           }
         });
@@ -1523,6 +1594,15 @@
         },
       });
     });
+    $("pending-load-more")?.addEventListener("click", () => {
+      void loadTabPageMore("pending");
+    });
+    $("submitted-load-more")?.addEventListener("click", () => {
+      void loadTabPageMore("submitted");
+    });
+    $("failed-load-more")?.addEventListener("click", () => {
+      void loadTabPageMore("failed");
+    });
     $("contract-select").addEventListener("change", async (event) => {
       if (!event.target.value) {
         return;
@@ -1565,7 +1645,9 @@
     getSubmissionContextMismatchToast,
     handleResumeBatchResponse,
     handleSubmitResponse,
+    loadTabPageMore,
     renderPendingCard,
+    renderLoadMoreControls,
     reconcileSelectedUploadIds,
     buildContractPickerState,
     setDetailLinkLoadingState,

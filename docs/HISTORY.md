@@ -2,6 +2,20 @@
 
 Agent-maintained log of significant changes. Each entry records what was done and who did it.
 
+## 2026-04-09 — extension tab display/coordinator split and load-more restoration [codex]
+
+- Replaced popup tab cache state with two pure modules in `passport-masar-extension`: `tab-data-store.js` for per-tab display data and `tab-fetch-coordinator.js` for per-tab fetch status, dirty flags, and request IDs
+- Kept `inProgress` out of stored tab state entirely and continued deriving it only in `popup.js` through `QueueFilter.mergeOptimisticSections`
+- Reworked popup tab loading to use request-scoped coordinator commits, stale-response rejection, tab invalidation via `markAllDirty`, and paginated append behavior for pending, submitted, and failed tabs
+- Restored load-more controls in `passport-masar-extension/popup.html`, wired their Arabic button copy and click handlers in `popup.js`, and fixed pagination `hasMore` behavior to derive from page size instead of trusting missing backend metadata
+- Added focused extension tests for the new pure modules in:
+  - `passport-masar-extension/tests/tab-data-store.test.js`
+  - `passport-masar-extension/tests/tab-fetch-coordinator.test.js`
+- Verification:
+  - Ran `node --test passport-masar-extension/tests/*.test.js`
+  - Ran grep checks for removed `tabCache` usage, absent `response.data?.hasMore`, absent `button.hidden`, and expected load-more wiring in popup HTML/JS
+  - Result: extension tests passing (`126 passed, 0 failed`)
+
 ## 2026-04-09 — extension deterministic queue phase, selection-first submit flow, and stale-code cleanup [codex]
 
 - Migrated extension batch execution to a deterministic queue model in `passport-masar-extension/background.js`:
