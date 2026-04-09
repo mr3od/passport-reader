@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
+  PRE_RELEASE_SHOW_RAW_FAILURES,
   buildBatchBannerState,
   buildDisplayName,
   buildRenderableServerSections,
@@ -510,7 +511,11 @@ test("handleContractSelectionChange writes the selected contract without forcing
   assert.equal(reloaded, true);
 });
 
-test("getRecordNote hides known raw failure text behind the generic failed label", () => {
+test("PRE_RELEASE_SHOW_RAW_FAILURES keeps raw failed notes explicitly gated", () => {
+  assert.equal(PRE_RELEASE_SHOW_RAW_FAILURES, true);
+});
+
+test("getRecordNote shows known raw failure text on failed cards in pre-release mode", () => {
   assert.equal(
     getRecordNote({
       upload_status: "processed",
@@ -520,11 +525,11 @@ test("getRecordNote hides known raw failure text behind the generic failed label
       failure_reason_text: "Passport image is not clear",
       _section: "failed",
     }),
-    "فشل",
+    "Passport image is not clear",
   );
 });
 
-test("getRecordNote hides unknown raw failure text behind the generic failed label", () => {
+test("getRecordNote shows unknown raw failure text on failed cards in pre-release mode", () => {
   assert.equal(
     getRecordNote({
       upload_status: "processed",
@@ -534,7 +539,7 @@ test("getRecordNote hides unknown raw failure text behind the generic failed lab
       failure_reason_text: "Unexpected remote failure",
       _section: "failed",
     }),
-    "فشل",
+    "Unexpected remote failure",
   );
 });
 

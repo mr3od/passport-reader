@@ -55,6 +55,7 @@
     toastTimer: null,
     renderTimer: null,
   };
+  const PRE_RELEASE_SHOW_RAW_FAILURES = true;
 
   function $(id, doc = document) {
     return doc.getElementById(id);
@@ -371,6 +372,9 @@
       return Strings.REVIEW_SUMMARY;
     }
     if (typeof record.failure_reason_text === "string" && record.failure_reason_text.trim()) {
+      if (record._section === "failed" && PRE_RELEASE_SHOW_RAW_FAILURES) {
+        return record.failure_reason_text.trim();
+      }
       return record._section === "failed" ? Strings.STATUS_FAILED : Strings.ERR_UNEXPECTED;
     }
     if (record.masar_status === "missing") {
@@ -1525,6 +1529,7 @@
   }
 
   return {
+    PRE_RELEASE_SHOW_RAW_FAILURES,
     bootstrap,
     buildDisplayName,
     buildBatchBannerState,

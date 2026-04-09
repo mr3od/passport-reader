@@ -2,6 +2,12 @@
 
 Agent-maintained log of significant changes. Each entry records what was done and who did it.
 
+## 2026-04-09 — extension pre-release raw failure note gate [codex]
+
+- Added an explicit `PRE_RELEASE_SHOW_RAW_FAILURES` path in the popup instead of leaving raw failed-note rendering as an implicit permanent behavior
+- Kept raw `failure_reason_text` visible only for failed cards in pre-release mode while preserving queued and active retry labels during in-progress retries
+- Added popup regression coverage proving the raw-note path is intentionally gated and does not override retry-state messaging
+
 ## 2026-04-09 — extension retry in-progress card state fix [codex]
 
 - Fixed retried failed records rendering as failed cards inside the in-progress tab
