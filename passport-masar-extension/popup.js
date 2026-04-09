@@ -1024,6 +1024,7 @@
       Strings.SECTION_EMPTY_SUBMITTED,
     );
     renderSection("failed-list", failedRecords, "failed", Strings.SECTION_EMPTY_FAILED);
+    setSectionVisibility(state.activeTab);
     renderLoadMoreControls();
     updateSubmitSelectionAction({ canSubmit, isBatchRunning });
     $("submit-all-btn").onclick = () => void submitBatch([...state.selectedUploadIds]);
