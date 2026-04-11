@@ -15,12 +15,13 @@ It currently exposes:
 - `GET /records/{upload_id}/image`
 - `PATCH /records/{upload_id}/masar-status`
 - `PATCH /records/{upload_id}/review-status`
+- `PATCH /records/{upload_id}/archive`
 
 ## Records API notes
 
 - `GET /records` is now the slim workspace list endpoint for the extension.
   - query params:
-    - `section`: `pending`, `submitted`, `failed`, `all`
+    - `section`: `pending`, `submitted`, `failed`, `archived`, `all`
     - `limit`: default `50`, max `100`
     - `offset`: default `0`
   - response shape:
@@ -33,12 +34,17 @@ It currently exposes:
   - `pending`
   - `submitted`
   - `failed`
+  - archived rows are intentionally excluded from these three counters
 - `in_progress` is intentionally not a persisted API count.
   - the extension derives that lane from `chrome.storage.session` batch state
 - `pending` list/count semantics are extension-workspace semantics:
   - includes processed records that can still be submitted from the main lane
   - `review_status` does not block pending visibility
   - excludes records whose latest submit attempt is already `failed` or `missing`
+  - excludes rows where `uploads.archived_at IS NOT NULL`
+- `archived` section semantics:
+  - includes rows where `uploads.archived_at IS NOT NULL`
+  - sorted by `archived_at DESC`
 - `GET /records/ids` is the lightweight submit-eligibility discovery endpoint for the extension bulk-submit flow.
   - query params:
     - `section=pending`
@@ -65,6 +71,10 @@ It currently exposes:
   - `missing`
 - it does not accept `pending`.
   - `pending` is a derived workspace concept, not a stored Masar submission state
+- `PATCH /records/{upload_id}/archive` accepts:
+  - `{ "archived": true }` to archive
+  - `{ "archived": false }` to unarchive
+  - operation is owner-scoped and idempotent
 - record responses expose the latest stored Masar submission context, including:
   - submission entity fields
   - submission contract fields

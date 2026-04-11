@@ -2,6 +2,28 @@
 
 Agent-maintained log of significant changes. Each entry records what was done and who did it.
 
+## 2026-04-11 — records archive lane and archive toggle API/platform support [codex]
+
+- Added upload-level archiving support in `passport-platform`:
+  - new nullable `uploads.archived_at` column in schema/migrations
+  - startup migration in `db.py` to backfill the column/index on existing databases
+  - new index `idx_uploads_user_archived_at_id_desc` for archived section ordering
+  - repository/service support for idempotent owner-scoped archive toggling
+- Updated record section semantics and ordering in platform repositories:
+  - `pending`, `submitted`, and `failed` now exclude archived rows
+  - new `archived` section includes rows where `archived_at IS NOT NULL`
+  - archived section ordering is `archived_at DESC, id DESC`
+  - submit-eligible query now excludes archived rows
+- Extended API contracts for archive workflows:
+  - `GET /records` now accepts `section=archived`
+  - added `PATCH /records/{upload_id}/archive` with `{ "archived": boolean }`
+  - `RecordResponse` and `RecordListItemResponse` now expose `archived_at`
+- Updated API/platform docs and tests to cover archive semantics and idempotent archive/unarchive behavior.
+- Verification:
+  - Ran `uv run ruff check passport-platform/src/passport_platform passport-platform/tests passport-api/src/passport_api passport-api/tests`
+  - Ran `uv run ty check passport-platform/src/passport_platform passport-api/src/passport_api`
+  - Ran `uv run pytest passport-platform/tests/test_records_service.py passport-api/tests/test_api.py`
+
 ## 2026-04-09 — extension last-submit optimistic overlay restored [codex]
 
 - Fixed `passport-masar-extension/popup.js` so `renderWorkspaceFromCache` routes server tab items through `buildRenderableServerSections(...)` again instead of bypassing the `last_submit_result` optimistic overlay

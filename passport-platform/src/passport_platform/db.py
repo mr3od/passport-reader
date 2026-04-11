@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS uploads (
     source_ref TEXT NOT NULL,
     status TEXT NOT NULL,
     created_at TEXT NOT NULL,
+    archived_at TEXT,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
@@ -136,6 +137,9 @@ CREATE INDEX IF NOT EXISTS idx_uploads_user_created_at
 CREATE INDEX IF NOT EXISTS idx_uploads_user_created_at_id_desc
     ON uploads (user_id, created_at DESC, id DESC);
 
+CREATE INDEX IF NOT EXISTS idx_uploads_user_archived_at_id_desc
+    ON uploads (user_id, archived_at DESC, id DESC);
+
 CREATE INDEX IF NOT EXISTS idx_processing_results_upload_id
     ON processing_results (upload_id);
 
@@ -207,6 +211,15 @@ class Database:
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_uploads_user_created_at_id_desc "
             "ON uploads (user_id, created_at DESC, id DESC)"
+        )
+        upload_columns = {
+            row["name"] for row in conn.execute("PRAGMA table_info(uploads)").fetchall()
+        }
+        if "archived_at" not in upload_columns:
+            conn.execute("ALTER TABLE uploads ADD COLUMN archived_at TEXT")
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_uploads_user_archived_at_id_desc "
+            "ON uploads (user_id, archived_at DESC, id DESC)"
         )
         conn.execute(
             """

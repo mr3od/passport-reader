@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS uploads (
     source_ref TEXT NOT NULL,
     status TEXT NOT NULL,
     created_at TEXT NOT NULL,
+    archived_at TEXT,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 

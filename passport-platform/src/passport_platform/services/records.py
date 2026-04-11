@@ -110,6 +110,19 @@ class RecordsService:
     def mark_reviewed(self, *, upload_id: int, user_id: int) -> bool:
         return self.records.mark_reviewed(upload_id=upload_id, user_id=user_id)
 
+    def set_archive_state(
+        self,
+        *,
+        upload_id: int,
+        user_id: int,
+        archived: bool,
+    ) -> bool:
+        return self.records.set_archive_state(
+            upload_id=upload_id,
+            user_id=user_id,
+            archived=archived,
+        )
+
     def assert_submission_allowed(self, *, upload_id: int, user_id: int) -> None:
         record = self.records.get_user_record(user_id, upload_id)
         if record is None:

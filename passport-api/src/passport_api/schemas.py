@@ -31,6 +31,7 @@ class RecordResponse(BaseModel):
     source_ref: str
     upload_status: str
     created_at: datetime
+    archived_at: datetime | None
     completed_at: datetime | None
     is_passport: bool | None
     is_complete: bool | None
@@ -71,6 +72,7 @@ class RecordListItemResponse(BaseModel):
     full_name_ar: str | None
     full_name_en: str | None
     created_at: datetime
+    archived_at: datetime | None
     completed_at: datetime | None
     failure_reason_code: str | None
     failure_reason_text: str | None
@@ -129,3 +131,7 @@ class MasarStatusUpdate(BaseModel):
 
 class ReviewStatusUpdate(BaseModel):
     status: str
+
+
+class ArchiveStatusUpdate(BaseModel):
+    archived: bool

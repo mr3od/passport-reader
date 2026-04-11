@@ -18,6 +18,7 @@ class Upload:
     source_ref: str
     status: UploadStatus
     created_at: datetime
+    archived_at: datetime | None = None
 
 
 @dataclass(slots=True)

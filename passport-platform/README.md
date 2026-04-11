@@ -55,8 +55,10 @@ These fields are returned through the platform record schemas and can be preserv
 
 Current section semantics:
 
-- `pending` means `uploads.status = processed` and the latest Masar submission row is `NULL`
-- `failed` includes latest Masar rows with `failed` or `missing`
+- `pending` means `uploads.status = processed`, latest Masar submission row is `NULL`, and `uploads.archived_at IS NULL`
+- `failed` includes latest Masar rows with `failed` or `missing`, with `uploads.archived_at IS NULL`
+- `submitted` includes latest Masar `submitted` rows with `uploads.archived_at IS NULL`
+- `archived` means `uploads.archived_at IS NOT NULL` and is sorted by `archived_at DESC`
 - retryable failed records stay in their latest real state until a new submission attempt writes a new row
 
 These lightweight queries are intentionally separate from the heavy `UserRecord` detail projection. They may read extraction JSON internally to derive flattened names, but they do not expose OCR blobs through the lightweight DTOs.

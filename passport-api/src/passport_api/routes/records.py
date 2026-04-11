@@ -16,6 +16,7 @@ from passport_platform.strings import (
 
 from passport_api.deps import get_api_services, get_authenticated_session
 from passport_api.schemas import (
+    ArchiveStatusUpdate,
     MasarStatusUpdate,
     RecordCountsResponse,
     RecordIdListItemResponse,
@@ -69,7 +70,7 @@ def upload_record(
 def list_records(
     authenticated: Annotated[AuthenticatedSession, Depends(get_authenticated_session)],
     services: Annotated[ApiServices, Depends(get_api_services)],
-    section: str = Query(default="pending", pattern="^(pending|submitted|failed|all)$"),
+    section: str = Query(default="pending", pattern="^(pending|submitted|failed|archived|all)$"),
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
 ) -> RecordListResponse:
@@ -245,6 +246,26 @@ def update_review_status(
     return _record_to_response(updated_record)
 
 
+@router.patch("/records/{upload_id}/archive", response_model=RecordResponse)
+def update_archive_status(
+    upload_id: int,
+    body: ArchiveStatusUpdate,
+    authenticated: Annotated[AuthenticatedSession, Depends(get_authenticated_session)],
+    services: Annotated[ApiServices, Depends(get_api_services)],
+) -> RecordResponse:
+    updated = services.records.set_archive_state(
+        upload_id=upload_id,
+        user_id=authenticated.user.id,
+        archived=body.archived,
+    )
+    if not updated:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=RECORD_NOT_FOUND)
+    record = services.records.get_user_record(authenticated.user.id, upload_id)
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=RECORD_NOT_FOUND)
+    return _record_to_response(record)
+
+
 def _record_to_response(record) -> RecordResponse:
     return RecordResponse(
         upload_id=record.upload_id,
@@ -254,6 +275,7 @@ def _record_to_response(record) -> RecordResponse:
         source_ref=record.source_ref,
         upload_status=record.upload_status.value,
         created_at=record.created_at,
+        archived_at=record.archived_at,
         completed_at=record.completed_at,
         is_passport=record.is_passport,
         is_complete=record.is_complete,
@@ -302,6 +324,7 @@ def _list_item_to_response(record) -> RecordListItemResponse:
         full_name_ar=record.full_name_ar,
         full_name_en=record.full_name_en,
         created_at=record.created_at,
+        archived_at=record.archived_at,
         completed_at=record.completed_at,
         failure_reason_code=record.failure_reason_code,
         failure_reason_text=record.failure_reason_text,

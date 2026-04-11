@@ -566,3 +566,139 @@ def test_assert_submission_allowed_accepts_needs_review_records(tmp_path) -> Non
     )
 
     records.assert_submission_allowed(upload_id=upload.id, user_id=user.id)
+
+
+def test_archive_section_filters_non_archived_sections_and_supports_unarchive(tmp_path) -> None:
+    db, users, uploads, records = _build_records_service(tmp_path)
+    user = _seed_user(users, "12345", "Agency A")
+    pending_upload = _register_processed_upload(
+        uploads,
+        user.id,
+        filename="pending.jpg",
+        source_ref="telegram://pending",
+        passport_number="11111111",
+    )
+    submitted_upload = _register_processed_upload(
+        uploads,
+        user.id,
+        filename="submitted.jpg",
+        source_ref="telegram://submitted",
+        passport_number="22222222",
+    )
+    failed_upload = _register_processed_upload(
+        uploads,
+        user.id,
+        filename="failed.jpg",
+        source_ref="telegram://failed",
+        passport_number="33333333",
+    )
+    records.update_masar_status(
+        upload_id=submitted_upload.id,
+        user_id=user.id,
+        status="submitted",
+        masar_mutamer_id="M-1",
+        masar_scan_result={"ok": True},
+    )
+    records.update_masar_status(
+        upload_id=failed_upload.id,
+        user_id=user.id,
+        status="failed",
+        masar_mutamer_id=None,
+        masar_scan_result={"ok": False},
+        failure_reason_code="submit-failed",
+        failure_reason_text="Failed",
+    )
+
+    assert (
+        records.set_archive_state(
+            upload_id=pending_upload.id,
+            user_id=user.id,
+            archived=True,
+        )
+        is True
+    )
+    assert (
+        records.set_archive_state(
+            upload_id=submitted_upload.id,
+            user_id=user.id,
+            archived=True,
+        )
+        is True
+    )
+    with db.connect() as conn:
+        conn.execute(
+            "UPDATE uploads SET archived_at = ? WHERE id = ?",
+            ("2026-04-11T09:00:00+00:00", pending_upload.id),
+        )
+        conn.execute(
+            "UPDATE uploads SET archived_at = ? WHERE id = ?",
+            ("2026-04-11T10:00:00+00:00", submitted_upload.id),
+        )
+        conn.commit()
+
+    pending = records.list_user_record_items(user.id, limit=50, offset=0, section="pending")
+    submitted = records.list_user_record_items(user.id, limit=50, offset=0, section="submitted")
+    failed = records.list_user_record_items(user.id, limit=50, offset=0, section="failed")
+    archived = records.list_user_record_items(user.id, limit=50, offset=0, section="archived")
+    counts = records.count_user_record_sections(user.id)
+
+    assert [item.upload_id for item in pending.items] == []
+    assert [item.upload_id for item in submitted.items] == []
+    assert [item.upload_id for item in failed.items] == [failed_upload.id]
+    assert [item.upload_id for item in archived.items] == [
+        submitted_upload.id,
+        pending_upload.id,
+    ]
+    assert counts.pending == 0
+    assert counts.submitted == 0
+    assert counts.failed == 1
+
+    assert (
+        records.set_archive_state(
+            upload_id=submitted_upload.id,
+            user_id=user.id,
+            archived=False,
+        )
+        is True
+    )
+    submitted_after = records.list_user_record_items(
+        user.id,
+        limit=50,
+        offset=0,
+        section="submitted",
+    )
+    assert [item.upload_id for item in submitted_after.items] == [submitted_upload.id]
+
+
+def test_archive_toggle_is_idempotent_for_owned_rows(tmp_path) -> None:
+    _, users, uploads, records = _build_records_service(tmp_path)
+    user = _seed_user(users, "12345", "Agency A")
+    upload = _register_processed_upload(
+        uploads,
+        user.id,
+        filename="pending.jpg",
+        source_ref="telegram://pending",
+        passport_number="11111111",
+    )
+
+    assert records.set_archive_state(upload_id=upload.id, user_id=user.id, archived=True) is True
+    first = records.get_user_record(user.id, upload.id)
+    assert first is not None
+    assert first.archived_at is not None
+
+    assert records.set_archive_state(upload_id=upload.id, user_id=user.id, archived=True) is True
+    second = records.get_user_record(user.id, upload.id)
+    assert second is not None
+    assert second.archived_at == first.archived_at
+
+    assert records.set_archive_state(upload_id=upload.id, user_id=user.id, archived=False) is True
+    third = records.get_user_record(user.id, upload.id)
+    assert third is not None
+    assert third.archived_at is None
+
+    assert records.set_archive_state(upload_id=upload.id, user_id=user.id, archived=False) is True
+    fourth = records.get_user_record(user.id, upload.id)
+    assert fourth is not None
+    assert fourth.archived_at is None
+
+    assert records.set_archive_state(upload_id=999999, user_id=user.id, archived=True) is False

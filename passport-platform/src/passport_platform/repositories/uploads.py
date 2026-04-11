@@ -28,7 +28,8 @@ class UploadsRepository:
                     mime_type,
                     source_ref,
                     status,
-                    created_at
+                    created_at,
+                    archived_at
                 FROM uploads
                 WHERE id = ?
                 """,
@@ -50,7 +51,8 @@ class UploadsRepository:
                     mime_type,
                     source_ref,
                     status,
-                    created_at
+                    created_at,
+                    archived_at
                 FROM uploads
                 WHERE source_ref = ?
                 ORDER BY id DESC
@@ -110,6 +112,7 @@ class UploadsRepository:
                 source_ref=command.source_ref,
                 status=UploadStatus.RECEIVED,
                 created_at=created_at,
+                archived_at=None,
             )
         upload = self.get_by_id(upload_id)
         if upload is None:
@@ -232,6 +235,9 @@ def _row_to_upload(row) -> Upload | None:
         source_ref=row["source_ref"],
         status=UploadStatus(row["status"]),
         created_at=datetime.fromisoformat(row["created_at"]),
+        archived_at=(
+            datetime.fromisoformat(row["archived_at"]) if row["archived_at"] is not None else None
+        ),
     )
 
 

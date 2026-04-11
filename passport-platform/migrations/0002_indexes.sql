@@ -4,6 +4,9 @@ CREATE INDEX IF NOT EXISTS idx_users_external_identity
 CREATE INDEX IF NOT EXISTS idx_uploads_user_created_at
     ON uploads (user_id, created_at);
 
+CREATE INDEX IF NOT EXISTS idx_uploads_user_archived_at_id_desc
+    ON uploads (user_id, archived_at DESC, id DESC);
+
 CREATE INDEX IF NOT EXISTS idx_processing_results_upload_id
     ON processing_results (upload_id);
 

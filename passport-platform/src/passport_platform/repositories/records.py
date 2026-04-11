@@ -54,6 +54,7 @@ _USER_RECORD_COLUMNS = """
     uploads.source_ref AS source_ref,
     uploads.status AS upload_status,
     uploads.created_at AS created_at,
+    uploads.archived_at AS archived_at,
     processing_results.completed_at AS completed_at,
     processing_results.is_passport AS is_passport,
     processing_results.is_complete AS is_complete,
@@ -91,6 +92,7 @@ _USER_RECORD_LIST_COLUMNS = """
     uploads.filename AS filename,
     uploads.status AS upload_status,
     uploads.created_at AS created_at,
+    uploads.archived_at AS archived_at,
     processing_results.completed_at AS completed_at,
     processing_results.review_status AS review_status,
     processing_results.passport_number AS passport_number,
@@ -139,6 +141,7 @@ class RecordsRepository:
         section: str,
     ) -> UserRecordListResult:
         where_clause = _section_where_clause(section)
+        order_by_clause = _section_order_by_clause(section)
         with self.db.connect() as conn:
             rows = conn.execute(
                 f"""
@@ -149,7 +152,7 @@ class RecordsRepository:
                 {_LATEST_MASAR_SUBMISSION_JOIN}
                 WHERE uploads.user_id = ?
                   AND {where_clause}
-                ORDER BY uploads.created_at DESC, uploads.id DESC
+                ORDER BY {order_by_clause}
                 LIMIT ? OFFSET ?
                 """,
                 (user_id, limit, offset),
@@ -183,6 +186,30 @@ class RecordsRepository:
             submitted=submitted,
             failed=failed,
         )
+
+    def set_archive_state(
+        self,
+        *,
+        upload_id: int,
+        user_id: int,
+        archived: bool,
+    ) -> bool:
+        archived_at = datetime.now(UTC).isoformat()
+        with self.db.connect() as conn:
+            result = conn.execute(
+                """
+                UPDATE uploads
+                SET archived_at = CASE
+                    WHEN ? = 1 THEN COALESCE(archived_at, ?)
+                    ELSE NULL
+                END
+                WHERE id = ?
+                  AND user_id = ?
+                """,
+                (1 if archived else 0, archived_at, upload_id, user_id),
+            )
+            conn.commit()
+        return result.rowcount > 0
 
     def list_submit_eligible_record_ids(
         self,
@@ -237,6 +264,7 @@ class RecordsRepository:
                 {_LATEST_MASAR_SUBMISSION_JOIN}
                 WHERE uploads.user_id = ?
                   AND processing_results.is_complete = 1
+                  AND uploads.archived_at IS NULL
                   AND (ms.masar_status IS NULL OR ms.masar_status IN ('failed', 'missing'))
                 ORDER BY uploads.created_at ASC, uploads.id ASC
                 """,
@@ -385,6 +413,9 @@ def _row_to_user_record(row) -> UserRecord:
         source_ref=row["source_ref"],
         upload_status=UploadStatus(row["upload_status"]),
         created_at=datetime.fromisoformat(row["created_at"]),
+        archived_at=(
+            datetime.fromisoformat(row["archived_at"]) if row["archived_at"] is not None else None
+        ),
         completed_at=(
             datetime.fromisoformat(row["completed_at"]) if row["completed_at"] is not None else None
         ),
@@ -435,6 +466,9 @@ def _row_to_user_record_list_item(row) -> UserRecordListItem:
         full_name_ar=full_name_ar,
         full_name_en=full_name_en,
         created_at=datetime.fromisoformat(row["created_at"]),
+        archived_at=(
+            datetime.fromisoformat(row["archived_at"]) if row["archived_at"] is not None else None
+        ),
         completed_at=(
             datetime.fromisoformat(row["completed_at"]) if row["completed_at"] is not None else None
         ),
@@ -473,14 +507,20 @@ def _section_where_clause(section: str) -> str:
         "pending": """
             uploads.status = 'processed'
             AND ms.masar_status IS NULL
+            AND uploads.archived_at IS NULL
         """,
-        "submitted": "ms.masar_status = 'submitted'",
+        "submitted": """
+            ms.masar_status = 'submitted'
+            AND uploads.archived_at IS NULL
+        """,
         "failed": """
             (
                 uploads.status = 'failed'
                 OR ms.masar_status IN ('failed', 'missing')
             )
+            AND uploads.archived_at IS NULL
         """,
+        "archived": "uploads.archived_at IS NOT NULL",
         "all": "1 = 1",
     }
     try:
@@ -494,7 +534,14 @@ def _submit_eligible_where_clause() -> str:
     return """
         uploads.status = 'processed'
         AND ms.masar_status IS NULL
+        AND uploads.archived_at IS NULL
     """
+
+
+def _section_order_by_clause(section: str) -> str:
+    if section == "archived":
+        return "uploads.archived_at DESC, uploads.id DESC"
+    return "uploads.created_at DESC, uploads.id DESC"
 
 
 def _list_item_names(extraction_result_json: str | None) -> tuple[str | None, str | None]:
