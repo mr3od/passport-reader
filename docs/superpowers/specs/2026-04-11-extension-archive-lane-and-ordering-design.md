@@ -179,7 +179,7 @@ No changes to Masar submission insert/update semantics.
 - Background calls new API route
 - On success:
   - refresh relevant tabs (`pending`, `submitted`, `failed`, `archived`; optionally all dirty)
-  - clear removed ids from `selectedUploadIds`
+  - immediately remove archived/unarchived `uploadId` from `selectedUploadIds` in-memory before refresh
   - toast success in Arabic
 - On failure:
   - map auth failures to existing relink/session handling
@@ -238,7 +238,8 @@ Risk:
 - selected rows become hidden after archive
 
 Mitigation:
-- always reconcile `selectedUploadIds` against visible selectable ids after refresh
+- on successful archive/unarchive, remove that id from `selectedUploadIds` immediately
+- refresh is secondary and must not be relied on for selection cleanup
 
 ## Testing Plan
 
@@ -260,7 +261,7 @@ Extension tests:
 - archived tab included in tab store + fetch coordinator behavior
 - archive/unarchive card actions send correct message
 - archive action available in submitted cards and hidden in inProgress cards
-- post-action selection reconciliation drops moved ids
+- post-action success immediately removes moved id from `selectedUploadIds`
 - deterministic sorting helper tests:
   - pending/failed/submitted by `created_at DESC`
   - archived by `archived_at DESC`
