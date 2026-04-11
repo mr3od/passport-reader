@@ -3,7 +3,7 @@
 ## Goal
 
 Add a real archive workflow for agency uploads in the extension:
-- archive from `pending` and `failed`
+- archive from any record tab (except transient `inProgress`)
 - unarchive from `archived`
 - keep lifecycle status semantics intact
 - make ordering deterministic across all tabs
@@ -12,7 +12,7 @@ Add a real archive workflow for agency uploads in the extension:
 
 - Archive state is stored only in `uploads.archived_at`.
 - Do not overload `uploads.status` with `archived`.
-- Archive is allowed from both `pending` and `failed`.
+- Any owned record can be archived.
 - `archived` tab sorting is by `archived_at` descending.
 - `inProgress` ordering is queue-driven (active first, then queue order).
 
@@ -140,15 +140,15 @@ Response:
 
 Validation:
 - upload must belong to authenticated user
-- archive (`true`) allowed only when record is currently archive-eligible:
-  - would appear in `pending` or `failed` semantics
-- archive on submitted/non-eligible rows returns `409`
-- unarchive (`false`) allowed for any currently archived record owned by user
+- archive (`true`) is allowed for any owned record
+- unarchive (`false`) is allowed for any owned record
+- operation is idempotent:
+  - archive on already-archived record returns success with unchanged timestamp
+  - unarchive on non-archived record returns success
 
 ## Platform Service Changes
 
 `RecordsService` / repository responsibilities:
-- helper to compute archive eligibility from current row + latest Masar state
 - repository method to toggle `uploads.archived_at`
 - ensure updates are owner-scoped (`uploads.user_id = ?`)
 
@@ -164,12 +164,12 @@ No changes to Masar submission insert/update semantics.
 
 ### Card actions
 
-- In `pending` + `failed`:
+- In `pending` + `failed` + `submitted`:
   - keep selection checkbox
   - add `Archive` action button
 - In `archived`:
   - add `Unarchive` action button
-- In `submitted` + `inProgress`:
+- In `inProgress`:
   - no archive action
 
 ### Action flow
@@ -178,7 +178,7 @@ No changes to Masar submission insert/update semantics.
   - e.g. `SET_ARCHIVE_STATE { uploadId, archived }`
 - Background calls new API route
 - On success:
-  - refresh relevant tabs (`pending`, `failed`, `archived`; optionally all dirty)
+  - refresh relevant tabs (`pending`, `submitted`, `failed`, `archived`; optionally all dirty)
   - clear removed ids from `selectedUploadIds`
   - toast success in Arabic
 - On failure:
@@ -224,13 +224,15 @@ Risk:
 - optimistic merge can still reorder rows unexpectedly
 
 Mitigation:
-- final explicit per-tab sorting pass every render
+- do not rely on append-only optimistic updates
+- run explicit deterministic per-tab sorting after every merge/render pass
+- keep append behavior only for server pagination fetch accumulation
 
 Risk:
-- archive endpoint used on invalid status
+- archive endpoint creates state mismatch with lifecycle status
 
 Mitigation:
-- server-side eligibility check + `409`
+- make archive status-agnostic and owner-scoped only
 
 Risk:
 - selected rows become hidden after archive
@@ -244,19 +246,20 @@ Platform tests:
 - section filtering excludes archived rows from pending/failed/submitted
 - archived section returns archived rows only
 - archived section sorted by `archived_at DESC`
-- archive eligibility rejects submitted rows
+- archive/unarchive works regardless of lifecycle status
 - unarchive restores pending/failed visibility
 
 API tests:
 - `GET /records` accepts `section=archived`
 - archive patch success path
-- archive patch rejects non-eligible rows (`409`)
+- archive patch success for submitted/non-pending records
 - unarchive patch success
 - response payload includes `archived_at`
 
 Extension tests:
 - archived tab included in tab store + fetch coordinator behavior
 - archive/unarchive card actions send correct message
+- archive action available in submitted cards and hidden in inProgress cards
 - post-action selection reconciliation drops moved ids
 - deterministic sorting helper tests:
   - pending/failed/submitted by `created_at DESC`
@@ -269,7 +272,7 @@ Extension tests:
 1. Ship schema + platform + API support behind normal deployment.
 2. Ship extension with archived tab/actions.
 3. Verify:
-- archive from pending and failed works
+- archive from pending/submitted/failed works
 - unarchive restores row to correct lane
 - ordering is stable in all tabs
 - inProgress matches queue order during active batch
@@ -280,4 +283,3 @@ Extension tests:
 - no hard-delete
 - no auto-archive policies
 - no change to quota/accounting logic
-
