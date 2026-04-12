@@ -20,6 +20,7 @@
 
     const submittedIds = new Set();
     const failedIds = new Set();
+    const archivedIds = new Set();
     const processedIds = new Set();
 
     for (const [key, status] of Object.entries(results)) {
@@ -34,6 +35,11 @@
       }
       if (status === "failed" || status === "missing") {
         failedIds.add(uploadId);
+        processedIds.add(uploadId);
+        continue;
+      }
+      if (status === "archived") {
+        archivedIds.add(uploadId);
         processedIds.add(uploadId);
       }
     }
@@ -52,6 +58,7 @@
       activeId,
       submittedIds,
       failedIds,
+      archivedIds,
     };
   }
 
@@ -80,6 +87,9 @@
         return;
       }
       processedIds.add(record.upload_id);
+      if (normalized.archivedIds.has(record.upload_id)) {
+        return;
+      }
       if (normalized.inProgressIds.has(record.upload_id)) {
         sections.inProgress.push(record);
         return;
@@ -114,7 +124,7 @@
       sections.pending.push(record);
     };
 
-    // Precedence: submitted server cache > failed server cache > pending server cache.
+    // Precedence: submitted > failed > pending.
     // This prevents stale pending data from hiding fresher status in other tabs.
     const submittedItems = Array.isArray(serverSections?.submitted) ? serverSections.submitted : [];
     const failedItems = Array.isArray(serverSections?.failed) ? serverSections.failed : [];

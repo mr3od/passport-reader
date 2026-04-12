@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 
 const TabDataStore = require("../tab-data-store.js");
 
-test("TabDataStore.create builds the three server-backed tabs without inProgress", () => {
+test("TabDataStore.create builds the server-backed tabs without inProgress", () => {
   const store = TabDataStore.create();
 
   assert.deepEqual(Object.keys(store).sort(), ["failed", "pending", "submitted"]);

@@ -738,6 +738,63 @@ test("handleMessage fetches server counts for record sections", async () => {
   delete global.fetch;
 });
 
+test("archive batch marks backend auth as relink-required instead of failing silently", async () => {
+  const localSetCalls = [];
+  const sessionSetCalls = [];
+  global.API_BASE_URL = "https://passport-api.mr3od.dev";
+  global.chrome = {
+    storage: {
+      local: {
+        get: (_keys, callback) => callback({ api_token: "token" }),
+        set: (values, callback) => {
+          localSetCalls.push(values);
+          callback?.();
+        },
+      },
+      session: {
+        get: (_keys, callback) => callback({}),
+        set: (values, callback) => {
+          sessionSetCalls.push(values);
+          callback?.();
+        },
+        remove: (_keys, callback) => callback?.(),
+      },
+    },
+  };
+  global.fetch = async () => ({
+    ok: false,
+    status: 401,
+    json: async () => ({}),
+  });
+
+  const response = await handleMessage({
+    type: "ARCHIVE_BATCH",
+    uploadIds: [42],
+  });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.deepEqual(response, { ok: true, queued: true });
+  assert.equal(
+    localSetCalls.some((values) => values.submit_auth_required === "backend-auth" && values.session_expired === true),
+    true,
+  );
+  assert.equal(
+    sessionSetCalls.some((values) => values.archive_batch === null && values.active_archive_id === null),
+    true,
+  );
+  assert.equal(
+    sessionSetCalls.some((values) => values.last_archive_result
+      && values.last_archive_result.succeeded === 0
+      && values.last_archive_result.failed === 1
+      && Array.isArray(values.last_archive_result.ids)
+      && values.last_archive_result.ids[0] === 42),
+    true,
+  );
+  delete global.API_BASE_URL;
+  delete global.chrome;
+  delete global.fetch;
+});
+
 test("handleMessage no longer exposes submit-eligible id discovery", async () => {
   global.API_BASE_URL = "https://passport-api.mr3od.dev";
   global.chrome = {
@@ -1026,7 +1083,7 @@ test("handleMessage rejects batch resume when no persisted batch exists", async 
       },
       session: {
         get: (_keys, callback) => callback({
-          submission_batch: null,
+          submit_batch: null,
           active_submit_id: null,
         }),
       },

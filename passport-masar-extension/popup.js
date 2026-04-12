@@ -47,6 +47,8 @@
     contractsCache: null,
     toastTimer: null,
     renderTimer: null,
+    canSubmitSelection: false,
+    submitActionBlockedReason: null,
   };
   const PRE_RELEASE_SHOW_RAW_FAILURES = true;
 
@@ -194,13 +196,15 @@
     setText("in-progress-title", Strings.SECTION_IN_PROGRESS);
     setText("submitted-title", Strings.SECTION_SUBMITTED);
     setText("failed-title", Strings.SECTION_FAILED);
-    setText("submit-all-btn", Strings.ACTION_SUBMIT_ALL);
     setText("submission-progress-title", Strings.PROGRESS_BANNER_TITLE);
     setText("submission-refresh-btn", Strings.ACTION_REFRESH);
     setText("submission-resume-btn", Strings.ACTION_RESUME);
     setText("pending-load-more", Strings.ACTION_LOAD_MORE);
     setText("submitted-load-more", Strings.ACTION_LOAD_MORE);
     setText("failed-load-more", Strings.ACTION_LOAD_MORE);
+    setText("mark-all-btn", Strings.ACTION_MARK_ALL_SELECTABLE);
+    setText("selected-action-submit-btn", Strings.ACTION_SUBMIT_SELECTED);
+    setText("selected-action-archive-btn", Strings.ACTION_ARCHIVE_SELECTED);
     setText("workspace-empty-note", Strings.SECTION_EMPTY_PENDING);
     setText("settings-kicker", Strings.SETTINGS_KICKER);
     setText("settings-title", Strings.SETTINGS_TITLE);
@@ -274,18 +278,102 @@
     return next;
   }
 
+  function parseTimestamp(value) {
+    if (typeof value !== "string" || !value) {
+      return 0;
+    }
+    const parsed = Date.parse(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function compareByCreatedAtDesc(left, right) {
+    const leftTs = parseTimestamp(left?.created_at);
+    const rightTs = parseTimestamp(right?.created_at);
+    if (leftTs !== rightTs) {
+      return rightTs - leftTs;
+    }
+    return Number(right?.upload_id || 0) - Number(left?.upload_id || 0);
+  }
+
+  function sortInProgressRecords(records, sessionData) {
+    const batch = sessionData?.submit_batch;
+    const queue = Array.isArray(batch?.queue) ? batch.queue : [];
+    const queueOrder = new Map(
+      queue
+        .map((uploadId, index) => [Number(uploadId), index])
+        .filter(([uploadId]) => Number.isFinite(uploadId) && uploadId > 0),
+    );
+    const candidateActive = batch?.active_id ?? sessionData?.active_submit_id ?? null;
+    const parsedActiveId = Number(candidateActive);
+    const activeId = Number.isFinite(parsedActiveId) && parsedActiveId > 0 ? parsedActiveId : null;
+
+    return [...(Array.isArray(records) ? records : [])].sort((left, right) => {
+      const leftId = Number(left?.upload_id || 0);
+      const rightId = Number(right?.upload_id || 0);
+      const leftIsActive = activeId !== null && leftId === activeId;
+      const rightIsActive = activeId !== null && rightId === activeId;
+      if (leftIsActive !== rightIsActive) {
+        return leftIsActive ? -1 : 1;
+      }
+      const leftIndex = queueOrder.has(leftId) ? queueOrder.get(leftId) : Number.POSITIVE_INFINITY;
+      const rightIndex = queueOrder.has(rightId) ? queueOrder.get(rightId) : Number.POSITIVE_INFINITY;
+      if (leftIndex !== rightIndex) {
+        return leftIndex - rightIndex;
+      }
+      return compareByCreatedAtDesc(left, right);
+    });
+  }
+
+  function sortSectionsForRender({ sections, sessionData }) {
+    const source = sections || {};
+    return {
+      pending: source.pending || [],
+      inProgress: sortInProgressRecords(source.inProgress || [], sessionData || {}),
+      submitted: source.submitted || [],
+      failed: source.failed || [],
+    };
+  }
+
+  function isBatchCurrentlyRunning(sessionData) {
+    const submitRunning = QueueFilter.normalizeBatchState(
+      sessionData?.submit_batch || [],
+      sessionData?.active_submit_id || null,
+    ).inProgressIds.size > 0;
+    const archiveRunning = QueueFilter.normalizeBatchState(
+      sessionData?.archive_batch || [],
+      sessionData?.active_archive_id || null,
+    ).inProgressIds.size > 0;
+    return submitRunning || archiveRunning;
+  }
+
   function buildSubmitSelectionActionState({
     selectedCount,
-    canSubmit,
     isBatchRunning,
-    baseLabel,
+    canSubmit = true,
   }) {
-    const label = selectedCount > 0 ? `${baseLabel} (${selectedCount})` : baseLabel;
+    const loading = isBatchRunning;
+    const disabled = loading || selectedCount === 0;
     return {
       hidden: false,
-      disabled: !canSubmit || isBatchRunning || selectedCount === 0,
-      label,
+      disabled,
+      loading,
+      submitDisabled: disabled || !canSubmit,
+      label: Strings.ACTION_SELECTED_COUNT(selectedCount),
     };
+  }
+
+  function getSubmitActionAvailability(localData = {}) {
+    const requirement = ensureActionContextState({
+      activeUiContext: localData.active_ui_context,
+      selectedContractId: localData.masar_contract_id || null,
+    });
+    if (requirement.ok) {
+      return { canSubmit: true, reason: null };
+    }
+    if (requirement.reason === "contract-inactive") {
+      return { canSubmit: false, reason: Strings.CONTRACT_INACTIVE_ACTION_REQUIRED };
+    }
+    return { canSubmit: false, reason: Strings.CONTRACT_ACTION_REQUIRED };
   }
 
   function getClickUrl(record) {
@@ -378,12 +466,7 @@
 
   function getRecordNote(record) {
     if (record._inProgressState) {
-      return Status.getStatusLabel({
-        upload_status: record.upload_status,
-        masar_status: record.masar_status,
-        review_status: record.review_status,
-        inProgress: record._inProgressState,
-      });
+      return "";
     }
     if (record.review_status === "needs_review") {
       return Strings.REVIEW_SUMMARY;
@@ -403,13 +486,7 @@
     if (record._contextMismatch === "contract") {
       return Strings.DETAILS_OTHER_CONTRACT;
     }
-    if (record._section === "submitted") {
-      return Strings.STATUS_SUBMITTED;
-    }
-    if (record._section === "failed") {
-      return Strings.STATUS_FAILED;
-    }
-    return Strings.STATUS_READY;
+    return "";
   }
 
   function createStatusPill(doc, record, inProgressState) {
@@ -544,6 +621,14 @@
     const article = doc.createElement("article");
     article.className = `record rich ${getRecordVisualState(record)}`;
     article.dataset.uploadId = String(record.upload_id);
+    const isSelectable = record._section === "pending" || record._section === "failed";
+    article.classList.toggle("is-selectable", isSelectable);
+    article.classList.toggle("is-selected", isSelectable && Boolean(record._selected));
+    if (isSelectable) {
+      article.tabIndex = 0;
+      article.setAttribute("role", "button");
+      article.setAttribute("aria-pressed", record._selected ? "true" : "false");
+    }
 
     const body = doc.createElement("div");
     body.className = "record-body record-main";
@@ -560,45 +645,58 @@
     textWrap.append(name, meta);
     header.append(textWrap, createStatusPill(doc, record, record._inProgressState || false));
 
+    const reviewText = getRecordNote(record);
     const review = doc.createElement("div");
     review.className = "record-review";
-    review.textContent = getRecordNote(record);
+    review.textContent = reviewText;
 
     const footer = doc.createElement("div");
     footer.className = "record-footer";
     const actions = doc.createElement("div");
     actions.className = "record-actions";
 
-    if (record._section === "pending" || record._section === "failed") {
-      const selector = doc.createElement("label");
-      selector.className = "record-select";
-      const checkbox = doc.createElement("input");
-      checkbox.type = "checkbox";
-      checkbox.checked = Boolean(record._selected);
-      checkbox.disabled = Boolean(record._submitDisabled);
-      const label = doc.createElement("span");
-      label.textContent = Strings.ACTION_SELECT;
-      checkbox.addEventListener("change", () => {
+    const updateSelectionVisualState = () => {
+      const selected = state.selectedUploadIds.has(record.upload_id);
+      article.classList.toggle("is-selected", isSelectable && selected);
+      if (isSelectable) {
+        article.setAttribute("aria-pressed", selected ? "true" : "false");
+      }
+    };
+    const updateSelectionActionState = () => {
+      updateSubmitSelectionAction({
+        isBatchRunning: isBatchCurrentlyRunning(state.lastSessionData),
+        canSubmit: state.canSubmitSelection,
+      });
+    };
+    if (isSelectable) {
+      const toggleSelection = () => {
         const next = new Set(state.selectedUploadIds);
-        if (checkbox.checked) {
-          next.add(record.upload_id);
-        } else {
+        if (next.has(record.upload_id)) {
           next.delete(record.upload_id);
+        } else {
+          next.add(record.upload_id);
         }
         state.selectedUploadIds = next;
-        const activeSubmitId = state.lastSessionData?.active_submit_id || null;
-        const isBatchRunning = QueueFilter.normalizeBatchState(
-          state.lastSessionData?.submission_batch || [],
-          activeSubmitId,
-        ).inProgressIds.size > 0;
-        updateSubmitSelectionAction({
-          canSubmit: !record._submitDisabled,
-          isBatchRunning,
-        });
+        updateSelectionVisualState();
+        updateSelectionActionState();
+      };
+      article.addEventListener("click", (event) => {
+        if (event.target.closest("a,button")) {
+          return;
+        }
+        toggleSelection();
       });
-      selector.append(checkbox, label);
-      actions.append(selector);
-    } else if (record._section === "submitted") {
+      article.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== " ") {
+          return;
+        }
+        event.preventDefault();
+        toggleSelection();
+      });
+      updateSelectionVisualState();
+    }
+
+    if (record._section === "submitted") {
       const link = doc.createElement("a");
       link.className = `detail-link${record._clickUrl ? "" : " muted"}`;
       link.href = record._clickUrl ? record._clickUrl : "#";
@@ -652,7 +750,11 @@
     }
 
     footer.append(actions);
-    body.append(header, review, footer);
+    if (reviewText) {
+      body.append(header, review, footer);
+    } else {
+      body.append(header, footer);
+    }
     article.append(createPassportThumb(doc, record), body);
     return article;
   }
@@ -796,10 +898,10 @@
 
   function buildBatchBannerState(sessionData) {
     const normalized = QueueFilter.normalizeBatchState(
-      sessionData?.submission_batch || [],
+      sessionData?.submit_batch || [],
       sessionData?.active_submit_id || null,
     );
-    const batch = sessionData?.submission_batch;
+    const batch = sessionData?.submit_batch;
     const results = batch && typeof batch.results === "object" && !Array.isArray(batch.results)
       ? batch.results
       : {};
@@ -955,6 +1057,23 @@
     state.lastLocalData = localData;
     state.lastSessionData = sessionData;
     const activeSubmitId = sessionData.active_submit_id || null;
+    const submitBatch = sessionData.submit_batch;
+    const archiveBatch = sessionData.archive_batch;
+    const mergedBatchState = {
+      ...(submitBatch && typeof submitBatch === "object" ? submitBatch : {}),
+      queue: [
+        ...(Array.isArray(submitBatch?.queue) ? submitBatch.queue : []),
+        ...(Array.isArray(archiveBatch?.queue) ? archiveBatch.queue : []),
+      ],
+      results: {
+        ...((submitBatch && typeof submitBatch.results === "object" && !Array.isArray(submitBatch.results))
+          ? submitBatch.results
+          : {}),
+        ...((archiveBatch && typeof archiveBatch.results === "object" && !Array.isArray(archiveBatch.results))
+          ? archiveBatch.results
+          : {}),
+      },
+    };
     const pending = TabDataStore.getTab(state.tabDisplay, "pending");
     const submitted = TabDataStore.getTab(state.tabDisplay, "submitted");
     const failed = TabDataStore.getTab(state.tabDisplay, "failed");
@@ -966,25 +1085,24 @@
       },
       sessionData.last_submit_result || null,
     );
-    const sections = QueueFilter.mergeOptimisticSections({
+    const mergedSections = QueueFilter.mergeOptimisticSections({
       serverSections,
-      batchState: sessionData.submission_batch || [],
+      batchState: mergedBatchState,
       activeSubmitId,
     });
-    const canSubmit =
-      Boolean(localData.masar_entity_id)
-      && Boolean(localData.masar_contract_id)
-      && localData.masar_contract_state !== "expired"
-      && localData.masar_contract_state !== "inactive";
+    const sections = sortSectionsForRender({
+      sections: mergedSections,
+      sessionData,
+    });
     const selectableIds = new Set([
       ...(sections.pending || []).map((record) => record.upload_id).filter(Boolean),
       ...(sections.failed || []).map((record) => record.upload_id).filter(Boolean),
     ]);
     state.selectedUploadIds = reconcileSelectedUploadIds(state.selectedUploadIds, selectableIds);
-    const isBatchRunning = QueueFilter.normalizeBatchState(
-      sessionData.submission_batch || [],
-      activeSubmitId,
-    ).inProgressIds.size > 0;
+    const isBatchRunning = isBatchCurrentlyRunning(sessionData);
+    const submitAvailability = getSubmitActionAvailability(localData);
+    state.canSubmitSelection = submitAvailability.canSubmit;
+    state.submitActionBlockedReason = submitAvailability.reason;
 
     state.sectionData = sections;
     applySummaryContext(localData);
@@ -993,7 +1111,6 @@
 
     const pendingRecords = sections.pending.map((record) => ({
       ...record,
-      _submitDisabled: !canSubmit,
       _selected: state.selectedUploadIds.has(record.upload_id),
     }));
     const inProgressRecords = sections.inProgress.map((record) => ({
@@ -1006,7 +1123,6 @@
     }));
     const failedRecords = sections.failed.map((record) => ({
       ...record,
-      _submitDisabled: !canSubmit,
       _selected: state.selectedUploadIds.has(record.upload_id),
     }));
 
@@ -1026,24 +1142,41 @@
     renderSection("failed-list", failedRecords, "failed", Strings.SECTION_EMPTY_FAILED);
     setSectionVisibility(state.activeTab);
     renderLoadMoreControls();
-    updateSubmitSelectionAction({ canSubmit, isBatchRunning });
-    $("submit-all-btn").onclick = () => void submitBatch([...state.selectedUploadIds]);
+    updateSubmitSelectionAction({
+      isBatchRunning,
+      canSubmit: state.canSubmitSelection,
+    });
+    $("submit-all-btn").onclick = () => {
+      toggleSelectedActionMenu();
+    };
   }
 
-  function updateSubmitSelectionAction({ canSubmit, isBatchRunning }, doc = document) {
+  function updateSubmitSelectionAction({ isBatchRunning, canSubmit }, doc = document) {
     const submitButton = $("submit-all-btn", doc);
     if (!submitButton) {
       return;
     }
     const actionState = buildSubmitSelectionActionState({
       selectedCount: state.selectedUploadIds.size,
-      canSubmit,
       isBatchRunning,
-      baseLabel: Strings.ACTION_SUBMIT_ALL,
+      canSubmit,
     });
     submitButton.classList.toggle("hidden", actionState.hidden);
     submitButton.disabled = actionState.disabled;
     submitButton.textContent = actionState.label;
+    const submitActionButton = $("selected-action-submit-btn", doc);
+    if (submitActionButton) {
+      submitActionButton.disabled = actionState.submitDisabled;
+      submitActionButton.title = !canSubmit ? (state.submitActionBlockedReason || Strings.CONTRACT_ACTION_REQUIRED) : "";
+    }
+    const markAllButton = $("mark-all-btn", doc);
+    if (markAllButton) {
+      const selectableCount = (state.sectionData?.pending?.length || 0) + (state.sectionData?.failed?.length || 0);
+      markAllButton.classList.toggle("hidden", selectableCount === 0);
+    }
+    if (actionState.disabled) {
+      closeSelectedActionMenu(doc);
+    }
   }
 
   async function getContractsForUi() {
@@ -1254,6 +1387,106 @@
     });
   }
 
+  function getSubmitEligibleSelectionIds(uploadIds, sectionData = null) {
+    const source = sectionData || {};
+    const eligibleIds = new Set([
+      ...(source.pending || []).map((record) => record.upload_id),
+      ...(source.failed || []).map((record) => record.upload_id),
+    ].filter(Boolean));
+    return (Array.isArray(uploadIds) ? uploadIds : []).filter((uploadId) => eligibleIds.has(uploadId));
+  }
+
+  async function archiveSelected(uploadIds) {
+    const selectedIds = [...new Set((Array.isArray(uploadIds) ? uploadIds : []).filter(Boolean))];
+    if (!selectedIds.length) {
+      return;
+    }
+    const response = await sendMsg({ type: "ARCHIVE_BATCH", uploadIds: selectedIds }, { timeoutMs: 10000 });
+    if (!response?.ok) {
+      const failure = Failure.classifyFailure(response);
+      if (failure.type === "relink") {
+        await showRelinkRequired();
+        return;
+      }
+      if (failure.type === "masar-login") {
+        showMasarLoginRequired();
+        return;
+      }
+      showToast(Strings.ARCHIVE_FAILED, { tone: "error" });
+      return;
+    }
+    state.selectedUploadIds = new Set();
+  }
+
+  function closeSelectedActionMenu(doc = document) {
+    const menu = $("selected-action-menu", doc);
+    const trigger = $("submit-all-btn", doc);
+    if (!menu || !trigger || menu.classList.contains("hidden")) {
+      return;
+    }
+    menu.classList.add("hidden");
+    trigger.setAttribute("aria-expanded", "false");
+  }
+
+  function openSelectedActionMenu(doc = document) {
+    const menu = $("selected-action-menu", doc);
+    const trigger = $("submit-all-btn", doc);
+    if (!menu || !trigger || trigger.disabled) {
+      return;
+    }
+    menu.classList.remove("hidden");
+    trigger.setAttribute("aria-expanded", "true");
+  }
+
+  function toggleSelectedActionMenu(doc = document) {
+    const menu = $("selected-action-menu", doc);
+    if (!menu) {
+      return;
+    }
+    if (menu.classList.contains("hidden")) {
+      openSelectedActionMenu(doc);
+      return;
+    }
+    closeSelectedActionMenu(doc);
+  }
+
+  async function runSelectedAction(action) {
+    if (action === "mark-all") {
+      const allSelectableIds = new Set([
+        ...(state.sectionData?.pending || []).map((r) => r.upload_id),
+        ...(state.sectionData?.failed || []).map((r) => r.upload_id),
+      ].filter(Boolean));
+      state.selectedUploadIds = allSelectableIds;
+      closeSelectedActionMenu();
+      renderWorkspaceFromCache(state.lastLocalData, state.lastSessionData);
+      return;
+    }
+    const selectedIds = [...state.selectedUploadIds];
+    if (!selectedIds.length) {
+      closeSelectedActionMenu();
+      return;
+    }
+    if (action === "submit") {
+      if (!state.canSubmitSelection) {
+        showToast(state.submitActionBlockedReason || Strings.CONTRACT_ACTION_REQUIRED, { tone: "error" });
+        closeSelectedActionMenu();
+        return;
+      }
+      const eligibleIds = getSubmitEligibleSelectionIds(selectedIds, state.sectionData);
+      if (eligibleIds.length !== selectedIds.length) {
+        showToast(Strings.ACTION_SUBMIT_REQUIRES_RETRYABLE, { tone: "error" });
+        return;
+      }
+      closeSelectedActionMenu();
+      await submitBatch(selectedIds);
+      return;
+    }
+    if (action === "archive") {
+      closeSelectedActionMenu();
+      await archiveSelected(selectedIds);
+    }
+  }
+
   async function loadMainWorkspace({ showLoading = true, fetchRecords = true, refreshContracts = false } = {}) {
     const loadId = ++state.workspaceLoadId;
 
@@ -1274,7 +1507,14 @@
           "agency_email",
           "agency_phone",
         ]),
-        sessionGet(["submission_batch", "active_submit_id", "last_submit_result"]),
+        sessionGet([
+          "submit_batch",
+          "active_submit_id",
+          "archive_batch",
+          "active_archive_id",
+          "last_submit_result",
+          "last_archive_result",
+        ]),
         fetchRecords ? loadTabPage(state.activeTab, { silent: true }) : Promise.resolve({ ok: true }),
       ]);
 
@@ -1402,24 +1642,42 @@
 
   function bindStorageListener() {
     if (typeof chrome === "undefined" || !chrome.storage?.session?.onChanged) return;
+    // Tracks whether any in-flight debounce cycle saw a batch clear. Using a closure variable
+    // rather than capturing per-event ensures it survives timer resets within the same cycle.
+    let pendingBatchClear = false;
     chrome.storage.session.onChanged.addListener((changes) => {
-      if (!changes.submission_batch && !changes.active_submit_id) return;
+      if (
+        !changes.submit_batch
+        && !changes.active_submit_id
+        && !changes.archive_batch
+        && !changes.active_archive_id
+      ) return;
       if (state.currentScreen !== "main") return;
+      // Detect batch completion directly from the change event's oldValue — more reliable than
+      // comparing state.lastSessionData, which may not have seen the in-progress state when an
+      // operation (e.g. a fast archive) completes within the 50ms debounce window.
+      if (
+        (changes.submit_batch?.newValue == null && changes.submit_batch?.oldValue != null)
+        || (changes.archive_batch?.newValue == null && changes.archive_batch?.oldValue != null)
+      ) {
+        pendingBatchClear = true;
+      }
       if (state.renderTimer) clearTimeout(state.renderTimer);
       state.renderTimer = setTimeout(() => {
         state.renderTimer = null;
-        sessionGet(["submission_batch", "active_submit_id", "last_submit_result"]).then((sessionData) => {
+        const shouldReload = pendingBatchClear;
+        pendingBatchClear = false;
+        sessionGet([
+          "submit_batch",
+          "active_submit_id",
+          "archive_batch",
+          "active_archive_id",
+        ]).then((sessionData) => {
           if (!state.lastLocalData) return;
-          const prevInProgress = QueueFilter.normalizeBatchState(
-            state.lastSessionData?.submission_batch || [],
-            state.lastSessionData?.active_submit_id || null,
-          ).inProgressIds.size;
-          const nextInProgress = QueueFilter.normalizeBatchState(
-            sessionData?.submission_batch || [],
-            sessionData?.active_submit_id || null,
-          ).inProgressIds.size;
+          const prevInProgress = Number(isBatchCurrentlyRunning(state.lastSessionData));
+          const nextInProgress = Number(isBatchCurrentlyRunning(sessionData));
           renderWorkspaceFromCache(state.lastLocalData, sessionData);
-          if (prevInProgress > 0 && nextInProgress === 0) {
+          if (shouldReload || (prevInProgress > 0 && nextInProgress === 0)) {
             state.tabCoordinator = TabFetchCoordinator.markAllDirty(state.tabCoordinator);
             void loadMainWorkspace({ showLoading: false, fetchRecords: true, refreshContracts: false });
           }
@@ -1445,7 +1703,7 @@
   }) {
     if (response?.ok && response?.queued) {
       if (Array.isArray(uploadIds) && state.lastLocalData) {
-        const currentBatch = state.lastSessionData?.submission_batch;
+        const currentBatch = state.lastSessionData?.submit_batch;
         const currentQueue = Array.isArray(currentBatch?.queue) ? currentBatch.queue : [];
         const mergedQueue = [...new Set([...currentQueue, ...uploadIds])];
         const currentResults = currentBatch && typeof currentBatch.results === "object" && !Array.isArray(currentBatch.results)
@@ -1456,7 +1714,7 @@
           || null;
         const optimisticSession = {
           ...state.lastSessionData,
-          submission_batch: {
+          submit_batch: {
             queue: mergedQueue,
             active_id: nextActiveId,
             results: currentResults,
@@ -1607,6 +1865,15 @@
     $("failed-load-more")?.addEventListener("click", () => {
       void loadTabPageMore("failed");
     });
+    $("mark-all-btn")?.addEventListener("click", () => {
+      void runSelectedAction("mark-all");
+    });
+    $("selected-action-submit-btn")?.addEventListener("click", () => {
+      void runSelectedAction("submit");
+    });
+    $("selected-action-archive-btn")?.addEventListener("click", () => {
+      void runSelectedAction("archive");
+    });
     $("contract-select").addEventListener("change", async (event) => {
       if (!event.target.value) {
         return;
@@ -1627,8 +1894,24 @@
     });
     document.querySelectorAll(".tab").forEach((tab) => {
       tab.addEventListener("click", () => {
+        closeSelectedActionMenu();
         activateTab(tab.dataset.tab);
       });
+    });
+    document.addEventListener("click", (event) => {
+      const wrap = $("selected-action-wrap");
+      if (!wrap) {
+        return;
+      }
+      if (wrap.contains(event.target)) {
+        return;
+      }
+      closeSelectedActionMenu();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        closeSelectedActionMenu();
+      }
     });
   }
 
@@ -1650,9 +1933,11 @@
     handleResumeBatchResponse,
     handleSubmitResponse,
     loadTabPageMore,
+    isBatchCurrentlyRunning,
     renderPendingCard,
     renderLoadMoreControls,
     reconcileSelectedUploadIds,
+    sortSectionsForRender,
     buildContractPickerState,
     setDetailLinkLoadingState,
     getSubmissionContextMismatch,

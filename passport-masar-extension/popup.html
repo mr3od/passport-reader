@@ -195,7 +195,16 @@
                 <div id="pending-title" class="queue-title"></div>
                 <div id="workspace-empty-note" class="queue-sub"></div>
               </div>
-              <button id="submit-all-btn" class="button secondary" type="button"></button>
+              <div class="queue-head-actions">
+                <button id="mark-all-btn" class="text-btn hidden" type="button"></button>
+                <div id="selected-action-wrap" class="selected-action-wrap">
+                  <button id="submit-all-btn" class="button secondary" type="button" aria-expanded="false"></button>
+                  <div id="selected-action-menu" class="selected-action-menu hidden">
+                    <button id="selected-action-submit-btn" class="mini-btn primary" type="button"></button>
+                    <button id="selected-action-archive-btn" class="mini-btn ghost" type="button"></button>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <section id="pending-section" class="tab-panel section-block">
@@ -253,7 +262,7 @@
           </label>
           <label class="field" for="settings-phone">
             <span id="settings-phone-label"></span>
-            <input id="settings-phone" class="input" type="tel" />
+            <input id="settings-phone" class="input" type="tel" maxlength="14" />
           </label>
           <button id="btn-save-settings" class="button primary" type="button"></button>
           <button id="btn-reset-token" class="button danger" type="button"></button>

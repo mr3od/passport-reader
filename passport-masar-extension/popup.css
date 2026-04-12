@@ -679,6 +679,49 @@ button:disabled {
   gap: 10px;
 }
 
+.queue-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.text-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-soft);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.text-btn:hover {
+  color: var(--text-main);
+}
+
+.selected-action-wrap {
+  position: relative;
+  display: grid;
+  justify-items: end;
+}
+
+.selected-action-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 150px;
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(89, 60, 26, 0.12);
+  background: rgba(255, 251, 243, 0.98);
+  box-shadow: 0 10px 24px rgba(46, 31, 14, 0.16);
+  z-index: 12;
+}
+
 .queue-title,
 .section-title {
   margin: 0;
@@ -728,13 +771,25 @@ button:disabled {
   justify-content: space-between;
 }
 
-.record-select {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--text-soft);
+.record.is-selectable {
+  cursor: pointer;
+  transition: box-shadow var(--trans-fast), transform var(--trans-fast), border-color var(--trans-fast);
 }
+
+.record.is-selectable:hover {
+  box-shadow: 0 6px 16px rgba(46, 31, 14, 0.08);
+}
+
+.record.is-selectable:focus-visible {
+  outline: 2px solid rgba(191, 139, 41, 0.56);
+  outline-offset: 2px;
+}
+
+.record.is-selected {
+  box-shadow: 0 0 0 2px rgba(86, 114, 68, 0.34), 0 8px 18px rgba(53, 80, 42, 0.14);
+  background: rgba(232, 241, 225, 0.92);
+}
+
 
 .record.review::before {
   background: #cb8a25;

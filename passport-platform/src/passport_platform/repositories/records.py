@@ -36,7 +36,8 @@ LEFT JOIN (
         ms1.submission_group_name AS submission_group_name,
         ms1.submission_group_number AS submission_group_number,
         ms1.failure_reason_code AS failure_reason_code,
-        ms1.failure_reason_text AS failure_reason_text
+        ms1.failure_reason_text AS failure_reason_text,
+        ms1.created_at AS masar_submitted_at
     FROM masar_submissions ms1
     INNER JOIN (
         SELECT upload_id, MAX(id) AS max_id
@@ -541,6 +542,8 @@ def _submit_eligible_where_clause() -> str:
 def _section_order_by_clause(section: str) -> str:
     if section == "archived":
         return "uploads.archived_at DESC, uploads.id DESC"
+    if section == "submitted":
+        return "COALESCE(ms.masar_submitted_at, uploads.created_at) DESC, uploads.id DESC"
     return "uploads.created_at DESC, uploads.id DESC"
 
 

@@ -6,7 +6,7 @@
   root.MasarContextChange = api;
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   const ACTIVE_UI_CONTEXT_KEY = "active_ui_context";
-  const SUBMISSION_BATCH_CONTEXT_KEY = "submission_batch_context";
+  const SUBMIT_BATCH_CONTEXT_KEY = "submit_batch_context";
 
   const SUBMISSION_STATES = Object.freeze({
     IDLE: "idle",
@@ -80,7 +80,7 @@
     return JSON.stringify(current) === JSON.stringify(next);
   }
 
-  function normalizeSubmissionBatchContext(value) {
+  function normalizeSubmitBatchContext(value) {
     if (!value || typeof value !== "object") {
       return null;
     }
@@ -289,19 +289,19 @@
     return normalized;
   }
 
-  async function getSubmissionBatchContext() {
-    const values = await sessionGet([SUBMISSION_BATCH_CONTEXT_KEY]);
-    return normalizeSubmissionBatchContext(values[SUBMISSION_BATCH_CONTEXT_KEY]);
+  async function getSubmitBatchContext() {
+    const values = await sessionGet([SUBMIT_BATCH_CONTEXT_KEY]);
+    return normalizeSubmitBatchContext(values[SUBMIT_BATCH_CONTEXT_KEY]);
   }
 
-  async function setSubmissionBatchContext(context) {
-    const normalized = normalizeSubmissionBatchContext(context);
-    await sessionSet({ [SUBMISSION_BATCH_CONTEXT_KEY]: normalized });
+  async function setSubmitBatchContext(context) {
+    const normalized = normalizeSubmitBatchContext(context);
+    await sessionSet({ [SUBMIT_BATCH_CONTEXT_KEY]: normalized });
     return normalized;
   }
 
-  async function clearSubmissionBatchContext() {
-    await sessionRemove([SUBMISSION_BATCH_CONTEXT_KEY]);
+  async function clearSubmitBatchContext() {
+    await sessionRemove([SUBMIT_BATCH_CONTEXT_KEY]);
   }
 
   async function hasContextChangePending() {
@@ -350,7 +350,7 @@
 
   return {
     ACTIVE_UI_CONTEXT_KEY,
-    SUBMISSION_BATCH_CONTEXT_KEY,
+    SUBMIT_BATCH_CONTEXT_KEY,
     SUBMISSION_STATES,
     buildExplicitContractSelectionContext,
     buildLegacyStoragePatch,
@@ -358,7 +358,7 @@
     activeUiContextsEqual,
     classifyObservedContextChange,
     clearPendingContextChange,
-    clearSubmissionBatchContext,
+    clearSubmitBatchContext,
     createDebouncedContextChecker,
     filterSelectableContracts,
     getActiveUiContext,
@@ -366,14 +366,14 @@
     getDefaultActiveUiContext,
     resolveContractContext,
     getSelectableContractState,
-    getSubmissionBatchContext,
+    getSubmitBatchContext,
     getSubmissionState,
     hasContextChangePending,
     isContractSelectable,
     normalizeActiveUiContext,
-    normalizeSubmissionBatchContext,
+    normalizeSubmitBatchContext,
     setActiveUiContext,
-    setSubmissionBatchContext,
+    setSubmitBatchContext,
     setSubmissionState,
   };
 });

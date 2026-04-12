@@ -2,6 +2,46 @@
 
 Agent-maintained log of significant changes. Each entry records what was done and who did it.
 
+## 2026-04-12 — extension archive lane follow-up, result-banner removal, and version bump [codex]
+
+- Removed the popup result-banner layer from `passport-masar-extension/popup.js`:
+  - dropped both submit and archive completion banners
+  - kept the in-progress submission banner intact
+  - removed the related storage-listener wiring and test exports tied only to dismissible result banners
+- Updated `passport-masar-extension/tests/popup.test.js` to assert the result-banner helper is gone instead of testing banner copy/state
+- Bumped the browser extension manifest version in `passport-masar-extension/manifest.json` from `1.2.0` to `1.3`
+- This commit also includes the broader uncommitted extension archive/selection workflow changes plus the platform seed/submitted-ordering updates already present in the worktree
+- Verification:
+  - Ran `rtk node --test passport-masar-extension/tests/popup.test.js passport-masar-extension/tests/background.test.js`
+  - Result: extension popup/background tests passing (`91 passed, 0 failed`)
+
+## 2026-04-12 — extension selection/archive workflow hardening and seed restore support [kite]
+
+- Reworked the extension popup selection flow in `passport-masar-extension/popup.js`, `popup.html`, `popup.css`, and `strings.js`:
+  - pending and failed cards are selectable directly from the list
+  - the queue header now exposes a loaded-only “mark all” action plus a selected-action menu for submit vs archive
+  - the main CTA now reflects selected-count state instead of broad submit-all wording
+  - archive completion can render its own dismissible result banner, with submit results still taking priority
+  - the settings phone input now caps input length with `maxlength="14"`
+- Split archive execution onto its own background/session lane in `passport-masar-extension/background.js`:
+  - renamed runtime submit storage from `submission_batch` to `submit_batch`
+  - added `archive_batch`, `active_archive_id`, and `last_archive_result`
+  - routed archive work through `ARCHIVE_BATCH`, preserved relink behavior on backend-auth failure, and removed the dead `SET_ARCHIVE_STATE` message branch
+- Tightened optimistic state handling across the extension:
+  - `passport-masar-extension/queue-filter.js` now treats optimistic `archived` results as removed from pending/failed rendering
+  - popup optimistic merging now includes archive batch results so archived rows disappear before the forced reload
+  - `passport-masar-extension/context-change.js` now uses consistent `submit*` helper naming while keeping the stored key `submit_batch_context`
+  - `passport-masar-extension/background.js` now preserves the full submit queue and accumulated results on every mid-drain `submit_batch` write
+- Updated regression coverage in `passport-masar-extension/tests/background.test.js`, `popup.test.js`, and `tab-data-store.test.js` for archive auth propagation, archive result banners, archive-aware batch-running state, loaded-only selection copy, and the renamed submit batch keys
+- Updated repository support files outside the extension:
+  - `passport-platform/src/passport_platform/repositories/records.py` now orders submitted records by latest Masar submission time before falling back to upload creation time
+  - `passport-platform/src/passport_platform/management/seed.py` now restores archived benchmark uploads on rerun instead of leaving them skipped forever
+- Verification:
+  - Ran `rtk node --test passport-masar-extension/tests/*.test.js`
+  - Result: extension tests passing (`133 passed, 0 failed`)
+  - Ran `rtk uv run pytest passport-platform/tests/test_seed_management.py -q`
+  - Result: seed management tests passing (`2 passed`)
+
 ## 2026-04-11 — records archive lane and archive toggle API/platform support [codex]
 
 - Added upload-level archiving support in `passport-platform`:

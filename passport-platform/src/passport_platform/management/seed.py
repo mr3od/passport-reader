@@ -67,19 +67,30 @@ def _reset_masar_submissions(runtime, user) -> int:
         return result.rowcount
 
 
-def _seed_user(runtime, user, cases_dir: Path) -> tuple[int, int]:
-    """Import benchmark cases for a single user. Returns (created, skipped)."""
+def _seed_user(runtime, user, cases_dir: Path) -> tuple[int, int, int]:
+    """Import benchmark cases for a single user. Returns (created, skipped, restored)."""
     existing = {
-        record.source_ref
+        record.source_ref: record
         for record in runtime.records.list_user_records(user.id, limit=1000)
+        if getattr(record, "source_ref", None)
     }
 
     created = 0
     skipped = 0
+    restored = 0
     for case_dir in _case_dirs(cases_dir):
         source_ref = _source_ref(case_dir)
-        if source_ref in existing:
-            skipped += 1
+        existing_record = existing.get(source_ref)
+        if existing_record is not None:
+            if getattr(existing_record, "archived_at", None) is not None:
+                runtime.records.set_archive_state(
+                    upload_id=existing_record.upload_id,
+                    user_id=user.id,
+                    archived=False,
+                )
+                restored += 1
+            else:
+                skipped += 1
             continue
 
         image_path = case_dir / "input.jpeg"
@@ -128,7 +139,7 @@ def _seed_user(runtime, user, cases_dir: Path) -> tuple[int, int]:
         )
         created += 1
 
-    return created, skipped
+    return created, skipped, restored
 
 
 def main() -> int:
@@ -164,13 +175,14 @@ def main() -> int:
             )
             continue
 
-        created, skipped = _seed_user(runtime, user, args.cases_dir)
+        created, skipped, restored = _seed_user(runtime, user, args.cases_dir)
         reset = _reset_masar_submissions(runtime, user)
         print(
             f"telegram_user_id={telegram_user_id} "
             f"user_id={user.id} "
             f"records_created={created} "
             f"records_skipped={skipped} "
+            f"records_restored={restored} "
             f"masar_submissions_reset={reset}"
         )
 

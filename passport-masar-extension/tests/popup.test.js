@@ -1,5 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const Strings = require("../strings.js");
 
 const {
   getSectionEmptyNote,
@@ -14,12 +15,14 @@ const {
   handleCardClick,
   handleSubmitResponse,
   handleContractSelectionChange,
+  isBatchCurrentlyRunning,
   buildContractPickerState,
   decideBootstrapAction,
   getSubmissionContextMismatch,
   getSubmissionContextMismatchToast,
   handleResumeBatchResponse,
   reconcileSelectedUploadIds,
+  sortSectionsForRender,
   setDetailLinkLoadingState,
   showToast,
 } = require("../popup.js");
@@ -27,7 +30,7 @@ const {
 test("buildBatchBannerState summarizes the richer batch object", () => {
   assert.deepEqual(
     buildBatchBannerState({
-      submission_batch: {
+      submit_batch: {
         queue: [10, 11, 12, 13, 1, 2, 3, 4, 5, 6, 7, 8],
         active_id: 10,
         results: {
@@ -64,7 +67,7 @@ test("buildBatchBannerState includes failed count in detail when failures exist"
   });
   assert.deepEqual(
     buildBatchBannerState({
-      submission_batch: {
+      submit_batch: {
         queue: [20, 21, 22, 23, ...Array.from({ length: 62 }, (_v, i) => i + 24)],
         active_id: 20,
         results,
@@ -208,6 +211,10 @@ test("buildContractPickerState keeps the dropdown when there is a real contract 
   assert.equal(state.emptyMessage, "");
 });
 
+test("mark-all copy makes the loaded-only scope explicit", () => {
+  assert.equal(Strings.ACTION_MARK_ALL_SELECTABLE, "تحديد المحمل");
+});
+
 test("handleResumeBatchResponse surfaces a missing batch instead of silently pretending to resume", async () => {
   const calls = [];
 
@@ -263,6 +270,42 @@ test("buildRenderableServerSections replays the last submit result into cached s
   assert.equal(sections.submitted[0].upload_id, 21);
   assert.equal(sections.submitted[0].masar_status, "submitted");
   assert.equal(sections.submitted[0].masar_detail_id, "detail-21");
+});
+
+test("sortSectionsForRender keeps in-progress rows in queue order with active first", () => {
+  const sorted = sortSectionsForRender({
+    sections: {
+      pending: [],
+      inProgress: [
+        { upload_id: 12, created_at: "2026-03-13T12:00:00+00:00" },
+        { upload_id: 10, created_at: "2026-03-13T10:00:00+00:00" },
+        { upload_id: 11, created_at: "2026-03-13T11:00:00+00:00" },
+      ],
+      submitted: [],
+      failed: [],
+    },
+    sessionData: {
+      submit_batch: { queue: [10, 11, 12], active_id: 11, results: {} },
+      active_submit_id: 11,
+    },
+  });
+
+  assert.deepEqual(sorted.inProgress.map((record) => record.upload_id), [11, 10, 12]);
+});
+
+test("isBatchCurrentlyRunning returns true for archive batches too", () => {
+  assert.equal(
+    isBatchCurrentlyRunning({
+      archive_batch: { queue: [91], active_id: 91, results: {} },
+      active_archive_id: 91,
+    }),
+    true,
+  );
+});
+
+test("popup no longer exports result banner helpers", () => {
+  const popup = require("../popup.js");
+  assert.equal(Object.hasOwn(popup, "buildResultBannerState"), false);
 });
 
 test("handleCardClick delegates mutamer details opening to the background worker", async () => {
@@ -577,7 +620,7 @@ test("getRecordNote shows unknown raw failure text on failed cards in pre-releas
   );
 });
 
-test("getRecordNote prefers the queued retry state over stale failed text", () => {
+test("getRecordNote suppresses duplicate in-progress labels in the card body", () => {
   assert.equal(
     getRecordNote({
       upload_status: "processed",
@@ -588,7 +631,7 @@ test("getRecordNote prefers the queued retry state over stale failed text", () =
       _section: "inProgress",
       _inProgressState: "queued",
     }),
-    "في الانتظار",
+    "",
   );
 });
 
@@ -693,32 +736,37 @@ test("reconcileSelectedUploadIds drops ghost ids and keeps only selectable ids",
 test("buildSubmitSelectionActionState keeps button visible and disables when selection is empty", () => {
   const empty = buildSubmitSelectionActionState({
     selectedCount: 0,
-    canSubmit: true,
     isBatchRunning: false,
-    baseLabel: "رفع المحدد",
   });
   const withSelection = buildSubmitSelectionActionState({
     selectedCount: 3,
-    canSubmit: true,
     isBatchRunning: false,
-    baseLabel: "رفع المحدد",
   });
 
   assert.equal(empty.hidden, false);
   assert.equal(empty.disabled, true);
-  assert.equal(empty.label, "رفع المحدد");
+  assert.equal(empty.label, "المحدد 0");
   assert.equal(withSelection.hidden, false);
   assert.equal(withSelection.disabled, false);
-  assert.equal(withSelection.label, "رفع المحدد (3)");
+  assert.equal(withSelection.label, "المحدد 3");
 });
 
 test("buildSubmitSelectionActionState disables while batch is running", () => {
   const state = buildSubmitSelectionActionState({
     selectedCount: 2,
-    canSubmit: true,
     isBatchRunning: true,
-    baseLabel: "رفع المحدد",
   });
 
   assert.equal(state.disabled, true);
+});
+
+test("buildSubmitSelectionActionState disables submit action when contract is not active", () => {
+  const state = buildSubmitSelectionActionState({
+    selectedCount: 2,
+    isBatchRunning: false,
+    canSubmit: false,
+  });
+
+  assert.equal(state.disabled, false);
+  assert.equal(state.submitDisabled, true);
 });
