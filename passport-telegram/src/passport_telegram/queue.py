@@ -283,6 +283,13 @@ class ChatQueueManager:
                     await self._send_or_edit_status(context, queue)
 
             # Final update.
+            logger.info(
+                "queue_complete chat_id=%s total=%s ok=%s fail=%s",
+                queue.chat_id,
+                queue.total,
+                queue.success_count,
+                queue.fail_count,
+            )
             await self._send_or_edit_status(context, queue, force=True)
 
         except asyncio.CancelledError:
@@ -290,6 +297,7 @@ class ChatQueueManager:
         except Exception:
             logger.exception("chat_queue_worker_crashed chat_id=%s", queue.chat_id)
         finally:
+            logger.info("queue_worker_exit chat_id=%s", queue.chat_id)
             self._schedule_cleanup(queue.chat_id)
 
     # ── status message ────────────────────────────────────────────────────
@@ -521,8 +529,11 @@ async def handle_single_result_callback(
     except Exception:
         logger.warning("result_delivery_failed chat_id=%s idx=%s", chat_id, item_index)
 
-    # Refresh keyboard — delivered button disappears.
-    await queue_manager._send_or_edit_status(context, queue, force=True)
+    # Refresh keyboard only if worker is done (no race).
+    # If worker is still running, it will pick up the change on its next cycle.
+    worker_done = queue._worker_task is None or queue._worker_task.done()
+    if worker_done:
+        await queue_manager._send_or_edit_status(context, queue, force=True)
 
 
 async def handle_errors_callback(
