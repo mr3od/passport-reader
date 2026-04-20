@@ -287,19 +287,23 @@ def test_chat_queue_counts():
     """ChatQueue properties compute correct counts."""
     queue = ChatQueue(chat_id=1, external_user_id="u1")
     queue.items = [
-        QueueItem(upload=_make_upload("a"), state=ItemState.SUCCESS, display_name="A"),
+        QueueItem(
+            upload=_make_upload("a"),
+            state=ItemState.SUCCESS,
+            display_name="A",
+            delivered=True,
+        ),
         QueueItem(upload=_make_upload("b"), state=ItemState.FAILED, failure_reason="err"),
         QueueItem(upload=_make_upload("c"), state=ItemState.PENDING),
     ]
-    queue.delivered_count = 1
 
     assert queue.total == 3
     assert queue.success_count == 1
     assert queue.fail_count == 1
     assert queue.pending_count == 1
     assert queue.done_count == 2
-    assert queue.undelivered_success_count == 0
     assert not queue.is_complete
+    assert not queue.all_delivered
 
 
 def test_deliver_pending_broadcast_sends_text_to_active_users(tmp_path) -> None:

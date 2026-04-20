@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from passport_platform import TrackedProcessingResult
     from telegram.ext import ContextTypes
 
-    from passport_telegram.bot import BotServices, TelegramImageUpload
+    from passport_telegram.bot import TelegramImageUpload
 
 logger = logging.getLogger(__name__)
 
@@ -46,11 +46,12 @@ class QueueItem:
     failure_reason: str | None = None
     payload: bytes | None = None
     tracked_result: TrackedProcessingResult | None = None
+    delivered: bool = False
 
 
 # ── Per-chat queue ────────────────────────────────────────────────────────────
 
-RESULTS_CB = "q:results"
+RESULT_CB_PREFIX = "q:r:"
 ERRORS_CB = "q:errors"
 
 
@@ -63,7 +64,6 @@ class ChatQueue:
     display_name: str | None = None
     items: list[QueueItem] = field(default_factory=list)
     status_message_id: int | None = None
-    delivered_count: int = 0
     _last_edit_ts: float = 0.0
     _worker_task: asyncio.Task | None = field(default=None, repr=False)
     _status_stale: bool = False
@@ -97,8 +97,10 @@ class ChatQueue:
         )
 
     @property
-    def undelivered_success_count(self) -> int:
-        return self.success_count - self.delivered_count
+    def all_delivered(self) -> bool:
+        return self.is_complete and all(
+            i.delivered for i in self.items if i.state is ItemState.SUCCESS
+        )
 
     def success_items(self) -> list[QueueItem]:
         return [i for i in self.items if i.state is ItemState.SUCCESS]
@@ -196,7 +198,7 @@ class ChatQueueManager:
         from passport_telegram.bot import _download_upload
         from passport_telegram.messages import quota_exceeded_text, user_blocked_text
 
-        services: BotServices = context.application.bot_data["services"]
+        services = context.application.bot_data["services"]
 
         try:
             user = await asyncio.to_thread(
@@ -288,11 +290,7 @@ class ChatQueueManager:
         except Exception:
             logger.exception("chat_queue_worker_crashed chat_id=%s", queue.chat_id)
         finally:
-            loop = asyncio.get_running_loop()
-            loop.call_later(
-                self._cleanup_timeout,
-                lambda cid=queue.chat_id: self._queues.pop(cid, None),
-            )
+            self._schedule_cleanup(queue.chat_id)
 
     # ── status message ────────────────────────────────────────────────────
 
@@ -347,6 +345,28 @@ class ChatQueueManager:
 
         queue._last_edit_ts = time.monotonic()
 
+    # ── cleanup ───────────────────────────────────────────────────────────
+
+    def _schedule_cleanup(self, chat_id: int) -> None:
+        """Remove queue after timeout, but only if all results are delivered."""
+        loop = asyncio.get_running_loop()
+        loop.call_later(self._cleanup_timeout, self._try_cleanup, chat_id)
+
+    def _try_cleanup(self, chat_id: int) -> None:
+        queue = self._queues.get(chat_id)
+        if queue is None:
+            return
+        # Don't clean up if worker is still running.
+        if queue._worker_task and not queue._worker_task.done():
+            return
+        # Don't clean up if there are undelivered results — user may
+        # still click buttons. Reschedule.
+        if not queue.all_delivered and queue.success_count > 0:
+            loop = asyncio.get_running_loop()
+            loop.call_later(self._cleanup_timeout, self._try_cleanup, chat_id)
+            return
+        self._queues.pop(chat_id, None)
+
 
 # ── Status text builders ──────────────────────────────────────────────────────
 
@@ -400,7 +420,9 @@ def _build_complete_text(queue: ChatQueue) -> str:
 
 def _item_line(idx: int, item: QueueItem) -> str:
     if item.state is ItemState.SUCCESS:
-        return f"✅ {idx}. {item.display_name or f'جواز {idx}'}"
+        label = item.display_name or f"جواز {idx}"
+        tick = "☑" if item.delivered else "✅"
+        return f"{tick} {idx}. {label}"
     if item.state is ItemState.FAILED:
         return f"❌ {idx}. {item.failure_reason or 'خطأ'}"
     if item.state is ItemState.PROCESSING:
@@ -409,64 +431,80 @@ def _item_line(idx: int, item: QueueItem) -> str:
 
 
 def _build_status_keyboard(queue: ChatQueue) -> list[list[InlineKeyboardButton]]:
-    """Build inline keyboard buttons for the status message."""
-    row: list[InlineKeyboardButton] = []
+    """Build inline keyboard with per-result buttons and error button."""
+    rows: list[list[InlineKeyboardButton]] = []
 
-    undelivered = queue.undelivered_success_count
-    if undelivered > 0:
-        row.append(
-            InlineKeyboardButton(
-                f"📥 عرض النتائج ({undelivered})",
-                callback_data=RESULTS_CB,
+    # Individual result buttons for undelivered successes.
+    for idx, item in enumerate(queue.items):
+        if item.state is ItemState.SUCCESS and not item.delivered:
+            name = item.display_name or f"جواز {idx + 1}"
+            rows.append(
+                [
+                    InlineKeyboardButton(
+                        f"📄 {name}",
+                        callback_data=f"{RESULT_CB_PREFIX}{idx}",
+                    )
+                ]
             )
-        )
 
     if queue.fail_count > 0:
-        row.append(
-            InlineKeyboardButton(
-                f"❌ تفاصيل الأخطاء ({queue.fail_count})",
-                callback_data=ERRORS_CB,
-            )
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    f"❌ تفاصيل الأخطاء ({queue.fail_count})",
+                    callback_data=ERRORS_CB,
+                )
+            ]
         )
 
-    return [row] if row else []
+    return rows
 
 
 # ── Callback handlers ─────────────────────────────────────────────────────────
 
 
-async def handle_results_callback(
+async def handle_single_result_callback(
     context: ContextTypes.DEFAULT_TYPE,
     queue_manager: ChatQueueManager,
     chat_id: int,
     callback_query_id: str,
+    item_index: int,
 ) -> None:
-    """Send un-delivered success results as individual photo messages."""
+    """Send a single result by index."""
     queue = queue_manager.get_queue(chat_id)
-    if queue is None:
-        await context.bot.answer_callback_query(callback_query_id, text="لا توجد نتائج حالياً")
+    if queue is None or item_index >= len(queue.items):
+        await context.bot.answer_callback_query(callback_query_id, text="النتيجة غير متوفرة")
         return
 
-    successes = queue.success_items()
-    to_deliver = successes[queue.delivered_count :]
-
-    if not to_deliver:
-        await context.bot.answer_callback_query(callback_query_id, text="تم عرض جميع النتائج")
+    item = queue.items[item_index]
+    if item.state is not ItemState.SUCCESS:
+        await context.bot.answer_callback_query(callback_query_id, text="النتيجة غير متوفرة")
         return
 
     await context.bot.answer_callback_query(callback_query_id)
 
     from passport_telegram.messages import format_success_text
 
-    total = queue.total
-    for item in to_deliver:
-        idx = queue.items.index(item) + 1
-        if item.tracked_result is not None:
-            caption = format_success_text(item.tracked_result, position=idx, total=total)
-        else:
-            name = item.display_name or f"جواز {idx}"
-            caption = f"✅ الصورة {idx} من {total}\n{name}"
+    idx = item_index + 1
+    if item.tracked_result is not None:
+        caption = format_success_text(item.tracked_result, position=idx, total=queue.total)
+    else:
+        name = item.display_name or f"جواز {idx}"
+        caption = f"✅ الصورة {idx} من {queue.total}\n{name}"
 
+    try:
+        if item.payload:
+            await context.bot.send_photo(
+                chat_id=chat_id,
+                photo=item.payload,
+                caption=caption,
+                parse_mode="Markdown",
+            )
+        else:
+            await context.bot.send_message(chat_id=chat_id, text=caption, parse_mode="Markdown")
+        item.delivered = True
+    except RetryAfter as exc:
+        await asyncio.sleep(_retry_seconds(exc.retry_after))
         try:
             if item.payload:
                 await context.bot.send_photo(
@@ -476,36 +514,14 @@ async def handle_results_callback(
                     parse_mode="Markdown",
                 )
             else:
-                await context.bot.send_message(
-                    chat_id=chat_id,
-                    text=caption,
-                    parse_mode="Markdown",
-                )
-            queue.delivered_count += 1
-            await asyncio.sleep(1.0)
-        except RetryAfter as exc:
-            await asyncio.sleep(_retry_seconds(exc.retry_after))
-            try:
-                if item.payload:
-                    await context.bot.send_photo(
-                        chat_id=chat_id,
-                        photo=item.payload,
-                        caption=caption,
-                        parse_mode="Markdown",
-                    )
-                else:
-                    await context.bot.send_message(
-                        chat_id=chat_id,
-                        text=caption,
-                        parse_mode="Markdown",
-                    )
-                queue.delivered_count += 1
-            except Exception:
-                logger.warning("result_delivery_retry_failed chat_id=%s", chat_id)
+                await context.bot.send_message(chat_id=chat_id, text=caption, parse_mode="Markdown")
+            item.delivered = True
         except Exception:
-            logger.warning("result_delivery_failed chat_id=%s idx=%s", chat_id, idx)
+            logger.warning("result_delivery_retry_failed chat_id=%s", chat_id)
+    except Exception:
+        logger.warning("result_delivery_failed chat_id=%s idx=%s", chat_id, item_index)
 
-    # Refresh keyboard counts.
+    # Refresh keyboard — delivered button disappears.
     await queue_manager._send_or_edit_status(context, queue, force=True)
 
 

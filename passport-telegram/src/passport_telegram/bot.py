@@ -53,10 +53,10 @@ from passport_telegram.messages import (
 )
 from passport_telegram.queue import (
     ERRORS_CB,
-    RESULTS_CB,
+    RESULT_CB_PREFIX,
     ChatQueueManager,
     handle_errors_callback,
-    handle_results_callback,
+    handle_single_result_callback,
 )
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".tif", ".tiff"}
@@ -335,10 +335,15 @@ async def callback_query_handler(update: Update, context: ContextTypes.DEFAULT_T
     queue_manager: ChatQueueManager = context.application.bot_data["queue_manager"]
     data = query.data or ""
 
-    if data == RESULTS_CB:
-        await handle_results_callback(context, queue_manager, chat.id, query.id)
-    elif data == ERRORS_CB:
+    if data == ERRORS_CB:
         await handle_errors_callback(context, queue_manager, chat.id, query.id)
+    elif data.startswith(RESULT_CB_PREFIX):
+        try:
+            item_index = int(data[len(RESULT_CB_PREFIX) :])
+        except ValueError:
+            await query.answer()
+            return
+        await handle_single_result_callback(context, queue_manager, chat.id, query.id, item_index)
     else:
         await query.answer()
 
