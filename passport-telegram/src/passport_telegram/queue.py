@@ -7,6 +7,7 @@ thrashing when a user sends many images across multiple media groups.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import time
 from dataclasses import dataclass, field
@@ -67,6 +68,7 @@ class ChatQueue:
     status_message_id: int | None = None
     _last_edit_ts: float = 0.0
     _worker_task: asyncio.Task | None = field(default=None, repr=False)
+    _needs_reposition: bool = False
 
     @property
     def total(self) -> int:
@@ -155,6 +157,9 @@ class ChatQueueManager:
                 display_name=display_name,
             )
             self._queues[chat_id] = queue
+        else:
+            # Worker is active — flag for repositioning on next edit.
+            queue._needs_reposition = True
 
         for u in uploads:
             queue.items.append(QueueItem(upload=u))
@@ -326,6 +331,16 @@ class ChatQueueManager:
         elapsed = now - queue._last_edit_ts
         if not force and elapsed < self._chat_interval:
             await asyncio.sleep(self._chat_interval - elapsed)
+
+        # Reposition: delete old message, send fresh one at bottom.
+        # Safe because only the worker calls this method.
+        if queue._needs_reposition and queue.status_message_id is not None:
+            with contextlib.suppress(Exception):
+                await context.bot.delete_message(
+                    chat_id=queue.chat_id, message_id=queue.status_message_id
+                )
+            queue.status_message_id = None
+            queue._needs_reposition = False
 
         text = _build_status_text(queue)
         keyboard = _build_status_keyboard(queue)
