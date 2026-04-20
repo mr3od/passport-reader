@@ -16,9 +16,12 @@ from telegram.ext import ContextTypes
 class FakeReplyMessage:
     def __init__(self) -> None:
         self.replies: list[str] = []
+        self.markups: list[object] = []
 
-    async def reply_text(self, text: str) -> None:
+    async def reply_text(self, text: str, **kwargs: object) -> None:
         self.replies.append(text)
+        if "reply_markup" in kwargs:
+            self.markups.append(kwargs["reply_markup"])
 
 
 class FakeTelegramFile:
@@ -75,8 +78,8 @@ def test_admin_command_returns_help_for_allowlisted_admin():
     asyncio.run(admin_command(update, context))
 
     assert len(reply.replies) == 1
-    assert "/stats" in reply.replies[0]
-    assert "/setplan" in reply.replies[0]
+    assert "Admin Panel" in reply.replies[0]
+    assert len(reply.markups) == 1
 
 
 def test_stats_command_rejects_non_admin_user():

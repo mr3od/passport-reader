@@ -86,7 +86,12 @@ class ReportingRepository:
             total_failures=usage_totals.get(UsageEventType.FAILED_PROCESS.value, 0),
         )
 
-    def list_recent_uploads(self, *, limit: int = 10) -> list[RecentUploadRecord]:
+    def list_recent_uploads(
+        self,
+        *,
+        limit: int = 10,
+        offset: int = 0,
+    ) -> list[RecentUploadRecord]:
         with self.db.connect() as conn:
             rows = conn.execute(
                 """
@@ -109,9 +114,9 @@ class ReportingRepository:
                 JOIN users ON users.id = uploads.user_id
                 LEFT JOIN processing_results ON processing_results.upload_id = uploads.id
                 ORDER BY uploads.created_at DESC, uploads.id DESC
-                LIMIT ?
+                LIMIT ? OFFSET ?
                 """,
-                (limit,),
+                (limit, offset),
             ).fetchall()
         return [_row_to_recent_upload(row) for row in rows]
 

@@ -13,10 +13,16 @@ from passport_platform import (
     UserStatus,
     build_platform_runtime,
 )
-from telegram import Message, PhotoSize, Update
-from telegram.ext import Application, CommandHandler, ContextTypes
+from telegram import BotCommand, Message, PhotoSize, Update
+from telegram.ext import (
+    Application,
+    CallbackQueryHandler,
+    CommandHandler,
+    ContextTypes,
+)
 
 from passport_admin_bot.config import AdminBotSettings
+from passport_admin_bot.menus import main_menu_markup, render_users, route_callback
 from passport_admin_bot.messages import (
     admin_only_text,
     broadcast_download_failed_text,
@@ -27,8 +33,6 @@ from passport_admin_bot.messages import (
     format_user_usage_report,
     help_text,
     setplan_help_text,
-    status_help_text,
-    usage_help_text,
     user_not_found_text,
     user_plan_updated_text,
     user_status_updated_text,
@@ -46,7 +50,21 @@ class BotServices:
         return None
 
 
+COMMANDS = [
+    BotCommand("start", "Start the bot"),
+    BotCommand("admin", "Interactive admin panel"),
+    BotCommand("stats", "Monthly usage summary"),
+    BotCommand("recent", "Recent uploads"),
+    BotCommand("usage", "Usage for one agency"),
+    BotCommand("setplan", "Change agency plan"),
+    BotCommand("block", "Block agency access"),
+    BotCommand("unblock", "Restore agency access"),
+    BotCommand("broadcast", "Queue a broadcast"),
+]
+
+
 def build_application(settings: AdminBotSettings) -> Application:
+    """Build the admin bot application with command and callback handlers."""
     services = _build_bot_services()
     application = Application.builder().token(settings.bot_token.get_secret_value()).build()
     application.bot_data["settings"] = settings
@@ -62,7 +80,18 @@ def build_application(settings: AdminBotSettings) -> Application:
     application.add_handler(CommandHandler("block", block_command))
     application.add_handler(CommandHandler("unblock", unblock_command))
     application.add_handler(CommandHandler("broadcast", broadcast_command))
+    application.add_handler(CallbackQueryHandler(_callback_handler))
+
+    application.post_init = _post_init
     return application
+
+
+async def _post_init(application: Application) -> None:
+    """Register bot commands with Telegram on startup."""
+    await application.bot.set_my_commands(COMMANDS)
+
+
+# ── Commands ─────────────────────────────────────────────────────────
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -78,9 +107,13 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send the interactive admin panel as a new message."""
     if not await _require_admin(update, context):
         return
-    await _reply_text(update, help_text())
+    text, markup = main_menu_markup()
+    msg = update.effective_message
+    if msg:
+        await msg.reply_text(text, reply_markup=markup)
 
 
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -103,11 +136,18 @@ async def recent_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 async def usage_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Show usage for a user. If no ID given, show interactive user picker."""
     if not await _require_admin(update, context):
         return
     args = context.args or []
     if len(args) != 1:
-        await _reply_text(update, usage_help_text())
+        text, markup = await render_users(context, 0)
+        msg = update.effective_message
+        if msg:
+            await msg.reply_text(
+                "Select a user to view usage:",
+                reply_markup=markup,
+            )
         return
 
     services: BotServices = context.application.bot_data["services"]
@@ -121,9 +161,20 @@ async def usage_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 async def setplan_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Change user plan. If args missing, show interactive user picker."""
     if not await _require_admin(update, context):
         return
     args = context.args or []
+    if len(args) < 1:
+        text, markup = await render_users(context, 0)
+        msg = update.effective_message
+        if msg:
+            await msg.reply_text(
+                "Select a user to change plan:",
+                reply_markup=markup,
+            )
+        return
+
     if len(args) != 2:
         await _reply_text(update, setplan_help_text())
         return
@@ -151,7 +202,10 @@ async def unblock_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     await _set_user_status(update, context, UserStatus.ACTIVE, "unblock")
 
 
-async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def broadcast_command(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+) -> None:
     if not await _require_admin(update, context):
         return
 
@@ -194,11 +248,33 @@ async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     await _reply_text(update, broadcast_queued_text())
 
 
+# ── Callback handler ─────────────────────────────────────────────────
+
+
+async def _callback_handler(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+) -> None:
+    """Route inline keyboard callbacks, with admin check."""
+    if not _is_admin_user(context, update):
+        query = update.callback_query
+        if query:
+            await query.answer(admin_only_text(), show_alert=True)
+        return
+    await route_callback(update, context)
+
+
+# ── Internals ────────────────────────────────────────────────────────
+
+
 async def telegram_error_handler(
     update: object,
     context: ContextTypes.DEFAULT_TYPE,
 ) -> None:
-    logging.getLogger(__name__).exception("admin_bot_update_failed", exc_info=context.error)
+    logging.getLogger(__name__).exception(
+        "admin_bot_update_failed",
+        exc_info=context.error,
+    )
 
 
 def _build_bot_services() -> BotServices:
@@ -223,7 +299,10 @@ def _is_admin_user(context: ContextTypes.DEFAULT_TYPE, update: Update) -> bool:
     return username.lower() in settings.admin_username_set
 
 
-async def _require_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+async def _require_admin(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+) -> bool:
     if _is_admin_user(context, update):
         return True
     await _reply_text(update, admin_only_text())
@@ -236,11 +315,18 @@ async def _set_user_status(
     status: UserStatus,
     command_name: str,
 ) -> None:
+    """Change user status. If no ID given, show interactive user picker."""
     if not await _require_admin(update, context):
         return
     args = context.args or []
     if len(args) != 1:
-        await _reply_text(update, status_help_text(command_name))
+        text, markup = await render_users(context, 0)
+        msg = update.effective_message
+        if msg:
+            await msg.reply_text(
+                f"Select a user to {command_name}:",
+                reply_markup=markup,
+            )
         return
 
     services: BotServices = context.application.bot_data["services"]
