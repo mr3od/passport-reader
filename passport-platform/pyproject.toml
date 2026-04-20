@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
   "passport-core",
-  "psycopg>=3.3.3",
+  "psycopg[binary]>=3.3.3",
   "pydantic-settings>=2.4.0",
 ]
 
