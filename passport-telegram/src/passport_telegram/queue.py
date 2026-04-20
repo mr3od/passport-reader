@@ -145,6 +145,12 @@ class ChatQueueManager:
                 display_name=display_name,
             )
             self._queues[chat_id] = queue
+        else:
+            # New images arrived — delete old status so a fresh one appears
+            # at the bottom of the chat after the newly received images.
+            if queue.status_message_id is not None:
+                asyncio.create_task(_try_delete(context, chat_id, queue.status_message_id))
+                queue.status_message_id = None
 
         for u in uploads:
             queue.items.append(QueueItem(upload=u))
@@ -552,3 +558,15 @@ async def _safe_send(
         await context.bot.send_message(chat_id=chat_id, text=text)
     except Exception:
         logger.warning("safe_send_failed chat_id=%s", chat_id)
+
+
+async def _try_delete(
+    context: ContextTypes.DEFAULT_TYPE,
+    chat_id: int,
+    message_id: int,
+) -> None:
+    """Delete a message, absorbing errors."""
+    try:
+        await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
+    except Exception:
+        logger.debug("delete_message_failed chat_id=%s msg=%s", chat_id, message_id)
