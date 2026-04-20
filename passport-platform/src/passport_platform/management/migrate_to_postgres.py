@@ -16,6 +16,16 @@ import sqlite3
 import sys
 from typing import Any
 
+_BOOL_COLUMNS = {"is_passport", "is_complete"}
+
+
+def _cast(col: str, value: Any) -> Any:
+    """Cast SQLite values to Postgres-compatible types."""
+    if col in _BOOL_COLUMNS and isinstance(value, int):
+        return bool(value)
+    return value
+
+
 # Table migration order (respects foreign keys).
 TABLES = [
     "users",
@@ -57,7 +67,7 @@ def migrate(sqlite_path: str, pg_url: str, *, dry_run: bool = False) -> None:
             )
 
             for row in rows:
-                values = tuple(row[col] for col in columns)
+                values = tuple(_cast(col, row[col]) for col in columns)
                 dst.execute(query, values)
 
             print(f"  {table}: {len(rows)} rows migrated")
