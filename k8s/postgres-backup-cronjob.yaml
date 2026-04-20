@@ -1,0 +1,56 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+  namespace: passport-reader
+  labels:
+    app.kubernetes.io/name: postgres-backup
+    app.kubernetes.io/component: backup
+    app.kubernetes.io/part-of: passport-reader
+spec:
+  schedule: "0 3 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: backup
+              image: postgres:16-alpine
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  BACKUP_DIR=/backups/daily
+                  mkdir -p "$BACKUP_DIR"
+                  FILENAME="$BACKUP_DIR/$(date +%Y-%m-%d).sql.gz"
+                  pg_dump -h postgres -U passport passport_reader | gzip > "$FILENAME"
+                  echo "Backup created: $FILENAME ($(du -h "$FILENAME" | cut -f1))"
+                  # Keep last 14 backups.
+                  ls -t "$BACKUP_DIR"/*.sql.gz 2>/dev/null | tail -n +15 | xargs -r rm -v
+                  echo "Remaining backups:"
+                  ls -lh "$BACKUP_DIR"/*.sql.gz
+              env:
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: passport-reader-env
+                      key: PASSPORT_PLATFORM_POSTGRES_PASSWORD
+              volumeMounts:
+                - name: backups
+                  mountPath: /backups
+              resources:
+                requests:
+                  cpu: "50m"
+                  memory: "64Mi"
+                limits:
+                  cpu: "200m"
+                  memory: "128Mi"
+          volumes:
+            - name: backups
+              persistentVolumeClaim:
+                claimName: passport-reader-backups

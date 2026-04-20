@@ -61,7 +61,7 @@ def build_platform_runtime(
     settings.db_path = _resolve(resolved_root_dir, settings.db_path)
     settings.artifacts_dir = _resolve(resolved_root_dir, settings.artifacts_dir)
 
-    db = Database(settings.db_path)
+    db = Database.from_settings(settings)
     db.initialize()
     return _build_platform_runtime(settings=settings, db=db)
 
