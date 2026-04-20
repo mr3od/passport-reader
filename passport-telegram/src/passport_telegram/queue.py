@@ -8,12 +8,13 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import io
 import logging
 import time
 from dataclasses import dataclass, field
 from datetime import timedelta
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from passport_platform.enums import ChannelName
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
@@ -55,6 +56,8 @@ class QueueItem:
 RESULT_CB_PREFIX = "q:r:"
 ERRORS_CB = "q:errors"
 EXTRACTION_TIMEOUT_SECONDS = 120.0
+RATE_LIMIT_RETRY_DELAY = 10.0
+MAX_RETRIES = 1
 
 
 @dataclass
@@ -144,9 +147,7 @@ class ChatQueueManager:
         """Add uploads to the per-chat queue, starting a worker if needed."""
         queue = self._queues.get(chat_id)
         worker_active = (
-            queue is not None
-            and queue._worker_task is not None
-            and not queue._worker_task.done()
+            queue is not None and queue._worker_task is not None and not queue._worker_task.done()
         )
 
         if queue is None or not worker_active:
@@ -193,18 +194,10 @@ class ChatQueueManager:
         context: ContextTypes.DEFAULT_TYPE,
     ) -> None:
         """Drain the queue serially, updating the status message."""
-        from passport_platform import (
-            ExternalProvider,
-            ProcessingFailedError,
-            ProcessUploadCommand,
-            QuotaExceededError,
-            UserBlockedError,
-            UserStatus,
-        )
+        from passport_platform import ExternalProvider, UserStatus
         from passport_platform.schemas.commands import EnsureUserCommand
 
-        from passport_telegram.bot import _download_upload
-        from passport_telegram.messages import quota_exceeded_text, user_blocked_text
+        from passport_telegram.messages import user_blocked_text
 
         services = context.application.bot_data["services"]
 
@@ -232,50 +225,14 @@ class ChatQueueManager:
                 await self._send_or_edit_status(context, queue)
 
                 async with self._extraction_sem:
-                    try:
-                        payload = await _download_upload(context, item.upload)
-                        item.payload = payload
-                        tracked = await asyncio.wait_for(
-                            asyncio.to_thread(
-                                services.processing.process_bytes,
-                                ProcessUploadCommand(
-                                    external_provider=ExternalProvider.TELEGRAM,
-                                    external_user_id=queue.external_user_id,
-                                    display_name=queue.display_name,
-                                    channel=ChannelName.TELEGRAM,
-                                    filename=item.upload.filename,
-                                    mime_type=item.upload.mime_type,
-                                    source_ref=item.upload.source_ref,
-                                    payload=payload,
-                                    external_message_id=item.upload.external_message_id,
-                                    external_file_id=item.upload.external_file_id,
-                                ),
-                            ),
-                            timeout=EXTRACTION_TIMEOUT_SECONDS,
-                        )
-                    except QuotaExceededError as exc:
-                        item.state = ItemState.FAILED
-                        item.failure_reason = "تجاوز الحد المسموح"
-                        for remaining in queue.items:
-                            if remaining.state is ItemState.PENDING:
-                                remaining.state = ItemState.FAILED
-                                remaining.failure_reason = "تجاوز الحد المسموح"
-                        await self._send_or_edit_status(context, queue, force=True)
-                        await _safe_send(context, queue.chat_id, quota_exceeded_text(exc.decision))
-                        return
-                    except UserBlockedError:
-                        await _safe_send(context, queue.chat_id, user_blocked_text())
-                        return
-                    except TimeoutError:
-                        logger.warning("queue_extraction_timeout chat_id=%s", queue.chat_id)
-                        item.state = ItemState.FAILED
-                        item.failure_reason = "انتهت مهلة المعالجة"
-                        await self._send_or_edit_status(context, queue)
-                        continue
-                    except (ProcessingFailedError, Exception):
-                        logger.exception("queue_processing_failed")
-                        item.state = ItemState.FAILED
-                        item.failure_reason = "خطأ في المعالجة"
+                    tracked = await self._extract_with_retry(
+                        context,
+                        queue,
+                        item,
+                        services,
+                    )
+                    if tracked is None:
+                        # Already marked failed inside _extract_with_retry.
                         await self._send_or_edit_status(context, queue)
                         continue
 
@@ -316,6 +273,106 @@ class ChatQueueManager:
         finally:
             logger.info("queue_worker_exit chat_id=%s", queue.chat_id)
             self._schedule_cleanup(queue.chat_id)
+
+    # ── extraction with retry ─────────────────────────────────────────────
+
+    async def _extract_with_retry(
+        self,
+        context: ContextTypes.DEFAULT_TYPE,
+        queue: ChatQueue,
+        item: QueueItem,
+        services: Any,
+    ) -> Any:
+        """Run extraction with timeout and retry on rate-limit errors.
+
+        Returns the TrackedProcessingResult on success, or None if failed
+        (item.state and item.failure_reason are set).
+        """
+        from passport_platform import (
+            ExternalProvider,
+            ProcessingFailedError,
+            ProcessUploadCommand,
+            QuotaExceededError,
+            UserBlockedError,
+        )
+
+        from passport_telegram.bot import _download_upload
+        from passport_telegram.messages import quota_exceeded_text, user_blocked_text
+
+        payload = await _download_upload(context, item.upload)
+        item.payload = payload
+
+        command = ProcessUploadCommand(
+            external_provider=ExternalProvider.TELEGRAM,
+            external_user_id=queue.external_user_id,
+            display_name=queue.display_name,
+            channel=ChannelName.TELEGRAM,
+            filename=item.upload.filename,
+            mime_type=item.upload.mime_type,
+            source_ref=item.upload.source_ref,
+            payload=payload,
+            external_message_id=item.upload.external_message_id,
+            external_file_id=item.upload.external_file_id,
+        )
+
+        for attempt in range(1 + MAX_RETRIES):
+            try:
+                return await asyncio.wait_for(
+                    asyncio.to_thread(services.processing.process_bytes, command),
+                    timeout=EXTRACTION_TIMEOUT_SECONDS,
+                )
+            except QuotaExceededError as exc:
+                item.state = ItemState.FAILED
+                item.failure_reason = "تجاوز الحد المسموح"
+                for remaining in queue.items:
+                    if remaining.state is ItemState.PENDING:
+                        remaining.state = ItemState.FAILED
+                        remaining.failure_reason = "تجاوز الحد المسموح"
+                await self._send_or_edit_status(context, queue, force=True)
+                await _safe_send(context, queue.chat_id, quota_exceeded_text(exc.decision))
+                return None
+            except UserBlockedError:
+                await _safe_send(context, queue.chat_id, user_blocked_text())
+                item.state = ItemState.FAILED
+                item.failure_reason = "الحساب موقوف"
+                return None
+            except TimeoutError:
+                logger.warning(
+                    "extraction_timeout chat_id=%s attempt=%s", queue.chat_id, attempt + 1
+                )
+                if attempt < MAX_RETRIES:
+                    await asyncio.sleep(RATE_LIMIT_RETRY_DELAY)
+                    continue
+                item.state = ItemState.FAILED
+                item.failure_reason = "انتهت مهلة المعالجة"
+                return None
+            except ProcessingFailedError as exc:
+                is_rate_limit = "429" in str(exc.cause)
+                if is_rate_limit and attempt < MAX_RETRIES:
+                    logger.warning(
+                        "rate_limited chat_id=%s, retrying in %ss",
+                        queue.chat_id,
+                        RATE_LIMIT_RETRY_DELAY,
+                    )
+                    await asyncio.sleep(RATE_LIMIT_RETRY_DELAY)
+                    continue
+                logger.exception("extraction_failed chat_id=%s", queue.chat_id)
+                item.state = ItemState.FAILED
+                item.failure_reason = (
+                    "ضغط على الخدمة — أعد المحاولة لاحقاً"
+                    if is_rate_limit
+                    else "خطأ أثناء قراءة الجواز"
+                )
+                return None
+            except Exception:
+                logger.exception("extraction_unexpected chat_id=%s", queue.chat_id)
+                item.state = ItemState.FAILED
+                item.failure_reason = "خطأ غير متوقع أثناء المعالجة"
+                return None
+
+        item.state = ItemState.FAILED
+        item.failure_reason = "فشلت المعالجة بعد عدة محاولات"
+        return None
 
     # ── status message ────────────────────────────────────────────────────
 
@@ -562,7 +619,7 @@ async def handle_errors_callback(
     chat_id: int,
     callback_query_id: str,
 ) -> None:
-    """Send consolidated error report."""
+    """Generate and send a PDF error report."""
     queue = queue_manager.get_queue(chat_id)
     if queue is None:
         await context.bot.answer_callback_query(callback_query_id, text="لا توجد أخطاء")
@@ -573,15 +630,30 @@ async def handle_errors_callback(
         await context.bot.answer_callback_query(callback_query_id, text="لا توجد أخطاء")
         return
 
-    await context.bot.answer_callback_query(callback_query_id)
+    await context.bot.answer_callback_query(callback_query_id, text="جاري تجهيز التقرير...")
 
-    lines = [f"❌ تقرير الأخطاء ({len(failures)} من {queue.total})\n"]
-    for item in failures:
-        idx = queue.items.index(item) + 1
-        lines.append(f"{idx}. {item.failure_reason or 'خطأ غير محدد'}")
+    indexed_failures = [(queue.items.index(item) + 1, item) for item in failures]
 
-    lines.append("\nأعد إرسال الصور التي فشلت بصورة أوضح أو كملف.")
-    await context.bot.send_message(chat_id=chat_id, text="\n".join(lines))
+    try:
+        from passport_telegram.report import generate_error_report_pdf
+
+        pdf_bytes = await asyncio.to_thread(
+            generate_error_report_pdf, indexed_failures, queue.total
+        )
+        await context.bot.send_document(
+            chat_id=chat_id,
+            document=io.BytesIO(pdf_bytes),
+            filename="error-report.pdf",
+            caption=f"❌ تقرير الأخطاء — {len(failures)} من {queue.total}",
+        )
+    except Exception:
+        logger.exception("pdf_report_failed chat_id=%s", chat_id)
+        # Fallback to text.
+        lines = [f"❌ تقرير الأخطاء ({len(failures)} من {queue.total})\n"]
+        for idx, item in indexed_failures:
+            lines.append(f"{idx}. {item.failure_reason or 'خطأ غير محدد'}")
+        lines.append("\nأعد إرسال الصور التي فشلت بصورة أوضح أو كملف.")
+        await context.bot.send_message(chat_id=chat_id, text="\n".join(lines))
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

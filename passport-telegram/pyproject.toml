@@ -10,6 +10,7 @@ dependencies = [
   "pydantic-settings>=2.4.0",
   "python-dotenv>=1.0.1",
   "python-telegram-bot[job-queue]>=21.6",
+  "fpdf2>=2.8.7",
 ]
 
 [project.scripts]
