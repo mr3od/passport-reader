@@ -13,4 +13,5 @@ class PlatformSettings(BaseSettings):
     )
 
     db_path: Path = Path("data/platform.sqlite3")
+    database_url: str | None = None
     artifacts_dir: Path = Path("data/artifacts")

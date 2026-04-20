@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: passport-reader-postgres
+  namespace: passport-reader
+  labels:
+    app.kubernetes.io/name: passport-reader-postgres
+    app.kubernetes.io/part-of: passport-reader
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: passport-reader-backups
+  namespace: passport-reader
+  labels:
+    app.kubernetes.io/name: passport-reader-backups
+    app.kubernetes.io/part-of: passport-reader
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
