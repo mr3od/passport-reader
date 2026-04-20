@@ -53,6 +53,7 @@ class QueueItem:
 
 RESULT_CB_PREFIX = "q:r:"
 ERRORS_CB = "q:errors"
+EXTRACTION_TIMEOUT_SECONDS = 120.0
 
 
 @dataclass
@@ -222,20 +223,23 @@ class ChatQueueManager:
                     try:
                         payload = await _download_upload(context, item.upload)
                         item.payload = payload
-                        tracked = await asyncio.to_thread(
-                            services.processing.process_bytes,
-                            ProcessUploadCommand(
-                                external_provider=ExternalProvider.TELEGRAM,
-                                external_user_id=queue.external_user_id,
-                                display_name=queue.display_name,
-                                channel=ChannelName.TELEGRAM,
-                                filename=item.upload.filename,
-                                mime_type=item.upload.mime_type,
-                                source_ref=item.upload.source_ref,
-                                payload=payload,
-                                external_message_id=item.upload.external_message_id,
-                                external_file_id=item.upload.external_file_id,
+                        tracked = await asyncio.wait_for(
+                            asyncio.to_thread(
+                                services.processing.process_bytes,
+                                ProcessUploadCommand(
+                                    external_provider=ExternalProvider.TELEGRAM,
+                                    external_user_id=queue.external_user_id,
+                                    display_name=queue.display_name,
+                                    channel=ChannelName.TELEGRAM,
+                                    filename=item.upload.filename,
+                                    mime_type=item.upload.mime_type,
+                                    source_ref=item.upload.source_ref,
+                                    payload=payload,
+                                    external_message_id=item.upload.external_message_id,
+                                    external_file_id=item.upload.external_file_id,
+                                ),
                             ),
+                            timeout=EXTRACTION_TIMEOUT_SECONDS,
                         )
                     except QuotaExceededError as exc:
                         item.state = ItemState.FAILED
@@ -250,6 +254,12 @@ class ChatQueueManager:
                     except UserBlockedError:
                         await _safe_send(context, queue.chat_id, user_blocked_text())
                         return
+                    except TimeoutError:
+                        logger.warning("queue_extraction_timeout chat_id=%s", queue.chat_id)
+                        item.state = ItemState.FAILED
+                        item.failure_reason = "انتهت مهلة المعالجة"
+                        await self._send_or_edit_status(context, queue)
+                        continue
                     except (ProcessingFailedError, Exception):
                         logger.exception("queue_processing_failed")
                         item.state = ItemState.FAILED
