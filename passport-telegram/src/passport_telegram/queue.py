@@ -66,7 +66,6 @@ class ChatQueue:
     status_message_id: int | None = None
     _last_edit_ts: float = 0.0
     _worker_task: asyncio.Task | None = field(default=None, repr=False)
-    _status_stale: bool = False
 
     @property
     def total(self) -> int:
@@ -148,10 +147,6 @@ class ChatQueueManager:
                 display_name=display_name,
             )
             self._queues[chat_id] = queue
-        else:
-            # New images arrived — mark status stale so the worker
-            # recreates it at the bottom on its next edit cycle.
-            queue._status_stale = True
 
         for u in uploads:
             queue.items.append(QueueItem(upload=u))
@@ -314,13 +309,6 @@ class ChatQueueManager:
         elapsed = now - queue._last_edit_ts
         if not force and elapsed < self._chat_interval:
             await asyncio.sleep(self._chat_interval - elapsed)
-
-        # If new images arrived, delete old message so a fresh one appears
-        # at the bottom of the chat (worker owns this, no race).
-        if queue._status_stale and queue.status_message_id is not None:
-            await _try_delete(context, queue.chat_id, queue.status_message_id)
-            queue.status_message_id = None
-            queue._status_stale = False
 
         text = _build_status_text(queue)
         keyboard = _build_status_keyboard(queue)
@@ -591,15 +579,3 @@ async def _safe_send(
         await context.bot.send_message(chat_id=chat_id, text=text)
     except Exception:
         logger.warning("safe_send_failed chat_id=%s", chat_id)
-
-
-async def _try_delete(
-    context: ContextTypes.DEFAULT_TYPE,
-    chat_id: int,
-    message_id: int,
-) -> None:
-    """Delete a message, absorbing errors."""
-    try:
-        await context.bot.delete_message(chat_id=chat_id, message_id=message_id)
-    except Exception:
-        logger.debug("delete_message_failed chat_id=%s msg=%s", chat_id, message_id)
