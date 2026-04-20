@@ -54,8 +54,10 @@ from passport_telegram.messages import (
 from passport_telegram.queue import (
     ERRORS_CB,
     RESULT_CB_PREFIX,
+    RETRY_CB,
     ChatQueueManager,
     handle_errors_callback,
+    handle_retry_callback,
     handle_single_result_callback,
 )
 
@@ -337,6 +339,8 @@ async def callback_query_handler(update: Update, context: ContextTypes.DEFAULT_T
 
     if data == ERRORS_CB:
         await handle_errors_callback(context, queue_manager, chat.id, query.id)
+    elif data == RETRY_CB:
+        await handle_retry_callback(context, queue_manager, chat.id, query.id)
     elif data.startswith(RESULT_CB_PREFIX):
         try:
             item_index = int(data[len(RESULT_CB_PREFIX) :])

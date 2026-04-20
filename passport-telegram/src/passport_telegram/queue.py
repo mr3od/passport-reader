@@ -49,12 +49,14 @@ class QueueItem:
     payload: bytes | None = None
     tracked_result: TrackedProcessingResult | None = None
     delivered: bool = False
+    retryable: bool = False
 
 
 # ── Per-chat queue ────────────────────────────────────────────────────────────
 
 RESULT_CB_PREFIX = "q:r:"
 ERRORS_CB = "q:errors"
+RETRY_CB = "q:retry"
 EXTRACTION_TIMEOUT_SECONDS = 60.0
 RATE_LIMIT_RETRY_DELAY = 5.0
 EXTRACTION_COOLDOWN_SECONDS = 2.0
@@ -113,6 +115,9 @@ class ChatQueue:
 
     def failed_items(self) -> list[QueueItem]:
         return [i for i in self.items if i.state is ItemState.FAILED]
+
+    def retryable_items(self) -> list[QueueItem]:
+        return [i for i in self.items if i.state is ItemState.FAILED and i.retryable]
 
 
 # ── Queue manager ─────────────────────────────────────────────────────────────
@@ -346,6 +351,7 @@ class ChatQueueManager:
                 )
                 item.state = ItemState.FAILED
                 item.failure_reason = "انتهت مهلة المعالجة"
+                item.retryable = True
                 return None
             except ProcessingFailedError as exc:
                 is_rate_limit = "429" in str(exc.cause)
@@ -364,15 +370,18 @@ class ChatQueueManager:
                     if is_rate_limit
                     else "خطأ أثناء قراءة الجواز"
                 )
+                item.retryable = is_rate_limit
                 return None
             except Exception:
                 logger.exception("extraction_unexpected chat_id=%s", queue.chat_id)
                 item.state = ItemState.FAILED
                 item.failure_reason = "خطأ غير متوقع أثناء المعالجة"
+                item.retryable = True
                 return None
 
         item.state = ItemState.FAILED
         item.failure_reason = "فشلت المعالجة بعد عدة محاولات"
+        item.retryable = True
         return None
 
     # ── status message ────────────────────────────────────────────────────
@@ -499,7 +508,12 @@ def _build_complete_text(queue: ChatQueue) -> str:
         lines.append("\nالأخطاء:")
         for idx, item in enumerate(queue.items, 1):
             if item.state is ItemState.FAILED:
-                lines.append(f"  {idx}. {item.failure_reason or 'خطأ غير محدد'}")
+                retry_hint = " 🔄" if item.retryable else ""
+                lines.append(f"  {idx}. {item.failure_reason or 'خطأ غير محدد'}{retry_hint}")
+
+        retryable = queue.retryable_items()
+        if retryable:
+            lines.append(f"\n🔄 {len(retryable)} من {queue.fail_count} يمكن إعادة محاولتها")
 
     return "\n".join(lines)
 
@@ -517,7 +531,7 @@ def _item_line(idx: int, item: QueueItem) -> str:
 
 
 def _build_status_keyboard(queue: ChatQueue) -> list[list[InlineKeyboardButton]]:
-    """Build inline keyboard with per-result buttons and error button."""
+    """Build inline keyboard with per-result buttons and error/retry buttons."""
     rows: list[list[InlineKeyboardButton]] = []
 
     # Individual result buttons for undelivered successes.
@@ -533,15 +547,25 @@ def _build_status_keyboard(queue: ChatQueue) -> list[list[InlineKeyboardButton]]
                 ]
             )
 
-    if queue.fail_count > 0:
-        rows.append(
-            [
-                InlineKeyboardButton(
-                    f"❌ تفاصيل الأخطاء ({queue.fail_count})",
-                    callback_data=ERRORS_CB,
-                )
-            ]
+    # Error and retry buttons on the same row.
+    bottom_row: list[InlineKeyboardButton] = []
+    retryable = queue.retryable_items()
+    if retryable:
+        bottom_row.append(
+            InlineKeyboardButton(
+                f"🔄 إعادة المحاولة ({len(retryable)})",
+                callback_data=RETRY_CB,
+            )
         )
+    if queue.fail_count > 0:
+        bottom_row.append(
+            InlineKeyboardButton(
+                f"❌ تقرير الأخطاء ({queue.fail_count})",
+                callback_data=ERRORS_CB,
+            )
+        )
+    if bottom_row:
+        rows.append(bottom_row)
 
     return rows
 
@@ -655,6 +679,46 @@ async def handle_errors_callback(
             lines.append(f"{idx}. {item.failure_reason or 'خطأ غير محدد'}")
         lines.append("\nأعد إرسال الصور التي فشلت بصورة أوضح أو كملف.")
         await context.bot.send_message(chat_id=chat_id, text="\n".join(lines))
+
+
+async def handle_retry_callback(
+    context: ContextTypes.DEFAULT_TYPE,
+    queue_manager: ChatQueueManager,
+    chat_id: int,
+    callback_query_id: str,
+) -> None:
+    """Re-queue retryable failed items and restart the worker."""
+    queue = queue_manager.get_queue(chat_id)
+    if queue is None:
+        await context.bot.answer_callback_query(callback_query_id, text="لا توجد عناصر للإعادة")
+        return
+
+    retryable = queue.retryable_items()
+    if not retryable:
+        await context.bot.answer_callback_query(callback_query_id, text="لا توجد عناصر للإعادة")
+        return
+
+    await context.bot.answer_callback_query(
+        callback_query_id, text=f"جاري إعادة {len(retryable)}..."
+    )
+
+    # Reset retryable items to pending.
+    for item in retryable:
+        item.state = ItemState.PENDING
+        item.failure_reason = None
+        item.retryable = False
+
+    # Start worker if not running.
+    if queue._worker_task is None or queue._worker_task.done():
+        queue._worker_task = asyncio.create_task(
+            queue_manager._run_worker(queue, context),
+            name=f"chat-queue-{chat_id}",
+        )
+    else:
+        # Worker is running — it will pick up the re-queued items.
+        pass
+
+    await queue_manager._send_or_edit_status(context, queue, force=True)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
