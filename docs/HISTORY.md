@@ -459,3 +459,12 @@ Agent-maintained log of significant changes. Each entry records what was done an
 - v1 workflow: 94.9% accuracy
 - v2 extraction: 98.1% accuracy (+3.2pp)
 - Model: `google/gemini-3.1-flash-lite-preview`
+
+## 2026-04-20 — Telegram Queue UX Overhaul (kiro)
+
+Replaced concurrent batch processing in `passport-telegram` with a per-chat
+serial queue and live editable status message. Eliminates Telegram rate-limit
+thrashing when users send large batches (27+ images across multiple media
+groups). New `queue.py` module with `ChatQueueManager`, inline keyboard
+buttons for on-demand result/error delivery, and global extraction semaphore
+for multi-user fairness. No new infrastructure dependencies.
