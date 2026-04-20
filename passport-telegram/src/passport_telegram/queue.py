@@ -66,6 +66,7 @@ class ChatQueue:
     delivered_count: int = 0
     _last_edit_ts: float = 0.0
     _worker_task: asyncio.Task | None = field(default=None, repr=False)
+    _status_stale: bool = False
 
     @property
     def total(self) -> int:
@@ -146,11 +147,9 @@ class ChatQueueManager:
             )
             self._queues[chat_id] = queue
         else:
-            # New images arrived — delete old status so a fresh one appears
-            # at the bottom of the chat after the newly received images.
-            if queue.status_message_id is not None:
-                asyncio.create_task(_try_delete(context, chat_id, queue.status_message_id))
-                queue.status_message_id = None
+            # New images arrived — mark status stale so the worker
+            # recreates it at the bottom on its next edit cycle.
+            queue._status_stale = True
 
         for u in uploads:
             queue.items.append(QueueItem(upload=u))
@@ -309,6 +308,13 @@ class ChatQueueManager:
         elapsed = now - queue._last_edit_ts
         if not force and elapsed < self._chat_interval:
             await asyncio.sleep(self._chat_interval - elapsed)
+
+        # If new images arrived, delete old message so a fresh one appears
+        # at the bottom of the chat (worker owns this, no race).
+        if queue._status_stale and queue.status_message_id is not None:
+            await _try_delete(context, queue.chat_id, queue.status_message_id)
+            queue.status_message_id = None
+            queue._status_stale = False
 
         text = _build_status_text(queue)
         keyboard = _build_status_keyboard(queue)
