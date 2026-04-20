@@ -141,7 +141,14 @@ class ChatQueueManager:
     ) -> ChatQueue:
         """Add uploads to the per-chat queue, starting a worker if needed."""
         queue = self._queues.get(chat_id)
-        if queue is None:
+        worker_active = (
+            queue is not None
+            and queue._worker_task is not None
+            and not queue._worker_task.done()
+        )
+
+        if queue is None or not worker_active:
+            # Fresh queue (or old one with finished worker).
             queue = ChatQueue(
                 chat_id=chat_id,
                 external_user_id=external_user_id,
