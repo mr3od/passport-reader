@@ -57,9 +57,25 @@ def _back_row(data: str = "menu") -> list[InlineKeyboardButton]:
 # ── Main menu ────────────────────────────────────────────────────────
 
 
-def main_menu_markup() -> tuple[str, InlineKeyboardMarkup]:
-    """Return text and keyboard for the main admin menu."""
-    text = "⚙️ Admin Panel"
+async def main_menu_markup(
+    context: ContextTypes.DEFAULT_TYPE,
+) -> tuple[str, InlineKeyboardMarkup]:
+    """Return dashboard text and keyboard for the main admin menu."""
+    services = _services(context)
+    report = await asyncio.to_thread(services.reporting.get_monthly_usage_report)
+    users = await asyncio.to_thread(services.users.list_users, limit=200)
+    active = sum(1 for u in users if u.status == UserStatus.ACTIVE)
+    blocked = sum(1 for u in users if u.status == UserStatus.BLOCKED)
+
+    text = (
+        "⚙️ Admin Panel\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        f"👥 Users: {len(users)} ({active} active, {blocked} blocked)\n"
+        f"📤 Uploads this month: {report.total_uploads}\n"
+        f"✅ Successful: {report.total_successes}\n"
+        f"❌ Failed: {report.total_failures}\n"
+        "━━━━━━━━━━━━━━━━━━━━"
+    )
     kb = [
         [_btn("📊 Stats", "stats"), _btn("🕐 Recent", "recent:0")],
         [_btn("👥 Users", "users:0"), _btn("📢 Broadcast", "bcast")],
@@ -285,7 +301,7 @@ async def route_callback(
     markup: InlineKeyboardMarkup
 
     if action == "menu":
-        text, markup = main_menu_markup()
+        text, markup = await main_menu_markup(context)
     elif action == "stats":
         text, markup = await render_stats(context)
     elif action == "recent":
@@ -307,6 +323,6 @@ async def route_callback(
     elif action == "bcast":
         text, markup = render_broadcast()
     else:
-        text, markup = main_menu_markup()
+        text, markup = await main_menu_markup(context)
 
     await query.edit_message_text(text=text, reply_markup=markup)

@@ -114,7 +114,7 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     """Send the interactive admin panel as a new message."""
     if not await _require_admin(update, context):
         return
-    text, markup = main_menu_markup()
+    text, markup = await main_menu_markup(context)
     msg = update.effective_message
     if msg:
         await msg.reply_text(text, reply_markup=markup)

@@ -72,7 +72,22 @@ def _admin_update(reply: FakeReplyMessage, *, user_id: int = 552002791) -> Updat
 
 def test_admin_command_returns_help_for_allowlisted_admin():
     reply = FakeReplyMessage()
-    context = _admin_context(services=SimpleNamespace())
+    services = SimpleNamespace(
+        reporting=SimpleNamespace(
+            get_monthly_usage_report=lambda: MonthlyUsageReport(
+                period_start=datetime(2026, 3, 1, tzinfo=UTC),
+                period_end=datetime(2026, 4, 1, tzinfo=UTC),
+                total_users=2,
+                active_users=2,
+                blocked_users=0,
+                total_uploads=10,
+                total_successes=8,
+                total_failures=2,
+            ),
+        ),
+        users=SimpleNamespace(list_users=lambda limit=200: []),
+    )
+    context = _admin_context(services=services)
     update = _admin_update(reply)
 
     asyncio.run(admin_command(update, context))
