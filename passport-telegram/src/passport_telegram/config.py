@@ -16,7 +16,7 @@ class TelegramSettings(BaseSettings):
     max_images_per_batch: int = 10
     max_inflight_upload_batches: int = Field(default=20, ge=1)
     inflight_acquire_timeout_seconds: float = Field(default=3.0, gt=0)
-    max_concurrent_extractions: int = Field(default=3, ge=1)
+    max_concurrent_extractions: int = Field(default=1, ge=1)
     chat_message_interval_seconds: float = Field(default=1.0, gt=0)
     queue_idle_cleanup_seconds: float = Field(default=300.0, gt=0)
     log_level: str = "INFO"

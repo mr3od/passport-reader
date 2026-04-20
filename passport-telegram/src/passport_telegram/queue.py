@@ -55,8 +55,9 @@ class QueueItem:
 
 RESULT_CB_PREFIX = "q:r:"
 ERRORS_CB = "q:errors"
-EXTRACTION_TIMEOUT_SECONDS = 120.0
-RATE_LIMIT_RETRY_DELAY = 10.0
+EXTRACTION_TIMEOUT_SECONDS = 60.0
+RATE_LIMIT_RETRY_DELAY = 5.0
+EXTRACTION_COOLDOWN_SECONDS = 2.0
 MAX_RETRIES = 1
 
 
@@ -231,30 +232,31 @@ class ChatQueueManager:
                         item,
                         services,
                     )
-                    if tracked is None:
-                        # Already marked failed inside _extract_with_retry.
-                        await self._send_or_edit_status(context, queue)
-                        continue
 
-                    if not tracked.is_complete:
-                        item.state = ItemState.FAILED
-                        item.failure_reason = (
-                            "الصورة ليست لجواز واضح"
-                            if not tracked.is_passport
-                            else "لم تكتمل المعالجة"
-                        )
-                    else:
-                        item.state = ItemState.SUCCESS
-                        item.tracked_result = tracked
-                        data = tracked.extracted_data
-                        if data and data.full_name_ar:
-                            item.display_name = data.full_name_ar
-                        elif data and data.full_name_en:
-                            item.display_name = data.full_name_en
-                        else:
-                            item.display_name = tracked.filename
+                # Cooldown between extractions to avoid provider rate limits.
+                await asyncio.sleep(EXTRACTION_COOLDOWN_SECONDS)
 
+                if tracked is None:
                     await self._send_or_edit_status(context, queue)
+                    continue
+
+                if not tracked.is_complete:
+                    item.state = ItemState.FAILED
+                    item.failure_reason = (
+                        "الصورة ليست لجواز واضح" if not tracked.is_passport else "لم تكتمل المعالجة"
+                    )
+                else:
+                    item.state = ItemState.SUCCESS
+                    item.tracked_result = tracked
+                    data = tracked.extracted_data
+                    if data and data.full_name_ar:
+                        item.display_name = data.full_name_ar
+                    elif data and data.full_name_en:
+                        item.display_name = data.full_name_en
+                    else:
+                        item.display_name = tracked.filename
+
+                await self._send_or_edit_status(context, queue)
 
             # Final update.
             logger.info(
@@ -337,12 +339,11 @@ class ChatQueueManager:
                 item.failure_reason = "الحساب موقوف"
                 return None
             except TimeoutError:
+                # Don't retry — the thread is still running and holding
+                # a semaphore slot until the underlying HTTP call finishes.
                 logger.warning(
                     "extraction_timeout chat_id=%s attempt=%s", queue.chat_id, attempt + 1
                 )
-                if attempt < MAX_RETRIES:
-                    await asyncio.sleep(RATE_LIMIT_RETRY_DELAY)
-                    continue
                 item.state = ItemState.FAILED
                 item.failure_reason = "انتهت مهلة المعالجة"
                 return None
