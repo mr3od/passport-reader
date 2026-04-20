@@ -162,8 +162,8 @@ class UploadsRepository:
                 """,
                 (
                     command.upload_id,
-                    int(command.is_passport),
-                    int(command.is_complete),
+                    command.is_passport,
+                    command.is_complete,
                     command.review_status,
                     command.passport_number,
                     command.passport_image_uri,
