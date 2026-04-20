@@ -66,7 +66,12 @@ COMMANDS = [
 def build_application(settings: AdminBotSettings) -> Application:
     """Build the admin bot application with command and callback handlers."""
     services = _build_bot_services()
-    application = Application.builder().token(settings.bot_token.get_secret_value()).build()
+    application = (
+        Application.builder()
+        .token(settings.bot_token.get_secret_value())
+        .post_init(_post_init)
+        .build()
+    )
     application.bot_data["settings"] = settings
     application.bot_data["services"] = services
 
@@ -82,7 +87,6 @@ def build_application(settings: AdminBotSettings) -> Application:
     application.add_handler(CommandHandler("broadcast", broadcast_command))
     application.add_handler(CallbackQueryHandler(_callback_handler))
 
-    application.post_init = _post_init
     return application
 
 
