@@ -63,8 +63,13 @@ class ReportingService:
             period_end=period_end,
         )
 
-    def list_recent_uploads(self, *, limit: int = 10) -> list[RecentUploadRecord]:
-        return self.reporting.list_recent_uploads(limit=limit)
+    def list_recent_uploads(
+        self,
+        *,
+        limit: int = 10,
+        offset: int = 0,
+    ) -> list[RecentUploadRecord]:
+        return self.reporting.list_recent_uploads(limit=limit, offset=offset)
 
 
 def _month_window(timestamp: datetime) -> tuple[datetime, datetime]:

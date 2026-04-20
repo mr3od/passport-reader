@@ -16,9 +16,12 @@ from telegram.ext import ContextTypes
 class FakeReplyMessage:
     def __init__(self) -> None:
         self.replies: list[str] = []
+        self.markups: list[object] = []
 
-    async def reply_text(self, text: str) -> None:
+    async def reply_text(self, text: str, **kwargs: object) -> None:
         self.replies.append(text)
+        if "reply_markup" in kwargs:
+            self.markups.append(kwargs["reply_markup"])
 
 
 class FakeTelegramFile:
@@ -69,14 +72,29 @@ def _admin_update(reply: FakeReplyMessage, *, user_id: int = 552002791) -> Updat
 
 def test_admin_command_returns_help_for_allowlisted_admin():
     reply = FakeReplyMessage()
-    context = _admin_context(services=SimpleNamespace())
+    services = SimpleNamespace(
+        reporting=SimpleNamespace(
+            get_monthly_usage_report=lambda: MonthlyUsageReport(
+                period_start=datetime(2026, 3, 1, tzinfo=UTC),
+                period_end=datetime(2026, 4, 1, tzinfo=UTC),
+                total_users=2,
+                active_users=2,
+                blocked_users=0,
+                total_uploads=10,
+                total_successes=8,
+                total_failures=2,
+            ),
+        ),
+        users=SimpleNamespace(list_users=lambda limit=200: []),
+    )
+    context = _admin_context(services=services)
     update = _admin_update(reply)
 
     asyncio.run(admin_command(update, context))
 
     assert len(reply.replies) == 1
-    assert "/stats" in reply.replies[0]
-    assert "/setplan" in reply.replies[0]
+    assert "Admin Panel" in reply.replies[0]
+    assert len(reply.markups) == 1
 
 
 def test_stats_command_rejects_non_admin_user():
