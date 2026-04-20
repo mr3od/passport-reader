@@ -13,16 +13,11 @@ from passport_platform import (
     AuthService,
     BroadcastContentType,
     BroadcastService,
-    ChannelName,
     ExternalProvider,
-    ProcessingFailedError,
     ProcessingService,
-    ProcessUploadCommand,
-    QuotaExceededError,
     QuotaService,
     RecordsService,
     ReportingService,
-    UserBlockedError,
     UserService,
     UserStatus,
     build_platform_runtime,
@@ -30,9 +25,10 @@ from passport_platform import (
 )
 from passport_platform.models.user import User
 from passport_platform.schemas.commands import EnsureUserCommand
-from telegram import Document, Message, PhotoSize, Update
+from telegram import CallbackQuery, Document, Message, PhotoSize, Update
 from telegram.ext import (
     Application,
+    CallbackQueryHandler,
     CommandHandler,
     ContextTypes,
     MessageHandler,
@@ -42,24 +38,25 @@ from telegram.ext import (
 from passport_telegram.config import TelegramSettings
 from passport_telegram.extension import ExtensionFetchError, fetch_extension_zip
 from passport_telegram.messages import (
-    batch_started_text,
     extension_fetch_error_text,
     extension_installing_text,
     extension_step1_caption,
     extension_step2_caption,
     extension_step3_caption,
-    format_failure_text,
     format_masar_status_text,
-    format_success_text,
     format_user_usage_report,
     help_text,
-    processing_busy_text,
-    processing_error_text,
-    quota_exceeded_text,
     temp_token_text,
     unsupported_file_text,
     user_blocked_text,
     welcome_text,
+)
+from passport_telegram.queue import (
+    ERRORS_CB,
+    RESULTS_CB,
+    ChatQueueManager,
+    handle_errors_callback,
+    handle_results_callback,
 )
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".tif", ".tiff"}
@@ -121,52 +118,6 @@ class MediaGroupCollector:
 
 
 @dataclass(slots=True)
-class InflightPermit:
-    limiter: InflightLimiter
-    released: bool = False
-
-    def release(self) -> None:
-        """Release acquired global permit exactly once."""
-        if self.released:
-            return
-        self.limiter.release()
-        self.released = True
-
-
-class InflightLimiter:
-    """Bound concurrent upload batch processing globally."""
-
-    def __init__(
-        self,
-        *,
-        max_inflight_upload_batches: int,
-        acquire_timeout_seconds: float,
-    ) -> None:
-        self._global = asyncio.Semaphore(max_inflight_upload_batches)
-        self._acquire_timeout_seconds = acquire_timeout_seconds
-
-    async def try_acquire(self, external_user_id: str) -> InflightPermit | None:
-        """Try to acquire the global permit within timeout."""
-        try:
-            await asyncio.wait_for(self._global.acquire(), timeout=self._acquire_timeout_seconds)
-        except TimeoutError:
-            return None
-
-        if not external_user_id:
-            # Keep API stable while limiter remains global-only.
-            pass
-        try:
-            return InflightPermit(limiter=self)
-        except asyncio.CancelledError:
-            self._global.release()
-            raise
-
-    def release(self) -> None:
-        """Release global permit."""
-        self._global.release()
-
-
-@dataclass(slots=True)
 class BotServices:
     auth: AuthService
     processing: ProcessingService
@@ -183,9 +134,10 @@ class BotServices:
 def build_application(settings: TelegramSettings) -> Application:
     services = _build_bot_services(settings)
     collector = MediaGroupCollector()
-    inflight_limiter = InflightLimiter(
-        max_inflight_upload_batches=settings.max_inflight_upload_batches,
-        acquire_timeout_seconds=settings.inflight_acquire_timeout_seconds,
+    queue_manager = ChatQueueManager(
+        chat_message_interval=settings.chat_message_interval_seconds,
+        max_concurrent_extractions=settings.max_concurrent_extractions,
+        queue_idle_cleanup_seconds=settings.queue_idle_cleanup_seconds,
     )
 
     application = (
@@ -199,7 +151,7 @@ def build_application(settings: TelegramSettings) -> Application:
     application.bot_data["services"] = services
     application.bot_data["collector"] = collector
     application.bot_data["media_group_jobs"] = {}
-    application.bot_data["inflight_limiter"] = inflight_limiter
+    application.bot_data["queue_manager"] = queue_manager
 
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("help", help_command))
@@ -207,10 +159,14 @@ def build_application(settings: TelegramSettings) -> Application:
     application.add_handler(CommandHandler("token", token_command))
     application.add_handler(CommandHandler("masar", masar_command))
     application.add_handler(CommandHandler("extension", extension_command))
+    application.add_handler(CallbackQueryHandler(callback_query_handler))
     application.add_handler(
         MessageHandler(filters.PHOTO | filters.Document.ALL, image_message_handler)
     )
     return application
+
+
+# ── Command handlers ──────────────────────────────────────────────────────────
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -283,6 +239,10 @@ async def extension_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         filename="passport-masar-extension.zip",
     )
 
+
+# ── Image handling ────────────────────────────────────────────────────────────
+
+
 async def image_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = update.effective_message
     chat = update.effective_chat
@@ -325,7 +285,9 @@ async def image_message_handler(update: Update, context: ContextTypes.DEFAULT_TY
         )
         return
 
-    await process_upload_batch(
+    # Single image — enqueue directly.
+    queue_manager: ChatQueueManager = context.application.bot_data["queue_manager"]
+    queue_manager.enqueue(
         context=context,
         chat_id=chat.id,
         external_user_id=_external_user_id(update),
@@ -348,7 +310,8 @@ async def flush_media_group(context: ContextTypes.DEFAULT_TYPE) -> None:
     if pending is None:
         return
 
-    await process_upload_batch(
+    queue_manager: ChatQueueManager = context.application.bot_data["queue_manager"]
+    queue_manager.enqueue(
         context=context,
         chat_id=pending.chat_id,
         external_user_id=pending.external_user_id,
@@ -357,115 +320,30 @@ async def flush_media_group(context: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 
-async def process_upload_batch(
-    *,
-    context: ContextTypes.DEFAULT_TYPE,
-    chat_id: int,
-    external_user_id: str,
-    display_name: str | None,
-    uploads: list[TelegramImageUpload],
-) -> None:
-    permit: InflightPermit | None = None
-    limiter = cast(InflightLimiter | None, context.application.bot_data.get("inflight_limiter"))
-    if limiter is not None:
-        permit = await limiter.try_acquire(external_user_id)
-        if permit is None:
-            await context.bot.send_message(chat_id=chat_id, text=processing_busy_text())
-            return
-
-    try:
-        settings: TelegramSettings = context.application.bot_data["settings"]
-        services: BotServices = context.application.bot_data["services"]
-        user = await asyncio.to_thread(
-            services.users.get_or_create_user,
-            EnsureUserCommand(
-                external_provider=ExternalProvider.TELEGRAM,
-                external_user_id=external_user_id,
-                display_name=display_name,
-            ),
-        )
-        if user.status is UserStatus.BLOCKED:
-            await context.bot.send_message(chat_id=chat_id, text=user_blocked_text())
-            return
-
-        quota_decision = await asyncio.to_thread(services.quotas.evaluate_user_quota, user)
-        max_batch_size = max(1, min(settings.max_images_per_batch, quota_decision.max_batch_size))
-        total_uploads = len(uploads)
-        position = 0
-
-        for batch in _chunk_uploads(uploads, max_batch_size):
-            if len(batch) > 1:
-                await context.bot.send_message(chat_id=chat_id, text=batch_started_text(len(batch)))
-
-            for upload in batch:
-                position += 1
-                try:
-                    payload = await _download_upload(context, upload)
-                    tracked = await asyncio.to_thread(
-                        services.processing.process_bytes,
-                        ProcessUploadCommand(
-                            external_provider=ExternalProvider.TELEGRAM,
-                            external_user_id=external_user_id,
-                            display_name=display_name,
-                            channel=ChannelName.TELEGRAM,
-                            filename=upload.filename,
-                            mime_type=upload.mime_type,
-                            source_ref=upload.source_ref,
-                            payload=payload,
-                            external_message_id=upload.external_message_id,
-                            external_file_id=upload.external_file_id,
-                        ),
-                    )
-                except QuotaExceededError as exc:
-                    await context.bot.send_message(
-                        chat_id=chat_id, text=quota_exceeded_text(exc.decision)
-                    )
-                    return
-                except UserBlockedError:
-                    await context.bot.send_message(chat_id=chat_id, text=user_blocked_text())
-                    return
-                except ProcessingFailedError:
-                    logging.getLogger(__name__).exception("telegram_processing_failed")
-                    await context.bot.send_message(chat_id=chat_id, text=processing_error_text())
-                    continue
-                except Exception:
-                    logging.getLogger(__name__).exception("telegram_processing_failed")
-                    await context.bot.send_message(chat_id=chat_id, text=processing_error_text())
-                    continue
-
-                if not tracked.is_complete:
-                    await context.bot.send_message(
-                        chat_id=chat_id,
-                        text=format_failure_text(tracked, position=position, total=total_uploads),
-                    )
-                    continue
-
-                await context.bot.send_photo(
-                    chat_id=chat_id,
-                    photo=payload,
-                    caption=format_success_text(tracked, position=position, total=total_uploads),
-                    parse_mode="Markdown",
-                )
-    finally:
-        if permit is not None:
-            permit.release()
+# ── Callback query handler ───────────────────────────────────────────────────
 
 
-def _chunk_uploads(
-    uploads: list[TelegramImageUpload],
-    max_batch_size: int,
-) -> list[list[TelegramImageUpload]]:
-    """Split uploads into sequential chunks, preserving order."""
-    return [
-        uploads[index : index + max_batch_size] for index in range(0, len(uploads), max_batch_size)
-    ]
+async def callback_query_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query: CallbackQuery | None = update.callback_query
+    if query is None:
+        return
+
+    chat = update.effective_chat
+    if chat is None:
+        return
+
+    queue_manager: ChatQueueManager = context.application.bot_data["queue_manager"]
+    data = query.data or ""
+
+    if data == RESULTS_CB:
+        await handle_results_callback(context, queue_manager, chat.id, query.id)
+    elif data == ERRORS_CB:
+        await handle_errors_callback(context, queue_manager, chat.id, query.id)
+    else:
+        await query.answer()
 
 
-async def telegram_error_handler(
-    update: object,
-    context: ContextTypes.DEFAULT_TYPE,
-) -> None:
-    logging.getLogger(__name__).exception("telegram_update_failed", exc_info=context.error)
+# ── Broadcast ─────────────────────────────────────────────────────────────────
 
 
 async def deliver_pending_broadcast(*, bot, services: BotServices) -> None:
@@ -533,12 +411,20 @@ async def _post_init(application: Application) -> None:
 
 
 async def _post_shutdown(application: Application) -> None:
+    # Shutdown queue manager.
+    queue_manager: ChatQueueManager | None = application.bot_data.get("queue_manager")
+    if queue_manager is not None:
+        await queue_manager.shutdown()
+
     task = application.bot_data.get("broadcast_worker_task")
     if task is None:
         return
     task.cancel()
     with contextlib.suppress(asyncio.CancelledError):
         await task
+
+
+# ── Internal helpers ──────────────────────────────────────────────────────────
 
 
 def _build_bot_services(settings: TelegramSettings) -> BotServices:
@@ -640,3 +526,10 @@ async def _reply_text(update: Update, text: str, parse_mode: str | None = None) 
     if update.effective_message is None:
         return
     await update.effective_message.reply_text(text, parse_mode=parse_mode)
+
+
+async def telegram_error_handler(
+    update: object,
+    context: ContextTypes.DEFAULT_TYPE,
+) -> None:
+    logging.getLogger(__name__).exception("telegram_update_failed", exc_info=context.error)

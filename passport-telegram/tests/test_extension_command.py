@@ -23,7 +23,7 @@ class FakeReplyMessage:
         self.photos: list[dict] = []
         self.documents: list[dict] = []
 
-    async def reply_text(self, text: str) -> None:
+    async def reply_text(self, text: str, parse_mode: str | None = None) -> None:
         self.replies.append(text)
 
     async def reply_photo(self, *, photo, caption: str) -> None:
@@ -164,8 +164,9 @@ def test_extension_command_success_sends_steps_and_zip():
 def test_extension_command_is_registered():
     settings_mock = MagicMock()
     settings_mock.bot_token.get_secret_value.return_value = "fake-token"
-    settings_mock.max_inflight_upload_batches = 20
-    settings_mock.inflight_acquire_timeout_seconds = 3.0
+    settings_mock.max_concurrent_extractions = 4
+    settings_mock.chat_message_interval_seconds = 1.0
+    settings_mock.queue_idle_cleanup_seconds = 300.0
 
     with patch("passport_telegram.bot._build_bot_services", return_value=MagicMock()):
         app = build_application(settings_mock)
